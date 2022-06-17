@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/openrelayxyz/flume/flumeserver/migrations"
+	"github.com/openrelayxyz/flume/migrations"
 
 	"compress/gzip"
 	"database/sql"
@@ -25,7 +25,7 @@ import (
 var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
-	sqlitePath := "../../main.sqlite"
+	sqlitePath := "../main.sqlite"
 
 	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "mempool.sqlite")
 	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "blocks.sqlite")

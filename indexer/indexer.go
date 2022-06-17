@@ -13,7 +13,7 @@ import (
 	"github.com/klauspost/compress/zlib"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
-	"github.com/openrelayxyz/flume/flumeserver/txfeed"
+	"github.com/openrelayxyz/flume/txfeed"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	log "github.com/inconshreveable/log15"
 	"strconv"

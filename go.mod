@@ -1,4 +1,4 @@
-module github.com/openrelayxyz/flume/flumeserver
+module github.com/openrelayxyz/flume
 
 go 1.18
 

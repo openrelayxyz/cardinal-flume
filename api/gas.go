@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	eh "github.com/openrelayxyz/flume/flumeserver/errhandle"
+	eh "github.com/openrelayxyz/flume/errhandle"
 	"math/big"
 	"sort"
 
