@@ -6,7 +6,7 @@ jobs:
   # TODO: tests
   # test:
   #   docker:
-  #     - image: cimg/go:1.13
+  #     - image: cimg/go:1.18
   #   steps:
   #     - checkout
   #     - run:
@@ -17,7 +17,7 @@ jobs:
   #         command: go test ./replica
   build_push:
     docker: # run the steps with Docker
-      - image: cimg/go:1.13 # ...with this image as the primary container
+      - image: cimg/go:1.18 # ...with this image as the primary container
       # this is where all `steps` will run
     steps:
       - checkout
