@@ -57,7 +57,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 }
 
 func TestBlockIndexer(t *testing.T) {
-	controlDB, err := openControlDatabase("bk", "../../blocks.sqlite")
+	controlDB, err := openControlDatabase("bk", "../blocks.sqlite")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

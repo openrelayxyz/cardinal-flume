@@ -9,7 +9,7 @@ import (
 )
 
 func TestLogIndexer(t *testing.T) {
-	controlDB, err := openControlDatabase("lg", "../../logs.sqlite")
+	controlDB, err := openControlDatabase("lg", "../logs.sqlite")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
