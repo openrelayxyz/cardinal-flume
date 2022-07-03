@@ -72,7 +72,7 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 	}
 	var schemaVersion uint
 	if err := db.QueryRow("SELECT version FROM transactions.migrations;").Scan(&schemaVersion); err != nil{
-		return err
+		log.Error("Error migrate Transactions", "err", err)
 	}
 	if schemaVersion < 1 {
 		db.Exec(`CREATE TABLE transactions.transactions (

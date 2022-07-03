@@ -153,6 +153,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	csCh := make(chan *delivery.ChainUpdate, 10)
 	if csConsumer != nil {
 		csSub := csConsumer.Subscribe(csCh)
+		if csSub != nil{
+			log.Debug("subscribed to consumer")
+		}
 		defer csSub.Unsubscribe()
 	}
 	processed := false
@@ -161,6 +164,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	txDedup := make(map[common.Hash]struct{})
 	defer txSub.Unsubscribe()
 	db.Exec("DELETE FROM mempool.transactions WHERE 1;")
+	log.Debug("deleting from mempool")
 	for {
 		select {
 		case <-quit:
@@ -173,12 +177,16 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			}
 		case <-pruneTicker.C:
 			mempool_dropLowestPrice(db, mempoolSlots, txCount, txDedup)
+			log.Debug("case pruneTicker", "txCount", txCount)
 		case tx := <-txCh:
 			mempool_indexer(db, mempoolSlots, txCount, txDedup, tx)
+			log.Debug("case mempool indexer")
 		case chainUpdate := <-csCh:
+			log.Debug("case chainUpdate")
 			//UPDATELOOP:
 			var lastBatch *delivery.PendingBatch
 			for {
+				log.Debug("inside first for loop in indexer")
 				megaStatement := []string{}
 				for _, pb := range chainUpdate.Added() {
 					for _, indexer := range indexers {
@@ -211,6 +219,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 
 						megaStatement = append(megaStatement, applyParameters(
 							("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
+							log.Debug("megastatement")
 					}
 
 					mut.Lock()
@@ -238,11 +247,14 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					}
 					mut.Unlock()
 					processed = true
+					log.Info("processed is true")
 					heightGauge.Update(lastBatch.Number)
 					// completionFeed.Send(chainEvent.Block.Hash)
 					// log.Printf("Spent %v on commit", time.Since(cstart))
 					log.Info("Committed Block Number:", uint64(lastBatch.Number), "Hash:", lastBatch.Hash.Bytes(), "in:", time.Since(start)) // TODO: Figure out a simple way to get age
 				}
+				log.Info("End of indexer", "processed", processed)
+				processed = true
 				if processed {
 					break
 				}

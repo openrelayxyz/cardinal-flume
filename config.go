@@ -70,16 +70,16 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 
 	if cfg.MempoolDb == "" {
-		return nil, errors.New("No mempool database specified")
+		cfg.MempoolDb = "mempool.sqlite"
 	}
 	if cfg.BlocksDb == "" {
-		return nil, errors.New("No blocks database specified")
+		cfg.BlocksDb = "blocks.sqlite"
 	}
 	if cfg.TxDb == "" {
-		return nil, errors.New("No transactions database specified")
+		cfg.TxDb = "transactions.sqlite"
 	}
 	if cfg.LogsDb == "" {
-		return nil, errors.New("No logs database specified")
+		cfg.LogsDb = "logs.sqlite"
 	}
 
 	switch cfg.Network {
@@ -103,15 +103,15 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 5
-	case "sepolia":
+	case "":
 		cfg.Chainid = 11155111
 	case "kiln":
 		cfg.Chainid = 1337802
-	case "":
-		if cfg.Chainid == 0 {
-			err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
-			return nil, err
-		} //if chainid is not zero we assume the other fields are valid
+	// case "":
+	// 	if cfg.Chainid == 0 {
+	// 		err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
+	// 		return nil, err
+	// 	} //if chainid is not zero we assume the other fields are valid
 	default:
 		err := errors.New("Unrecognized network name")
 		return nil, err
@@ -128,7 +128,7 @@ func LoadConfig(fname string) (*Config, error) {
 	case "error":
 		logLvl = log.LvlError
 	default:
-		logLvl = log.LvlInfo
+		logLvl = log.LvlDebug
 	}
 
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
@@ -155,6 +155,12 @@ func LoadConfig(fname string) (*Config, error) {
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 16
 	}
+
+	kb := broker{
+		URL: "ws://127.0.0.1:8555",
+	}
+
+	cfg.Brokers = []broker{kb}
 
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("Config must specify at least one broker")

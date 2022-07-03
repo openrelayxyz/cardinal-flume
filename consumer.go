@@ -14,6 +14,7 @@ log "github.com/inconshreveable/log15"
 )
 
 func AquireConsumer(db *sql.DB, brokerParams []transports.BrokerParams, reorgThreshold, chainid, resumptionTime int64) (streamsTransports.Consumer, error) {
+	log.Debug("Inside AquireConsumer", "brokerParams", brokerParams)
 	var err error
 	var tableName string
 	db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
@@ -40,6 +41,7 @@ func AquireConsumer(db *sql.DB, brokerParams []transports.BrokerParams, reorgThr
 	var lastHash, lastWeight []byte
 	var lastNumber int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight)
+	log.Debug("block stats", "lastNumber", lastNumber, "lastHash", lastHash, "lastWeight", lastWeight)
 
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),

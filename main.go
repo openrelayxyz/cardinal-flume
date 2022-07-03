@@ -28,6 +28,7 @@ func main() {
 	flag.CommandLine.Parse(os.Args[1:])
 
 	cfg, err := LoadConfig(flag.CommandLine.Args()[0])
+	log.Debug("Loaded config file", "cfg", cfg)
 	if err != nil {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
@@ -45,6 +46,7 @@ func main() {
 			},
 		})
 	logsdb, err := sql.Open("sqlite3_hooked", (":memory:?_sync=0&_journal_mode=WAL&_foreign_keys=off"))
+	log.Debug("logsdb open")
 	if err != nil {
 		log.Error(err.Error())
 	}
@@ -87,15 +89,20 @@ func main() {
 	if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
 		log.Error(err.Error())
 	}
+	log.Debug("chainid", "chainid", cfg.Chainid)
 
 	txFeed, err := txfeed.ResolveTransactionFeed(cfg.brokers[0].URL, cfg.TxTopic)
+	log.Debug("through txFeed", "url", cfg.brokers[0].URL, "topic", cfg.TxTopic)
 	if err != nil {
 		log.Error(err.Error())
 	}
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	consumer, _ := AquireConsumer(logsdb, cfg.brokers, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	consumer, err := AquireConsumer(logsdb, cfg.brokers, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	if err != nil {
+		log.Error("Consumer Error", "err", err)
+	}
 	indexes := []indexer.Indexer{
 		indexer.NewBlockIndexer(cfg.Chainid),
 		indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock),
@@ -105,7 +112,9 @@ func main() {
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
 	tm.AddHTTPServer(cfg.Port)
+	log.Debug("Port is", "port", cfg.Port)
 	tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid))
+	log.Debug("logs api registered")
 	tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid))
 	tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid))
 	tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid))
@@ -133,6 +142,7 @@ func main() {
 	if cfg.CloudWatch != nil {
 		publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
 	}
+	log.Debug("serving logs?")
 	quit <- struct{}{}
 	logsdb.Close()
 	metrics.Clear()
