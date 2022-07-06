@@ -53,7 +53,7 @@ type Config struct {
 	MempoolSlots   int    `yaml:"mempoolSize"`
 	Concurrency    int    `yaml:"concurrency"`
 	LogLevel       string `yaml:"loggingLevel"`
-	Brokers        []broker
+	Brokers        []broker `yaml:"brokers"`
 	brokers        []transports.BrokerParams
 	Statsd *statsdOpts `yaml:"statsd"`
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
