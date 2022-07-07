@@ -154,6 +154,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	if csConsumer != nil {
 		csSub := csConsumer.Subscribe(csCh)
 		defer csSub.Unsubscribe()
+		log.Info("Starting consumer")
+		csConsumer.Start()
+		log.Info("Consumer started")
 	}
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
@@ -192,25 +195,27 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					lastBatch = pb
 
 					resumption := pb.Resumption()
-					tokens := strings.Split(resumption, ";")
-					for _, token := range tokens {
-						parts := strings.Split(token, "=")
-						source, offsetS := parts[0], parts[1]
-						parts = strings.Split(source, ":")
-						topic, partitionS := parts[0], parts[1]
-						offset, err := strconv.Atoi(offsetS)
-						if err != nil {
-							log.Error("offset error", "err", err.Error())
-							continue
-						}
-						partition, err := strconv.Atoi(partitionS)
-						if err != nil {
-							log.Error("partition error", "err", err.Error())
-							continue
-						}
+					if resumption != "" {
+						tokens := strings.Split(resumption, ";")
+						for _, token := range tokens {
+							parts := strings.Split(token, "=")
+							source, offsetS := parts[0], parts[1]
+							parts = strings.Split(source, ":")
+							topic, partitionS := parts[0], parts[1]
+							offset, err := strconv.Atoi(offsetS)
+							if err != nil {
+								log.Error("offset error", "err", err.Error())
+								continue
+							}
+							partition, err := strconv.Atoi(partitionS)
+							if err != nil {
+								log.Error("partition error", "err", err.Error())
+								continue
+							}
 
-						megaStatement = append(megaStatement, applyParameters(
-							("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
+							megaStatement = append(megaStatement, applyParameters(
+								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
+						}
 					}
 
 					mut.Lock()
@@ -241,7 +246,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					heightGauge.Update(lastBatch.Number)
 					// completionFeed.Send(chainEvent.Block.Hash)
 					// log.Printf("Spent %v on commit", time.Since(cstart))
-					log.Info("Committed Block Number:", uint64(lastBatch.Number), "Hash:", lastBatch.Hash.Bytes(), "in:", time.Since(start)) // TODO: Figure out a simple way to get age
+					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) // TODO: Figure out a simple way to get age
 				}
 				if processed {
 					break
