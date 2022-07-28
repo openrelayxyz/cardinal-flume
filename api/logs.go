@@ -8,18 +8,22 @@ import (
 	"strings"
 	"context"
 	"fmt"
+	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
 )
 
 type LogsAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
+
 }
 
-func NewLogsAPI(db *sql.DB, network uint64) *LogsAPI {
+func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {
 	return &LogsAPI{
 		db:      db,
 		network: network,
+		pl:      pl,
 	}
 }
 

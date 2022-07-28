@@ -1,24 +1,13 @@
 package plugins
 
 import (
-	// "plugin"
-	log "github.com/inconshreveable/log15"
-	// "os"
-
-	"github.com/openrelayxyz/plugeth-utils/core"
-
-	// "flag"
-	// "fmt"
 	"io/ioutil"
 	"path"
 	"plugin"
-	// "reflect"
 	"strings"
-	"github.com/openrelayxyz/flume/config"
 
-	// "github.com/ethereum/go-ethereum/event"
-	// "github.com/ethereum/go-ethereum/log"
-	// "gopkg.in/urfave/cli.v1"
+	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/flume/config"
 )
 
 type pluginDetails struct {
@@ -31,16 +20,16 @@ type PluginLoader struct {
 	LookupCache map[string][]interface{}
 }
 
-var DefaultPluginLoader *PluginLoader
+// var DefaultPluginLoader *PluginLoader
 
 
-func Lookup(name string, validate func(interface{}) bool) []interface{} {
-	if DefaultPluginLoader == nil {
-		log.Warn("Lookup attempted, but PluginLoader is not initialized", "name", name)
-		return []interface{}{}
-	}
-	return DefaultPluginLoader.Lookup(name, validate)
-}
+// func Lookup(name string, validate func(interface{}) bool) []interface{} {
+// 	if DefaultPluginLoader == nil {
+// 		log.Warn("Lookup attempted, but PluginLoader is not initialized", "name", name)
+// 		return []interface{}{}
+// 	}
+// 	return DefaultPluginLoader.Lookup(name, validate)
+// }
 
 func (pl *PluginLoader) Lookup(name string, validate func(interface{}) bool) []interface{} {
 	if v, ok := pl.LookupCache[name]; ok {
@@ -87,60 +76,23 @@ func NewPluginLoader(target string) (*PluginLoader, error) {
 	return pl, nil
 }
 
-func Initialize(target string, cfg *config.Config) (err error) {
-	DefaultPluginLoader, err = NewPluginLoader(target)
-	if err != nil {
-		return err
-	}
-	DefaultPluginLoader.Initialize(cfg)
-	return nil
-}
+// func Initialize(target string, cfg *config.Config) (err error) {
+// 	DefaultPluginLoader, err = NewPluginLoader(target)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	DefaultPluginLoader.Initialize(cfg)
+// 	return nil
+// }
 
 func (pl *PluginLoader) Initialize(cfg *config.Config) {
 	fns := pl.Lookup("Initialize", func(i interface{}) bool {
-		_, ok := i.(func(core.PluginLoader, *config.Config))
+		_, ok := i.(func(PluginLoader, *config.Config))
 		return ok
 	})
 	for _, fni := range fns {
-		if fn, ok := fni.(func(core.PluginLoader, *config.Config)); ok {
+		if fn, ok := fni.(func(*PluginLoader, *config.Config)); ok {
 			fn(pl, cfg)
 		}
 	}
 }
-
-func (pl *PluginLoader) GetFeed() core.Feed {
-	return nil 
-}
-
-// type Decoder interface {
-// 	Decode(int64)
-// }
-
-
-// func (pl *PluginLoader) InitializePlugin (mod string, blockNo int64) {
-
-// plug, err := plugin.Open(mod)
-// if err != nil {
-// 	log.Error("plugin error", "err", err.Error())
-// }
-
-// // 2. look up a symbol (an exported function or variable)
-// // in this case, variable Greeter
-// symGreeter, err := plug.Lookup("Decoder")
-// if err != nil {
-// 	log.Error("plugin lookup error", symGreeter, err.Error())
-// }
-
-// // 3. Assert that loaded symbol is of a desired type
-// // in this case interface type Greeter (defined above)
-// var decoder Decoder
-// decoder, ok := symGreeter.(Decoder)
-// if !ok {
-// 	log.Error("plugin load error", "err", err.Error())
-// }
-
-// // 4. use the module
-// Decoder.Decode(decoder, blockNo)
-
-
-// }

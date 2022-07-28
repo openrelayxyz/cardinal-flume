@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	eh "github.com/openrelayxyz/flume/errhandle"
+	"github.com/openrelayxyz/flume/plugins"
 	"math/big"
 	"sort"
 
@@ -14,12 +15,14 @@ import (
 type GasAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
 }
 
-func NewGasAPI(db *sql.DB, network uint64) *GasAPI {
+func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *GasAPI {
 	return &GasAPI{
 		db:      db,
 		network: network,
+		pl:		 pl,
 	}
 }
 

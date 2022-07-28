@@ -6,17 +6,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type TransactionAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
 }
 
-func NewTransactionAPI(db *sql.DB, network uint64) *TransactionAPI {
+func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *TransactionAPI {
 	return &TransactionAPI{
 		db:      db,
 		network: network,
+		pl:      pl,
 	}
 }
 

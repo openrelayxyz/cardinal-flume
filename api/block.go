@@ -7,25 +7,33 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/flume/plugins"
+	// log "github.com/inconshreveable/log15"
 )
 
 type BlockAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
 }
 
-func NewBlockAPI(db *sql.DB, network uint64) *BlockAPI {
+
+func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *BlockAPI {
 	return &BlockAPI{
 		db:      db,
 		network: network,
+		pl:      pl,
 	}
 }
 
+
 func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+
 	blockNo, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		return 0, err
 	}
+
 	return hexutil.Uint64(blockNo), nil
 }
 

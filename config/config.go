@@ -46,6 +46,7 @@ type Config struct {
 	TxTopic        string `yaml:"mempoolTopic"`
 	KafkaRollback  int64  `yaml:"kafkaRollback"`
 	ReorgThreshold int64  `yaml:"reorgThreshold"`
+	Databases      map[string]string `yaml:"databases"`
 	MempoolDb      string `yaml:"mempoolDB"`
 	BlocksDb       string `yaml:"blocksDB"`
 	TxDb           string `yaml:"transactionsDB"`
@@ -54,6 +55,7 @@ type Config struct {
 	Concurrency    int    `yaml:"concurrency"`
 	LogLevel       string `yaml:"loggingLevel"`
 	Plugins		   []string `yaml:"plugins"`
+	PluginDir	   string `yaml:pluginPath`
 	Brokers        []broker `yaml:"brokers"`
 	BrokerParams   []transports.BrokerParams
 	Statsd *statsdOpts `yaml:"statsd"`
@@ -70,18 +72,9 @@ func LoadConfig(fname string) (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.MempoolDb == "" {
-		return nil, errors.New("No mempool database specified")
-	}
-	if cfg.BlocksDb == "" {
-		return nil, errors.New("No blocks database specified")
-	}
-	if cfg.TxDb == "" {
-		return nil, errors.New("No transactions database specified")
-	}
-	if cfg.LogsDb == "" {
-		return nil, errors.New("No logs database specified")
-	}
+	cfg.PluginDir = cfg.PluginDir + "plugins"
+
+	cfg.BlocksDb = cfg.Databases["blocks"]
 
 	switch cfg.Network {
 	case "mainnet":

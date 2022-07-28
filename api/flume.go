@@ -5,18 +5,21 @@ import (
 	"database/sql"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
 )
 
 type FlumeAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
 }
 
-func NewFlumeAPI(db *sql.DB, network uint64) *FlumeAPI {
+func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *FlumeAPI {
 	return &FlumeAPI{
 		db:      db,
 		network: network,
+		pl:      pl,
 	}
 }
 
