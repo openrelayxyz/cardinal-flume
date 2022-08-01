@@ -4,11 +4,16 @@ import (
 	"regexp"
 	"strconv"
 	"encoding/binary"
+	"bytes"
+	"database/sql"
 
 	gtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/inconshreveable/log15"
+	"github.com/klauspost/compress/zlib"
+	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/indexer"
@@ -28,9 +33,10 @@ type cardinalBorReceiptMeta struct {
 	LogOffset         uint
 }
 
-borReceiptRegexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/br/([0-9a-z]+)")
-
-borLogRegexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
+var (
+	borReceiptRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/br/([0-9a-z]+)")
+    borLogRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
+)
 
 func getTopicIndex(topics []common.Hash, idx int) []byte {
 	if len(topics) > idx {
@@ -39,7 +45,36 @@ func getTopicIndex(topics []common.Hash, idx int) []byte {
 	return []byte{}
 }
 
-func Initialize(cfg *config.Config, pl *pluins.PluginLoader) {
+func trimPrefix(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	v := bytes.TrimLeft(data, string([]byte{0}))
+	if len(v) == 0 {
+		return []byte{0}
+	}
+	return v
+}
+
+var compressor *zlib.Writer
+var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
+
+func compress(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	compressionBuffer.Reset()
+	if compressor == nil {
+		compressor = zlib.NewWriter(compressionBuffer)
+	} else {
+		compressor.Reset(compressionBuffer)
+	}
+	compressor.Write(data)
+	compressor.Close()
+	return compressionBuffer.Bytes()
+}
+
+func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon plugin loaded")
 }
 
@@ -47,19 +82,25 @@ func Indexer(cfg config.Config) indexer.Indexer {
 	return &PolygonIndexer{Chainid: cfg.Chainid}
 }
 
+// func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
+// 	return nil, nil
+// }
+
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	encNum := make([]byte, 8)
-	binary.BigEndian.PutUint64(encNum, pb.Number)
-	txHash := crypto.Keccak256(append(append([]byte("-matic-bor-receipt-"), encNum...), pb.Hash...))
+	binary.BigEndian.PutUint64(encNum, uint64(pb.Number))
+	txHash := crypto.Keccak256(append(append([]byte("-matic-bor-receipt-"), encNum...), pb.Hash.Bytes()...))
 
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*gtypes.Log)
 
+	statements := []string{}
+
 	for k, v := range pb.Values {
 		switch {
 		case borReceiptRegexp.MatchString(k):
-			parts := receiptRegexp.FindSubmatch([]byte(k))
+			parts := borReceiptRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			receiptData[int(txIndex)] = v
 		
@@ -77,22 +118,22 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			logData[int64(logIndex)] = logRecord
 	}
 
-	statements := []string{ //we need to either make applyParameters public or recreate in this package
-		applyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number),
-	}
+	statements = append(statements,
+		indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number),
+	)
 	for txIndex, logsBloom := range receiptData { 
-		statements = append(statements, applyParameters(
+		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_receipts(hash, transactionIndex, number) VALUES (%v, %v, %v)",
 			txHash,
 			txIndex,
 			compress(logsBloom),
 			pb.Number,
 		))}
-	statements = append(statements, applyParameters(
+	statements = append(statements, indexer.ApplyParameters(
 	"DELETE FROM bor_logs WHERE blockHash >= %v", pb.Number),
 	)
 	for logIndex, logRecord := range logData {
-		statements = append(statements, applyParameters(
+		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_logs(address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash, block, logIndex) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			logRecord.Address,
 			getTopicIndex(logRecord.Topics, 0),
@@ -106,8 +147,8 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			pb.Number,
 			logIndex,
 		))}
-	return statements, nil
 	}
+	return statements, nil
 }
 
 

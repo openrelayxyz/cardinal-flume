@@ -48,13 +48,13 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[comm
 	v, r, s := tx.RawSignatureValues()
 	statements := []string{}
 	// If this is a replacement transaction, delete any it might be replacing
-	statements = append(statements, applyParameters(
+	statements = append(statements, ApplyParameters(
 		"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v",
 		sender,
 		tx.Nonce(),
 	))
 	// Insert the transaction
-	statements = append(statements, applyParameters(
+	statements = append(statements, ApplyParameters(
 		"INSERT INTO mempool.transactions(gas, gasPrice, hash, input, nonce, recipient, `value`, v, r, s, sender, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		tx.Gas(),
 		gasPrice,
@@ -74,14 +74,14 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[comm
 	))
 	// Delete the transaction we just inserted if the confirmed transactions
 	// pool has a conflicting entry
-	statements = append(statements, applyParameters(
+	statements = append(statements, ApplyParameters(
 		"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions)",
 		sender,
 		tx.Nonce(),
 	))
 	if txCount > (11 * mempoolSlots / 10) {
 		// More than 10% above mempool limit, prune some.
-		statements = append(statements, applyParameters(
+		statements = append(statements, ApplyParameters(
 			"DELETE FROM mempool.transactions WHERE gasPrice < (SELECT gasPrice FROM mempool.transactions ORDER BY gasPrice LIMIT 1 OFFSET %v)",
 			mempoolSlots,
 		))

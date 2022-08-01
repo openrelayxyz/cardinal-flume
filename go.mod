@@ -5,12 +5,12 @@ go 1.18
 require (
 	github.com/ethereum/go-ethereum v1.10.4
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
+	github.com/klauspost/compress v1.15.9
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/openrelayxyz/cardinal-evm v0.0.0-20211007195410-cf1ee1556687
 	github.com/openrelayxyz/cardinal-rpc v1.0.0
 	github.com/openrelayxyz/cardinal-streams v1.0.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
-	github.com/openrelayxyz/plugeth-utils v0.0.7
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -34,11 +34,9 @@ require (
 	github.com/hamba/avro v1.6.6 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
-	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
