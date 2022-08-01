@@ -58,11 +58,11 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := make([]string, 0, len(logData)+1)
 
-	statements = append(statements, applyParameters("DELETE FROM event_logs WHERE block >= %v", pb.Number))
+	statements = append(statements, ApplyParameters("DELETE FROM event_logs WHERE block >= %v", pb.Number))
 
 	for i := 0; i < len(logData); i++ {
 		logRecord := logData[int64(i)]
-		statements = append(statements, applyParameters(
+		statements = append(statements, ApplyParameters(
 			"INSERT INTO event_logs(address,  topic0, topic1, topic2, topic3, data, block, logIndex, transactionHash, transactionIndex, blockHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			logRecord.Address,
 			getTopicIndex(logRecord.Topics, 0),

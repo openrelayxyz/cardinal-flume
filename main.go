@@ -47,7 +47,7 @@ func main() {
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range cfg.Databases {
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", name, path, name, name), nil)
+				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
 				}
 				return nil
 			},
@@ -85,11 +85,13 @@ func main() {
 	}
 
 	_, hasLogs := cfg.Databases["logs"]
+	if hasLogs {log.Info("has logs", "logs", cfg.Databases["logs"])}
 	_, hasBlocks := cfg.Databases["blocks"]
 	if hasBlocks {log.Info("has blocks", "blocks", cfg.Databases["blocks"])}
 	_, hasTx := cfg.Databases["transactions"]
-	if hasBlocks {log.Info("has transactions", "transactions", cfg.Databases["transactions"])}
+	if hasTx {log.Info("has transactions", "transactions", cfg.Databases["transactions"])}
 	_, hasMempool := cfg.Databases["mempool"]
+	if hasMempool {log.Info("has mempool", "mempool", cfg.Databases["mempool"])}
 
 	if hasBlocks {
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {

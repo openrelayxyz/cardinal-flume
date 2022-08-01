@@ -79,7 +79,7 @@ type bytesable interface {
 // that will be safe for execution. Note that this should only be used in the
 // context of blocks, transactions, and logs - beyond the datatypes used in
 // those datatypes, safety is not guaranteed.
-func applyParameters(query string, params ...interface{}) string {
+func ApplyParameters(query string, params ...interface{}) string {
 	preparedParams := make([]interface{}, len(params))
 	for i, param := range params {
 		switch value := param.(type) {
@@ -213,7 +213,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								continue
 							}
 
-							megaStatement = append(megaStatement, applyParameters(
+							megaStatement = append(megaStatement, ApplyParameters(
 								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
 						}
 					}
