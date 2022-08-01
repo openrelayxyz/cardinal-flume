@@ -96,7 +96,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := make([]string, 0, len(txData)+1)
 
-	statements = append(statements, applyParameters("DELETE FROM transactions WHERE block >= %v", pb.Number))
+	statements = append(statements, ApplyParameters("DELETE FROM transactions WHERE block >= %v", pb.Number))
 
 	for i := 0; i < len(txData); i++ {
 		transaction := txData[int(i)]
@@ -114,7 +114,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
 		}
 		input := getCopy(compress(transaction.Data()))
-		statements = append(statements, applyParameters(
+		statements = append(statements, ApplyParameters(
 			"INSERT INTO transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),

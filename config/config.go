@@ -74,7 +74,10 @@ func LoadConfig(fname string) (*Config, error) {
 
 	cfg.PluginDir = cfg.PluginDir + "plugins"
 
-	cfg.BlocksDb = cfg.Databases["blocks"]
+	// cfg.BlocksDb = cfg.Databases["blocks"]
+	// cfg.BlocksDb = cfg.Databases["transactions"]
+	// cfg.BlocksDb = cfg.Databases["logs"]
+	// cfg.BlocksDb = cfg.Databases["mempool"]
 
 	switch cfg.Network {
 	case "mainnet":
