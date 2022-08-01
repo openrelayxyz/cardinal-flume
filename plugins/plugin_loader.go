@@ -20,17 +20,6 @@ type PluginLoader struct {
 	LookupCache map[string][]interface{}
 }
 
-// var DefaultPluginLoader *PluginLoader
-
-
-// func Lookup(name string, validate func(interface{}) bool) []interface{} {
-// 	if DefaultPluginLoader == nil {
-// 		log.Warn("Lookup attempted, but PluginLoader is not initialized", "name", name)
-// 		return []interface{}{}
-// 	}
-// 	return DefaultPluginLoader.Lookup(name, validate)
-// }
-
 func (pl *PluginLoader) Lookup(name string, validate func(interface{}) bool) []interface{} {
 	if v, ok := pl.LookupCache[name]; ok {
 		return v
@@ -75,15 +64,6 @@ func NewPluginLoader(target string) (*PluginLoader, error) {
 	}
 	return pl, nil
 }
-
-// func Initialize(target string, cfg *config.Config) (err error) {
-// 	DefaultPluginLoader, err = NewPluginLoader(target)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	DefaultPluginLoader.Initialize(cfg)
-// 	return nil
-// }
 
 func (pl *PluginLoader) Initialize(cfg *config.Config) {
 	fns := pl.Lookup("Initialize", func(i interface{}) bool {

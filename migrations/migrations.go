@@ -145,6 +145,7 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		log.Info("logs migrations done")
 
 		//circle back and add the new log indexes if the testing is successful
+		// 
 
 	}
 	return nil

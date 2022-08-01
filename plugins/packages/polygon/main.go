@@ -78,19 +78,15 @@ func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon plugin loaded")
 }
 
-func Indexer(cfg config.Config) indexer.Indexer { 
+func Indexer(cfg *config.Config) indexer.Indexer { 
 	return &PolygonIndexer{Chainid: cfg.Chainid}
 }
-
-// func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-// 	return nil, nil
-// }
 
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	encNum := make([]byte, 8)
 	binary.BigEndian.PutUint64(encNum, uint64(pb.Number))
-	txHash := crypto.Keccak256(append(append([]byte("-matic-bor-receipt-"), encNum...), pb.Hash.Bytes()...))
+	txHash := crypto.Keccak256(append(append([]byte("matic-bor-receipt-"), encNum...), pb.Hash.Bytes()...))
 
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*gtypes.Log)
