@@ -91,7 +91,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*gtypes.Log)
 
-	statements := []string{}
+	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number),indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
 
 	for k, v := range pb.Values {
 		switch {
@@ -113,10 +113,9 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			logRecord.Index = uint(logIndex)
 			logData[int64(logIndex)] = logRecord
 	}
-
-	statements = append(statements,
-		indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number),
-	)
+	if len(logData) == 0 {
+		return []string{}, nil 
+	}
 	for txIndex, logsBloom := range receiptData { 
 		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_receipts(hash, transactionIndex, number) VALUES (%v, %v, %v)",
@@ -125,9 +124,6 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			compress(logsBloom),
 			pb.Number,
 		))}
-	statements = append(statements, indexer.ApplyParameters(
-	"DELETE FROM bor_logs WHERE blockHash >= %v", pb.Number),
-	)
 	for logIndex, logRecord := range logData {
 		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_logs(address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash, block, logIndex) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
