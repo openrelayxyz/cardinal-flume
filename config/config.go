@@ -105,9 +105,13 @@ func LoadConfig(fname string) (*Config, error) {
 	case "kiln":
 		cfg.Chainid = 1337802
 	case "polygon":
-		cfg.HomesteadBlock = 1150000
-		cfg.Eip155Block = 2675000
-		cfg.Chainid = 1
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 137
+	case "mumbai":
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 80001
 	case "":
 		if cfg.Chainid == 0 {
 			err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
