@@ -183,7 +183,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
 			);`); err != nil { return err }
-	
+			if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil { return err }
 	}
 	return nil
 }

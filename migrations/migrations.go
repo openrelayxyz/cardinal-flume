@@ -137,15 +137,13 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		      PRIMARY KEY (block, logIndex)
 		    )`)
 		if _, err := db.Exec(`CREATE INDEX logs.address_compound ON event_logs(address, block)`); err != nil {log.Error("Migrate Logs CREATE INDEX error", "err", err.Error())}
-		if _, err := db.Exec(`CREATE INDEX logs.topic0_compound ON event_logs(topic0, block)`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
-		if _, err := db.Exec(`CREATE INDEX logs.topic1_partial ON event_logs(topic1, block) WHERE topic1 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
-		if _, err := db.Exec(`CREATE INDEX logs.topic2_partial ON event_logs(topic2, block) WHERE topic2 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
-		if _, err := db.Exec(`CREATE INDEX logs.topic3_partial ON event_logs(topic3, block) WHERE topic3 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
+		if _, err := db.Exec(`CREATE INDEX logs.topic0_compound ON event_logs(topic0, block)`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error())}
+		if _, err := db.Exec(`CREATE INDEX logs.topic1_partial ON event_logs(topic1, topic0, address, block) WHERE topic1 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
+		if _, err := db.Exec(`CREATE INDEX logs.topic2_partial ON event_logs(topic2, topic0, address, block) WHERE topic2 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
+		if _, err := db.Exec(`CREATE INDEX logs.topic3_partial ON event_logs(topic3, topic0, address, block) WHERE topic3 IS NOT NULL`); err != nil { log.Error("Migrate Logs CREATE INDEX error", "err", err.Error()) }
+		
 		db.Exec(`UPDATE logs.migrations SET version = 1;`)
 		log.Info("logs migrations done")
-
-		//circle back and add the new log indexes if the testing is successful
-		// 
 
 	}
 	return nil

@@ -142,7 +142,7 @@ func main() {
 	if hasLogs { indexes = append(indexes, indexer.NewLogIndexer()) }
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool { 
-		_, ok := v.(func(config.Config) indexer.Indexer)
+		_, ok := v.(func(*config.Config) indexer.Indexer)
 		return ok
 	})
 

@@ -67,12 +67,12 @@ func NewPluginLoader(target string) (*PluginLoader, error) {
 
 func (pl *PluginLoader) Initialize(cfg *config.Config) {
 	fns := pl.Lookup("Initialize", func(i interface{}) bool {
-		_, ok := i.(func(PluginLoader, *config.Config))
+		_, ok := i.(func(*config.Config, *PluginLoader))
 		return ok
 	})
 	for _, fni := range fns {
-		if fn, ok := fni.(func(*PluginLoader, *config.Config)); ok {
-			fn(pl, cfg)
+		if fn, ok := fni.(func(*config.Config, *PluginLoader)); ok {
+			fn(cfg, pl)
 		}
 	}
 }
