@@ -1,22 +1,22 @@
 package main
 
 import (
-	"regexp"
-	"strconv"
-	"encoding/binary"
 	"bytes"
 	"database/sql"
+	"encoding/binary"
+	"regexp"
+	"strconv"
 
-	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
+	gtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
-	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/indexer"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type PolygonIndexer struct {
@@ -35,7 +35,7 @@ type cardinalBorReceiptMeta struct {
 
 var (
 	borReceiptRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/br/([0-9a-z]+)")
-    borLogRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
+	borLogRegexp     *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
 )
 
 func getTopicIndex(topics []common.Hash, idx int) []byte {
@@ -78,7 +78,7 @@ func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon plugin loaded")
 }
 
-func Indexer(cfg *config.Config) indexer.Indexer { 
+func Indexer(cfg *config.Config) indexer.Indexer {
 	return &PolygonIndexer{Chainid: cfg.Chainid}
 }
 
@@ -91,7 +91,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*gtypes.Log)
 
-	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number),indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
+	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
 
 	for k, v := range pb.Values {
 		switch {
@@ -99,7 +99,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			parts := borReceiptRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			receiptData[int(txIndex)] = v
-		
+
 		case borLogRegexp.MatchString(k):
 			parts := borLogRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
@@ -112,41 +112,42 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			logRecord.BlockHash = common.Hash(pb.Hash)
 			logRecord.Index = uint(logIndex)
 			logData[int64(logIndex)] = logRecord
-	}
-	if len(logData) == 0 {
-		return []string{}, nil 
-	}
-	for txIndex, logsBloom := range receiptData { 
-		statements = append(statements, indexer.ApplyParameters(
-			"INSERT INTO bor_receipts(hash, transactionIndex, number) VALUES (%v, %v, %v)",
-			txHash,
-			txIndex,
-			compress(logsBloom),
-			pb.Number,
-		))}
-	for logIndex, logRecord := range logData {
-		statements = append(statements, indexer.ApplyParameters(
-			"INSERT INTO bor_logs(address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash, block, logIndex) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
-			logRecord.Address,
-			getTopicIndex(logRecord.Topics, 0),
-			getTopicIndex(logRecord.Topics, 1),
-			getTopicIndex(logRecord.Topics, 2),
-			getTopicIndex(logRecord.Topics, 3),
-			compress(logRecord.Data),
-			txHash,
-			logRecord.TxIndex,
-			pb.Hash,
-			pb.Number,
-			logIndex,
-		))}
+		}
+		if len(logData) == 0 {
+			return []string{}, nil
+		}
+		for txIndex, logsBloom := range receiptData {
+			statements = append(statements, indexer.ApplyParameters(
+				"INSERT INTO bor_receipts(hash, transactionIndex, number) VALUES (%v, %v, %v)",
+				txHash,
+				txIndex,
+				compress(logsBloom),
+				pb.Number,
+			))
+		}
+		for logIndex, logRecord := range logData {
+			statements = append(statements, indexer.ApplyParameters(
+				"INSERT INTO bor_logs(address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash, block, logIndex) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+				logRecord.Address,
+				getTopicIndex(logRecord.Topics, 0),
+				getTopicIndex(logRecord.Topics, 1),
+				getTopicIndex(logRecord.Topics, 2),
+				getTopicIndex(logRecord.Topics, 3),
+				compress(logRecord.Data),
+				txHash,
+				logRecord.TxIndex,
+				pb.Hash,
+				pb.Number,
+				logIndex,
+			))
+		}
 	}
 	return statements, nil
 }
 
-
 func Migrate(db *sql.DB, chainid uint64) error {
 	var tableName string
-	db.QueryRow("SELECT name FROM bor.sqlite_master WHERE type='table' and name='migrations';").Scan(&tableName);
+	db.QueryRow("SELECT name FROM bor.sqlite_master WHERE type='table' and name='migrations';").Scan(&tableName)
 	if tableName != "migrations" {
 		db.Exec("CREATE TABLE bor.migrations (version integer PRIMARY KEY);")
 
@@ -162,8 +163,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			logsBloom blob,
 			block BIGINT
 	        );`)
-		
-		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil { log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error()) }
+
+		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil {
+			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+		}
 
 		if _, err := db.Exec(`CREATE TABLE bor.bor_logs (
 			address varchar(20),
@@ -178,9 +181,12 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			block BIGINT,
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
-			);`); err != nil { return err }
-			if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil { return err }
+			);`); err != nil {
+			return err
+		}
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
+			return err
+		}
 	}
 	return nil
 }
-

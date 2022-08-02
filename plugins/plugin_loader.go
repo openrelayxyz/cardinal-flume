@@ -11,7 +11,7 @@ import (
 )
 
 type pluginDetails struct {
-	p *plugin.Plugin
+	p    *plugin.Plugin
 	name string
 }
 

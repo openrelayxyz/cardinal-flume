@@ -1,22 +1,21 @@
 package api
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/flume/plugins"
 	"sort"
 	"strings"
-	"context"
-	"fmt"
-	"github.com/openrelayxyz/flume/plugins"
-	log "github.com/inconshreveable/log15"
 )
 
 type LogsAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
-
 }
 
 func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {

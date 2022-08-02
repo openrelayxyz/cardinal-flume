@@ -22,7 +22,7 @@ func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *GasAPI {
 	return &GasAPI{
 		db:      db,
 		network: network,
-		pl:		 pl,
+		pl:      pl,
 	}
 }
 

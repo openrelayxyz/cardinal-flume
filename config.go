@@ -36,27 +36,27 @@ type broker struct {
 }
 
 type Config struct {
-	Port           int64  `yaml:"port"`
-	PprofPort      int    `yaml:"pprofPort"`
-	MinSafeBlock   int    `yaml:"minSafeBlock"`
-	Network        string `yaml:"networkName"`
-	Chainid        uint64 `yaml:"chainid"`
-	HomesteadBlock uint64 `yaml:"homesteadBlock"`
-	Eip155Block    uint64 `yaml:"eip155Block"`
-	TxTopic        string `yaml:"mempoolTopic"`
-	KafkaRollback  int64  `yaml:"kafkaRollback"`
-	ReorgThreshold int64  `yaml:"reorgThreshold"`
-	MempoolDb      string `yaml:"mempoolDB"`
-	BlocksDb       string `yaml:"blocksDB"`
-	TxDb           string `yaml:"transactionsDB"`
-	LogsDb         string `yaml:"logsDB"`
-	MempoolSlots   int    `yaml:"mempoolSize"`
-	Concurrency    int    `yaml:"concurrency"`
-	LogLevel       string `yaml:"loggingLevel"`
+	Port           int64    `yaml:"port"`
+	PprofPort      int      `yaml:"pprofPort"`
+	MinSafeBlock   int      `yaml:"minSafeBlock"`
+	Network        string   `yaml:"networkName"`
+	Chainid        uint64   `yaml:"chainid"`
+	HomesteadBlock uint64   `yaml:"homesteadBlock"`
+	Eip155Block    uint64   `yaml:"eip155Block"`
+	TxTopic        string   `yaml:"mempoolTopic"`
+	KafkaRollback  int64    `yaml:"kafkaRollback"`
+	ReorgThreshold int64    `yaml:"reorgThreshold"`
+	MempoolDb      string   `yaml:"mempoolDB"`
+	BlocksDb       string   `yaml:"blocksDB"`
+	TxDb           string   `yaml:"transactionsDB"`
+	LogsDb         string   `yaml:"logsDB"`
+	MempoolSlots   int      `yaml:"mempoolSize"`
+	Concurrency    int      `yaml:"concurrency"`
+	LogLevel       string   `yaml:"loggingLevel"`
 	Brokers        []broker `yaml:"brokers"`
 	brokers        []transports.BrokerParams
-	Statsd *statsdOpts `yaml:"statsd"`
-	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
+	Statsd         *statsdOpts     `yaml:"statsd"`
+	CloudWatch     *cloudwatchOpts `yaml:"cloudwatch"`
 }
 
 func LoadConfig(fname string) (*Config, error) {

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/flume/plugins"
 	"time"
 )
 

@@ -17,7 +17,6 @@ type BlockAPI struct {
 	pl      *plugins.PluginLoader
 }
 
-
 func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *BlockAPI {
 	return &BlockAPI{
 		db:      db,
@@ -25,7 +24,6 @@ func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *BlockAPI
 		pl:      pl,
 	}
 }
-
 
 func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 

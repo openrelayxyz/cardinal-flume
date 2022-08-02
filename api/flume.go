@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type FlumeAPI struct {

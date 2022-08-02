@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -8,8 +7,6 @@ import (
 	// "github.com/openrelayxyz/plugeth-utils/core"
 	// "github.com/ethereum/go-ethereum/common/hexutil"
 )
-
-
 
 func Initialize(cfg *config.Config) {
 	log.Info("loaded Get Rpc Calls plugin")
