@@ -159,13 +159,13 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	var schemaVersion uint
 	db.QueryRow("SELECT version FROM bor.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
-		if _, err := db.Exec(`CREATE TABLE bor.bor_receipts (
+		db.Exec(`CREATE TABLE bor.bor_receipts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			hash varchar(32) UNIQUE,
 			transactionIndex MEDIUMINT,
 			logsBloom blob,
 			block BIGINT
-	        );`); err != nil { return err }
+	        );`)
 		
 		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil { log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error()) }
 
