@@ -224,6 +224,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					if err != nil {
 						log.Error("Error creating a transaction", "err", err.Error())
 					}
+					log.Debug("megaStatement", "txt", megaStatement)
 					if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
 						dbtx.Rollback()
 						stats := db.Stats()
