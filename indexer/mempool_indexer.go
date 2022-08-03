@@ -2,15 +2,16 @@ package indexer
 
 import (
 	"database/sql"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types"
 	log "github.com/inconshreveable/log15"
 	"strings"
 	"time"
 )
 
-func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txCount int, txDedup map[common.Hash]struct{}) {
+func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txCount int, txDedup map[types.Hash]struct{}) {
 	db.QueryRow("SELECT count(*) FROM mempool.transactions;").Scan(&txCount)
 	if txCount > mempoolSlots {
 		pstart := time.Now()
@@ -21,26 +22,26 @@ func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txCount int, txDedup 
 	}
 }
 
-func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[common.Hash]struct{}, tx *types.Transaction) []string {
+func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[types.Hash]struct{}, tx *evm.Transaction) []string {
 	txHash := tx.Hash()
 	if _, ok := txDedup[txHash]; !ok {
 		log.Warn("Failed to dedup transaction", "transaction", tx)
 	}
-	var signer types.Signer
+	var signer evm.Signer
 	var accessListRLP []byte
 	gasPrice := tx.GasPrice().Uint64()
 	switch {
-	case tx.Type() == types.AccessListTxType:
+	case tx.Type() == evm.AccessListTxType:
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
-		signer = types.NewEIP2930Signer(tx.ChainId())
-	case tx.Type() == types.DynamicFeeTxType:
-		signer = types.NewLondonSigner(tx.ChainId())
+		signer = evm.NewEIP2930Signer(tx.ChainId())
+	case tx.Type() == evm.DynamicFeeTxType:
+		signer = evm.NewLondonSigner(tx.ChainId())
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
 		gasPrice = tx.GasFeeCap().Uint64()
 	default:
-		signer = types.NewEIP155Signer(tx.ChainId())
+		signer = evm.NewEIP155Signer(tx.ChainId())
 	}
-	sender, _ := types.Sender(signer, tx)
+	sender, _ := evm.Sender(signer, tx)
 	var to []byte
 	if tx.To() != nil {
 		to = trimPrefix(tx.To().Bytes())

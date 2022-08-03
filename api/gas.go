@@ -2,8 +2,9 @@ package api
 
 import (
 	"database/sql"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	eh "github.com/openrelayxyz/flume/errhandle"
 	"github.com/openrelayxyz/flume/plugins"
 	"math/big"
@@ -106,13 +107,13 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 	return hexutil.EncodeBig(eh.CheckAndAssign(api.gasTip(ctx))), nil
 }
 
-func (api *GasAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
+func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock vm.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	defer eh.HandleErr(&err)
 
 	if blockCount > 128 {
-		blockCount = rpc.DecimalOrHex(128)
+		blockCount = DecimalOrHex(128)
 	} else if blockCount == 0 {
-		blockCount = rpc.DecimalOrHex(20)
+		blockCount = DecimalOrHex(20)
 	}
 
 	if int64(lastBlock) < 0 {
@@ -120,7 +121,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount rpc.DecimalOrHex, 
 		if err != nil {
 			return nil, err
 		}
-		lastBlock = rpc.BlockNumber(latestBlock)
+		lastBlock = vm.BlockNumber(latestBlock)
 	}
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))

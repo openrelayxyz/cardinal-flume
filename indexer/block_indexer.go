@@ -2,9 +2,11 @@ package indexer
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	"encoding/binary"
+
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"golang.org/x/crypto/sha3"
@@ -36,8 +38,8 @@ type BlockIndexer struct {
 }
 
 type extblock struct {
-	Header *types.Header
-	Txs    []types.Transaction
+	Header *evm.Header
+	Txs    []evm.Transaction
 	Uncles []rlpData
 }
 
@@ -49,19 +51,19 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
 	tdBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/d", indexer.chainid, pb.Hash.Bytes())]
 	td := new(big.Int).SetBytes(tdBytes)
-	header := &types.Header{}
+	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
 		panic(err.Error())
 	}
 
 	eblock := &extblock{
 		Header: header,
-		Txs:    []types.Transaction{},
+		Txs:    []evm.Transaction{},
 		Uncles: []rlpData{},
 	}
 
-	uncleHashes := make(map[int64]common.Hash)
-	txData := make(map[int64]types.Transaction)
+	uncleHashes := make(map[int64]types.Hash)
+	txData := make(map[int64]evm.Transaction)
 	uncleData := make(map[int64]rlpData)
 
 	for k, v := range pb.Values {
@@ -74,13 +76,13 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		case txRegexp.MatchString(k):
 			parts := txRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
-			var tx types.Transaction
+			var tx evm.Transaction
 			tx.UnmarshalBinary(v)
 			txData[int64(txIndex)] = tx
 		default:
 		}
 	}
-	eblock.Txs = make([]types.Transaction, len(txData))
+	eblock.Txs = make([]evm.Transaction, len(txData))
 	for i, v := range txData {
 		eblock.Txs[int(i)] = v
 	}
@@ -90,7 +92,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	}
 	ebd, _ := rlp.EncodeToBytes(eblock)
 	size := len(ebd)
-	uncles := make([]common.Hash, len(uncleHashes))
+	uncles := make([]types.Hash, len(uncleHashes))
 	for i, v := range uncleHashes {
 		uncles[int(i)] = v
 	}
@@ -115,7 +117,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		header.Time,
 		header.Extra,
 		header.MixDigest,
-		header.Nonce,
+		int64(binary.BigEndian.Uint64(header.Nonce[:])),
 		uncleRLP,
 		size,
 		td.Bytes(),

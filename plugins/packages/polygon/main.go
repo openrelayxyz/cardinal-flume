@@ -7,11 +7,12 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/flume/config"
@@ -38,7 +39,7 @@ var (
 	borLogRegexp     *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
 )
 
-func getTopicIndex(topics []common.Hash, idx int) []byte {
+func getTopicIndex(topics []types.Hash, idx int) []byte {
 	if len(topics) > idx {
 		return trimPrefix(topics[idx].Bytes())
 	}
@@ -89,7 +90,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	txHash := crypto.Keccak256(append(append([]byte("matic-bor-receipt-"), encNum...), pb.Hash.Bytes()...))
 
 	receiptData := make(map[int][]byte)
-	logData := make(map[int64]*gtypes.Log)
+	logData := make(map[int64]*evm.Log)
 
 	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
 
@@ -105,11 +106,11 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			logIndex, _ := strconv.ParseInt(string(parts[3]), 16, 64)
 
-			logRecord := &gtypes.Log{}
+			logRecord := &evm.Log{}
 			rlp.DecodeBytes(v, logRecord)
 			logRecord.BlockNumber = uint64(pb.Number)
 			logRecord.TxIndex = uint(txIndex)
-			logRecord.BlockHash = common.Hash(pb.Hash)
+			logRecord.BlockHash = types.Hash(pb.Hash)
 			logRecord.Index = uint(logIndex)
 			logData[int64(logIndex)] = logRecord
 		}
@@ -168,7 +169,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 		}
 
-		if _, err := db.Exec(`CREATE TABLE bor.bor_logs (
+		db.Exec(`CREATE TABLE bor.bor_logs (
 			address varchar(20),
 			topic0 varchar(32),
 			topic1 varchar(32),
@@ -181,12 +182,11 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			block BIGINT,
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
-			);`); err != nil {
-			return err
-		}
+			);`)
 		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
 			return err
 		}
+		log.Info("bor migrations done")
 	}
 	return nil
 }

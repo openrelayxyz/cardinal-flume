@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
 )
 
@@ -33,14 +35,14 @@ func getTransactionsListsForTesting(blockObject []map[string]json.RawMessage) []
 	return result
 }
 
-func getTransactionHashes(blockObject []map[string]json.RawMessage) []common.Hash {
-	result := []common.Hash{}
+func getTransactionHashes(blockObject []map[string]json.RawMessage) []types.Hash {
+	result := []types.Hash{}
 	for _, block := range blockObject {
 		txnLevel := []map[string]interface{}{}
 		json.Unmarshal(block["transactions"], &txnLevel)
 		if len(txnLevel) > 0 {
 			for _, tx := range txnLevel {
-				result = append(result, common.HexToHash(tx["hash"].(string)))
+				result = append(result, types.HexToHash(tx["hash"].(string)))
 			}
 		}
 	}
@@ -80,7 +82,8 @@ func TestTransactionAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	tx := NewTransactionAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	tx := NewTransactionAPI(db, 1, pl)
 	blockObject, _ := blocksDecompress()
 	receiptsMap, _ := receiptsDecompress()
 	transactionLists := getTransactionsListsForTesting(blockObject)
@@ -118,7 +121,7 @@ func TestTransactionAPI(t *testing.T) {
 	}
 	for i, block := range blockObject {
 		t.Run(fmt.Sprintf("GetTransactionByBlockHashAndIndex %v", i), func(t *testing.T) {
-			var h common.Hash
+			var h types.Hash
 			json.Unmarshal(block["hash"], &h)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
@@ -134,7 +137,7 @@ func TestTransactionAPI(t *testing.T) {
 			}
 		})
 		t.Run(fmt.Sprintf("GetTransactionByBlockNumberAndIndex %v", i), func(t *testing.T) {
-			var n rpc.BlockNumber
+			var n vm.BlockNumber
 			json.Unmarshal(block["number"], &n)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))

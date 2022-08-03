@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"database/sql"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/flume/plugins"
 )
@@ -146,7 +148,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, ad
 	return &result, nil
 }
 
-func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, blockHash common.Hash) ([]map[string]interface{}, error) {
+func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, blockHash types.Hash) ([]map[string]interface{}, error) {
 
 	receipts, err := getTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {

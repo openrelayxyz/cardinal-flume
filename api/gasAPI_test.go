@@ -8,7 +8,8 @@ import (
 
 	"compress/gzip"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/flume/plugins"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
@@ -41,7 +42,8 @@ func TestGasAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	g := NewGasAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	g := NewGasAPI(db, 1, pl)
 
 	price := "0x2a51edbe67"
 	fee := "0x9502f900"
@@ -61,8 +63,8 @@ func TestGasAPI(t *testing.T) {
 
 	feeData, _ := feeDataDecompress()
 	t.Run(fmt.Sprintf("FeeHistory"), func(t *testing.T) {
-		var blockCount rpc.DecimalOrHex = 0x15
-		var lastBlock rpc.BlockNumber = 0xd59f95
+		var blockCount DecimalOrHex = 0x15
+		var lastBlock vm.BlockNumber = 0xd59f95
 		percentiles := []float64{.1, .5, .9}
 
 		actual, _ := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles)
