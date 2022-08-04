@@ -7,8 +7,9 @@ import (
 	"sort"
 	"strings"
 
-	evm "github.com/openrelayxyz/cardinal-evm/types"
+	// evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
 )
@@ -27,7 +28,7 @@ func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {
 	}
 }
 
-func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*evm.Log, error) {
+func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		// handleError(err.Error(), call.ID, 500)
@@ -122,15 +123,15 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*evm.Log, 
 			// handleError("database error", call.ID, 500)
 			return nil, fmt.Errorf("database error")
 		}
-		logs = append(logs, &evm.Log{
+		logs = append(logs, &logType{
 			Address:     bytesToAddress(address),
 			Topics:      topics,
-			Data:        input,
-			BlockNumber: blockNumber,
+			Data:        hexutil.Bytes(input),
+			BlockNumber: hexutil.EncodeUint64(blockNumber),
 			TxHash:      bytesToHash(transactionHash),
-			TxIndex:     transactionIndex,
+			TxIndex:     hexutil.Uint(transactionIndex),
 			BlockHash:   bytesToHash(blockHash),
-			Index:       logIndex,
+			Index:       hexutil.Uint(logIndex),
 		})
 		if len(logs) > 10000 && len(blockNumbersInResponse) > 1 {
 			// handleError("query returned more than 10,000 results spanning multiple blocks", call.ID, 413)
