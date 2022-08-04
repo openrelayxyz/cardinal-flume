@@ -98,7 +98,6 @@ type paginator[T any] struct {
 	Token interface{} `json:"next,omitempty"`
 }
 
-type BlockNonce [8]byte
 
 type TransactionTypeOne struct {
 	Transactions []*rpcTransaction `json:"transactions"`
