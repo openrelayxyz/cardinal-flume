@@ -98,8 +98,6 @@ type paginator[T any] struct {
 	Token interface{} `json:"next,omitempty"`
 }
 
-feature/api-tests-post-cardinal-imports
-feature/plugin-loader
 type TransactionTypeOne struct {
 	Transactions []*rpcTransaction `json:"transactions"`
 }
