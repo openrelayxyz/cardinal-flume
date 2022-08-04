@@ -27,7 +27,7 @@ func decompress(data []byte) ([]byte, error) {
 	return raw, err
 }
 
-func TestTransacitonIndexer(t *testing.T) {
+func TestTransactionIndexer(t *testing.T) {
 	controlDB, err := openControlDatabase("tx", "../transactions.sqlite")
 	if err != nil {
 		t.Fatalf(err.Error())

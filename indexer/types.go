@@ -7,5 +7,3 @@ import (
 type Indexer interface {
 	Index(*delivery.PendingBatch) ([]string, error)
 }
-
-type BlockNonce int64

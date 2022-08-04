@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"fmt"
+	// "encoding/json"
 
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
@@ -47,6 +48,12 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
+		log.Error("its this one")
+		// var generic interface{}
+		// h := []byte(header)
+		// json.Unmarshal(h, &generic)
+		// bg := generic.([]byte)
+		// log.Info(string(generic.(string)))
 		panic(err.Error())
 	}
 
@@ -117,7 +124,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 		input := getCopy(compress(transaction.Data()))
 		statements = append(statements, ApplyParameters(
-			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+			"INSERT INTO transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),
 			gasPrice,

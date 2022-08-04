@@ -223,8 +223,6 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		}
 		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
-		// var bn BlockNonce(nonce)
-		// binary.BigEndian.PutUint64(bn[:], uint64(nonce))
 		var bn [8]byte
 		binary.BigEndian.PutUint64(bn[:], uint64(nonce))
 		fields := map[string]interface{}{

@@ -6,11 +6,11 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/klauspost/compress v1.15.9
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/openrelayxyz/cardinal-evm v0.0.0-20211007195410-cf1ee1556687
+	github.com/openrelayxyz/cardinal-evm v1.1.3
 	github.com/openrelayxyz/cardinal-rpc v1.0.0
 	github.com/openrelayxyz/cardinal-streams v1.0.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -18,8 +18,9 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/Shopify/sarama v1.29.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.36 // indirect
-	github.com/btcsuite/btcd v0.22.0-beta // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
@@ -38,7 +39,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/openrelayxyz/cardinal-storage v0.0.3 // indirect
+	github.com/openrelayxyz/cardinal-storage v1.1.1 // indirect
 	github.com/openrelayxyz/drumline v0.4.0 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b // indirect

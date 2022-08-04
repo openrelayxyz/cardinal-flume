@@ -139,8 +139,6 @@ func ApplyParameters(query string, params ...interface{}) string {
 			}
 		case hexutil.Uint64:
 			preparedParams[i] = fmt.Sprintf("%v", uint64(value))
-		case BlockNonce:
-			preparedParams[i] = fmt.Sprintf("%v", int64(value))
 		default:
 			preparedParams[i] = fmt.Sprintf("%v", value)
 		}
