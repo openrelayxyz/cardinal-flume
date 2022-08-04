@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"encoding/json"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -22,6 +23,7 @@ func getTransactionsForTesting(blockObject []map[string]json.RawMessage) []map[s
 		json.Unmarshal(block["transactions"], &txns)
 		result = append(result, txns...)
 	}
+	log.Info("result", "len", len(result))
 	return result
 }
 
@@ -114,7 +116,8 @@ func TestTransactionAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, receiptsMap[i][k]) {
-					t.Fatalf("receipts error %v %v %v %v", i, k, string(data), string(receiptsMap[i+7][k]))
+					// t.Fatalf("receipts error %v %v %v %v", i, k, string(data), string(receiptsMap[i+7][k]))
+					t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test" + string(data), "control" + string(receiptsMap[i][k]))
 				}
 			}
 		})

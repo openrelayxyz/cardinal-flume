@@ -25,7 +25,34 @@ func (ms bigList) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }
 
-type sortLogs []*evm.Log
+type logType struct {
+	// Consensus fields:
+	// address of the contract that generated the event
+	Address common.Address `json:"address" gencodec:"required"`
+	// list of topics provided by the contract.
+	Topics []types.Hash `json:"topics" gencodec:"required"`
+	// supplied by the contract, usually ABI-encoded
+	Data hexutil.Bytes `json:"data" gencodec: "required"`
+
+	// Derived fields. These fields are filled in by the node
+	// but not secured by consensus.
+	// block in which the transaction was included
+	BlockNumber string `json:"blockNumber"`
+	// hash of the transaction
+	TxHash types.Hash `json:"transactionHash" gencodec:"required"`
+	// index of the transaction in the block
+	TxIndex hexutil.Uint `json:"transactionIndex"`
+	// hash of the block in which the transaction was included
+	BlockHash types.Hash `json:"blockHash"`
+	// index of the log in the block
+	Index hexutil.Uint `json:"logIndex"`
+
+	// The Removed field is true if this log was reverted due to a chain reorganisation.
+	// You must pay attention to this field if you receive logs through a filter query.
+	Removed bool `json:"removed"`
+}
+
+type sortLogs []*logType
 
 func (ms sortLogs) Len() int {
 	return len(ms)
@@ -71,6 +98,8 @@ type paginator[T any] struct {
 	Token interface{} `json:"next,omitempty"`
 }
 
+type BlockNonce [8]byte
+
 // type Block struct {
 // 	BaseFeePerGas    *hexutil.Big     `json:"baseFeePerGas,omitempty"`
 // 	Difficulty       hexutil.Uint64   `json:"difficulty"`
@@ -81,7 +110,7 @@ type paginator[T any] struct {
 // 	LogsBloom        hexutil.Bytes    `json:"logsBloom"`
 // 	Miner            common.Address   `json:"miner"`
 // 	MixHash          types.Hash      `json:"mixHash"`
-// 	Nonce            evm.BlockNonce `json:"nonce"`
+// 	Nonce            BlockNonce `json:"nonce"`
 // 	Number           hexutil.Uint64   `json:"number"`
 // 	ParentHash       types.Hash      `json:"parentHash"`
 // 	ReceiptsRoot     types.Hash      `json:"receiptsRoot"`

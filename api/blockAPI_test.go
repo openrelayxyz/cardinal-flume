@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"reflect"
 
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
@@ -21,6 +22,7 @@ import (
 	_ "net/http/pprof"
 	"path/filepath"
 	"sync"
+	log "github.com/inconshreveable/log15"
 )
 
 var register sync.Once
@@ -176,7 +178,12 @@ func TestBlockAPI(t *testing.T) {
 						t.Errorf("nope %v", k)
 					}
 					if !bytes.Equal(data, blockObject[i][k]) {
-						t.Fatalf("not equal %v", k)
+						var generic interface{}
+						json.Unmarshal(blockObject[i][k], &generic)
+						log.Info("values", "data", v, "test", generic)
+						log.Info("pre marshal type", "type", reflect.TypeOf(v))
+
+						t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 					}
 				}
 			}
@@ -235,7 +242,8 @@ func TestBlockAPI(t *testing.T) {
 							t.Errorf("nope %v", k)
 						}
 						if !bytes.Equal(data, blockObject[i][k]) {
-							t.Fatalf("not equal %v", k)
+							log.Info("pre marshal type", "type", reflect.TypeOf(v))
+							t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 						}
 					}
 				}
