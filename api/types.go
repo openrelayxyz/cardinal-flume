@@ -71,30 +71,6 @@ type paginator[T any] struct {
 	Token interface{} `json:"next,omitempty"`
 }
 
-// type Block struct {
-// 	BaseFeePerGas    *hexutil.Big     `json:"baseFeePerGas,omitempty"`
-// 	Difficulty       hexutil.Uint64   `json:"difficulty"`
-// 	ExtraData        hexutil.Bytes    `json:"extraData"`
-// 	GasLimit         hexutil.Uint64   `json:"gasLimit"`
-// 	GasUsed          hexutil.Uint64   `json:"gasUsed"`
-// 	Hash             types.Hash      `json:"hash"`
-// 	LogsBloom        hexutil.Bytes    `json:"logsBloom"`
-// 	Miner            common.Address   `json:"miner"`
-// 	MixHash          types.Hash      `json:"mixHash"`
-// 	Nonce            evm.BlockNonce `json:"nonce"`
-// 	Number           hexutil.Uint64   `json:"number"`
-// 	ParentHash       types.Hash      `json:"parentHash"`
-// 	ReceiptsRoot     types.Hash      `json:"receiptsRoot"`
-// 	Sha3Uncles       types.Hash      `json:"sha3Uncles"`
-// 	Size             hexutil.Uint64   `json:"size"`
-// 	StateRoot        types.Hash      `json:"stateRoot"`
-// 	Timestamp        hexutil.Uint64   `json:"timeStamp"`
-// 	TotalDifficulty  *hexutil.Big     `json:"totalDifficulty"`
-// 	Transactions     interface{}      `json:"transactiions"`
-// 	TransactionsRoot types.Hash      `json:"transactionsRoot"`
-// 	Uncles           []types.Hash    `json:"uncles"`
-// }
-
 type TransactionTypeOne struct {
 	Transactions []*rpcTransaction `json:"transactions"`
 }
