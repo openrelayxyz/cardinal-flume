@@ -7,8 +7,9 @@ import (
 	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -19,10 +20,11 @@ func TestLogsAPI(t *testing.T) {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
 	defer db.Close()
-	l := NewLogsAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	l := NewLogsAPI(db, 1, pl)
 
 	t.Run(fmt.Sprintf("Testing GetLogs BlockHash"), func(t *testing.T) {
-		hashes := []common.Hash{}
+		hashes := []types.Hash{}
 		row, err := db.Query("SELECT DISTINCT HEX(blockHash) from event_logs;")
 		if err != nil {
 			log.Error("LogsAPI blockHash failure", "failed to query database", err.Error())
@@ -32,7 +34,7 @@ func TestLogsAPI(t *testing.T) {
 			var hash string
 			row.Scan(&hash)
 			item := "0x" + hash
-			hashes = append(hashes, common.HexToHash(item))
+			hashes = append(hashes, types.HexToHash(item))
 		}
 		hash := hashes[rand.Intn(len(hashes))]
 		arg := FilterQuery{
@@ -89,7 +91,7 @@ func TestLogsAPI(t *testing.T) {
 		}
 	})
 	t.Run(fmt.Sprintf("Testing GetLogs Topic0"), func(t *testing.T) {
-		topicZeroes := []common.Hash{}
+		topicZeroes := []types.Hash{}
 		row, err := db.Query("SELECT DISTINCT HEX(topic0) from event_logs WHERE block >= 14000000 AND block <= 14000021;")
 		if err != nil {
 			log.Error("LogsAPI topic0 failure", "failed to query database", err.Error())
@@ -100,17 +102,17 @@ func TestLogsAPI(t *testing.T) {
 			row.Scan(&topic0)
 			item := "0x" + topic0
 			if len(item) == 66 {
-				topicZeroes = append(topicZeroes, common.HexToHash(item))
+				topicZeroes = append(topicZeroes, types.HexToHash(item))
 			}
 		}
 		fb := big.NewInt(14000000)
 		lb := big.NewInt(14000021)
 		topic0 := topicZeroes[rand.Intn(len(topicZeroes))]
-		topicList := []common.Hash{topic0}
+		topicList := []types.Hash{topic0}
 		arg := FilterQuery{
 			FromBlock: fb,
 			ToBlock:   lb,
-			Topics:    [][]common.Hash{topicList},
+			Topics:    [][]types.Hash{topicList},
 		}
 		actual, err := l.GetLogs(context.Background(), arg)
 		if err != nil {
@@ -134,7 +136,7 @@ func TestLogsAPI(t *testing.T) {
 		}
 	})
 	t.Run(fmt.Sprintf("Testing GetLogs Topic1"), func(t *testing.T) {
-		topicOnes := []common.Hash{}
+		topicOnes := []types.Hash{}
 		row, err := db.Query("SELECT DISTINCT HEX(topic1) from event_logs WHERE block >= 14000000 AND block <= 14000021;")
 		if err != nil {
 			log.Error("LogsAPI topic1 failure", "failed to query database", err.Error())
@@ -145,18 +147,18 @@ func TestLogsAPI(t *testing.T) {
 			row.Scan(&topic1)
 			item := "0x" + topic1
 			if len(item) == 66 {
-				topicOnes = append(topicOnes, common.HexToHash(item))
+				topicOnes = append(topicOnes, types.HexToHash(item))
 			}
 		}
 		fb := big.NewInt(14000000)
 		lb := big.NewInt(14000021)
 		topic1 := topicOnes[rand.Intn(len(topicOnes))]
-		topicList := []common.Hash{topic1}
+		topicList := []types.Hash{topic1}
 
 		arg := FilterQuery{
 			FromBlock: fb,
 			ToBlock:   lb,
-			Topics:    [][]common.Hash{{}, topicList},
+			Topics:    [][]types.Hash{{}, topicList},
 		}
 		actual, err := l.GetLogs(context.Background(), arg)
 		if err != nil {
@@ -180,7 +182,7 @@ func TestLogsAPI(t *testing.T) {
 		}
 	})
 	t.Run(fmt.Sprintf("Testing GetLogs Topic2"), func(t *testing.T) {
-		topicTwos := []common.Hash{}
+		topicTwos := []types.Hash{}
 		row, err := db.Query("SELECT DISTINCT HEX(topic2) from event_logs WHERE block >= 14000000 AND block <= 14000021;")
 		if err != nil {
 			log.Error("LogsAPI topic2 failure", "failed to query database", err.Error())
@@ -191,17 +193,17 @@ func TestLogsAPI(t *testing.T) {
 			row.Scan(&topic2)
 			item := "0x" + topic2
 			if len(item) == 66 {
-				topicTwos = append(topicTwos, common.HexToHash(item))
+				topicTwos = append(topicTwos, types.HexToHash(item))
 			}
 		}
 		fb := big.NewInt(14000000)
 		lb := big.NewInt(14000021)
 		topic2 := topicTwos[rand.Intn(len(topicTwos))]
-		topicList := []common.Hash{topic2}
+		topicList := []types.Hash{topic2}
 		arg := FilterQuery{
 			FromBlock: fb,
 			ToBlock:   lb,
-			Topics:    [][]common.Hash{{}, {}, topicList},
+			Topics:    [][]types.Hash{{}, {}, topicList},
 		}
 		actual, err := l.GetLogs(context.Background(), arg)
 		if err != nil {
@@ -225,7 +227,7 @@ func TestLogsAPI(t *testing.T) {
 		}
 	})
 	t.Run(fmt.Sprintf("Testing GetLogs Topic3"), func(t *testing.T) {
-		topicThrees := []common.Hash{}
+		topicThrees := []types.Hash{}
 		row, err := db.Query("SELECT DISTINCT HEX(topic3) from event_logs WHERE block >= 14000000 AND block <= 14000021;")
 		if err != nil {
 			log.Error("LogsAPI topic3 failure", "failed to query database", err.Error())
@@ -236,17 +238,17 @@ func TestLogsAPI(t *testing.T) {
 			row.Scan(&topic3)
 			item := "0x" + topic3
 			if len(item) == 66 {
-				topicThrees = append(topicThrees, common.HexToHash(item))
+				topicThrees = append(topicThrees, types.HexToHash(item))
 			}
 		}
 		fb := big.NewInt(14000000)
 		lb := big.NewInt(14000021)
 		topic3 := topicThrees[rand.Intn(len(topicThrees))]
-		topicList := []common.Hash{topic3}
+		topicList := []types.Hash{topic3}
 		arg := FilterQuery{
 			FromBlock: fb,
 			ToBlock:   lb,
-			Topics:    [][]common.Hash{{}, {}, {}, topicList},
+			Topics:    [][]types.Hash{{}, {}, {}, topicList},
 		}
 		actual, err := l.GetLogs(context.Background(), arg)
 		if err != nil {

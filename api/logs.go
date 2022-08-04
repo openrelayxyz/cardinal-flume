@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/flume/plugins"
 	"sort"
 	"strings"
+
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/flume/plugins"
+	log "github.com/inconshreveable/log15"
 )
 
 type LogsAPI struct {
@@ -26,7 +27,7 @@ func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {
 	}
 }
 
-func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log, error) {
+func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*evm.Log, error) {
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		// handleError(err.Error(), call.ID, 500)
@@ -102,7 +103,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log
 			return nil, fmt.Errorf("database error")
 		}
 		blockNumbersInResponse[blockNumber] = struct{}{}
-		topics := []common.Hash{}
+		topics := []types.Hash{}
 		if len(topic0) > 0 {
 			topics = append(topics, bytesToHash(topic0))
 		}
@@ -121,7 +122,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log
 			// handleError("database error", call.ID, 500)
 			return nil, fmt.Errorf("database error")
 		}
-		logs = append(logs, &types.Log{
+		logs = append(logs, &evm.Log{
 			Address:     bytesToAddress(address),
 			Topics:      topics,
 			Data:        input,

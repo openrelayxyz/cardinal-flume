@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 	"database/sql"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+
 	"github.com/openrelayxyz/flume/plugins"
 )
 
@@ -23,7 +26,7 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *Tr
 	}
 }
 
-func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash common.Hash) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 	var err error
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {
@@ -41,7 +44,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash comm
 	return result, nil
 }
 
-func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
 	var err error
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
 	if err != nil {
@@ -52,13 +55,13 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 	return result, nil
 }
 
-func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber rpc.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = rpc.BlockNumber(latestBlock)
+		blockNumber = vm.BlockNumber(latestBlock)
 	}
 
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
@@ -71,7 +74,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 	return result, nil
 }
 
-func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 	var err error
 	receipts, err := getTransactionReceiptsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {

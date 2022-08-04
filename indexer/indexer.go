@@ -5,16 +5,19 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	log "github.com/inconshreveable/log15"
-	"github.com/klauspost/compress/zlib"
+
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/flume/txfeed"
+
 	"math/big"
+	log "github.com/inconshreveable/log15"
+	"github.com/klauspost/compress/zlib"
 	"os"
 	"strconv"
 	"strings"
@@ -136,8 +139,8 @@ func ApplyParameters(query string, params ...interface{}) string {
 			}
 		case hexutil.Uint64:
 			preparedParams[i] = fmt.Sprintf("%v", uint64(value))
-		case types.BlockNonce:
-			preparedParams[i] = fmt.Sprintf("%v", int64(value.Uint64()))
+		case BlockNonce:
+			preparedParams[i] = fmt.Sprintf("%v", int64(value))
 		default:
 			preparedParams[i] = fmt.Sprintf("%v", value)
 		}
@@ -148,7 +151,7 @@ func ApplyParameters(query string, params ...interface{}) string {
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
-	txCh := make(chan *types.Transaction, 200)
+	txCh := make(chan *evm.Transaction, 200)
 	txSub := txFeed.Subscribe(txCh)
 	csCh := make(chan *delivery.ChainUpdate, 10)
 	if csConsumer != nil {
@@ -161,7 +164,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
 	txCount := 0
-	txDedup := make(map[common.Hash]struct{})
+	txDedup := make(map[types.Hash]struct{})
 	defer txSub.Unsubscribe()
 	db.Exec("DELETE FROM mempool.transactions WHERE 1;")
 	for {

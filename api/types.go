@@ -1,12 +1,15 @@
 package api
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	// "github.com/openrelayxyz/cardinal-types"
 	"math/big"
+
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
+
+type DecimalOrHex uint64
 
 type bigList []*big.Int
 
@@ -22,7 +25,7 @@ func (ms bigList) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }
 
-type sortLogs []*types.Log
+type sortLogs []*evm.Log
 
 func (ms sortLogs) Len() int {
 	return len(ms)
@@ -68,54 +71,30 @@ type paginator[T any] struct {
 	Token interface{} `json:"next,omitempty"`
 }
 
-type Block struct {
-	BaseFeePerGas    *hexutil.Big     `json:"baseFeePerGas,omitempty"`
-	Difficulty       hexutil.Uint64   `json:"difficulty"`
-	ExtraData        hexutil.Bytes    `json:"extraData"`
-	GasLimit         hexutil.Uint64   `json:"gasLimit"`
-	GasUsed          hexutil.Uint64   `json:"gasUsed"`
-	Hash             common.Hash      `json:"hash"`
-	LogsBloom        hexutil.Bytes    `json:"logsBloom"`
-	Miner            common.Address   `json:"miner"`
-	MixHash          common.Hash      `json:"mixHash"`
-	Nonce            types.BlockNonce `json:"nonce"`
-	Number           hexutil.Uint64   `json:"number"`
-	ParentHash       common.Hash      `json:"parentHash"`
-	ReceiptsRoot     common.Hash      `json:"receiptsRoot"`
-	Sha3Uncles       common.Hash      `json:"sha3Uncles"`
-	Size             hexutil.Uint64   `json:"size"`
-	StateRoot        common.Hash      `json:"stateRoot"`
-	Timestamp        hexutil.Uint64   `json:"timeStamp"`
-	TotalDifficulty  *hexutil.Big     `json:"totalDifficulty"`
-	Transactions     interface{}      `json:"transactiions"`
-	TransactionsRoot common.Hash      `json:"transactionsRoot"`
-	Uncles           []common.Hash    `json:"uncles"`
-}
-
 type TransactionTypeOne struct {
 	Transactions []*rpcTransaction `json:"transactions"`
 }
 
 type TransactionTypeTwo struct {
-	Transactions []common.Hash `json:"transactions"`
+	Transactions []types.Hash `json:"transactions"`
 }
 
 type rpcTransaction struct {
-	BlockHash        *common.Hash      `json:"blockHash"`
+	BlockHash        *types.Hash      `json:"blockHash"`
 	BlockNumber      *hexutil.Big      `json:"blockNumber"`
 	From             common.Address    `json:"from"`
 	Gas              hexutil.Uint64    `json:"gas"`
 	GasPrice         *hexutil.Big      `json:"gasPrice"`
 	GasFeeCap        *hexutil.Big      `json:"maxFeePerGas,omitempty"`
 	GasTipCap        *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
-	Hash             common.Hash       `json:"hash"`
+	Hash             types.Hash       `json:"hash"`
 	Input            hexutil.Bytes     `json:"input"`
 	Nonce            hexutil.Uint64    `json:"nonce"`
 	To               *common.Address   `json:"to"`
 	TransactionIndex *hexutil.Uint64   `json:"transactionIndex"`
 	Value            *hexutil.Big      `json:"value"`
 	Type             hexutil.Uint64    `json:"type"`
-	Accesses         *types.AccessList `json:"accessList,omitempty"`
+	Accesses         *evm.AccessList `json:"accessList,omitempty"`
 	ChainID          *hexutil.Big      `json:"chainId,omitempty"`
 	V                *hexutil.Big      `json:"v"`
 	R                *hexutil.Big      `json:"r"`
@@ -123,7 +102,7 @@ type rpcTransaction struct {
 }
 
 type FilterQuery struct {
-	BlockHash *common.Hash     // used by eth_getLogs, return logs only from block with this hash
+	BlockHash *types.Hash     // used by eth_getLogs, return logs only from block with this hash
 	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
 	ToBlock   *big.Int         // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
@@ -139,5 +118,5 @@ type FilterQuery struct {
 	// {{}, {B}}          matches any topic in first position AND B in second position
 	// {{A}, {B}}         matches topic A in first position AND B in second position
 	// {{A, B}, {C, D}}   matches topic (A OR B) in first position AND (C OR D) in second position
-	Topics [][]common.Hash
+	Topics [][]types.Hash
 }
