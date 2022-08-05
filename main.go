@@ -8,12 +8,14 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
-	"github.com/openrelayxyz/flume/api"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/migrations"
-	"github.com/openrelayxyz/flume/txfeed"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
+	"github.com/openrelayxyz/flume/api"
+	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/indexer"
+	"github.com/openrelayxyz/flume/migrations"
+	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/txfeed"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -27,23 +29,30 @@ func main() {
 
 	flag.CommandLine.Parse(os.Args[1:])
 
-	cfg, err := LoadConfig(flag.CommandLine.Args()[0])
+	cfg, err := config.LoadConfig(flag.CommandLine.Args()[0])
 	if err != nil {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
 	}
 
+	pluginsPath := cfg.PluginDir
+	pl, err := plugins.NewPluginLoader(pluginsPath)
+	if err != nil {
+		log.Error("No PluginLoader initialized", "err", err.Error())
+	}
+
+	pl.Initialize(cfg)
+
 	sql.Register("sqlite3_hooked",
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'blocks'; PRAGMA block.journal_mode = WAL ; PRAGMA block.synchronous = OFF ;", cfg.BlocksDb), nil)
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'transactions'; PRAGMA transactions.journal_mode = WAL ; PRAGMA transactions.synchronous = OFF ;", cfg.TxDb), nil)
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'logs'; PRAGMA logs.journal_mode = WAL ; PRAGMA logs.synchronous = OFF ;", cfg.LogsDb), nil)
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'mempool'; PRAGMA mempool.journal_mode = WAL ; PRAGMA mempool.synchronous = OFF ;", cfg.MempoolDb), nil)
-
+				for name, path := range cfg.Databases {
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
+				}
 				return nil
 			},
 		})
+
 	logsdb, err := sql.Open("sqlite3_hooked", (":memory:?_sync=0&_journal_mode=WAL&_foreign_keys=off"))
 	if err != nil {
 		log.Error(err.Error())
@@ -75,42 +84,106 @@ func main() {
 		go p.ListenAndServe()
 	}
 
-	if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
-		log.Error(err.Error())
+	_, hasLogs := cfg.Databases["logs"]
+	if hasLogs {
+		log.Info("has logs", "logs", cfg.Databases["logs"])
 	}
-	if err := migrations.MigrateTransactions(logsdb, cfg.Chainid); err != nil {
-		log.Error(err.Error())
+	_, hasBlocks := cfg.Databases["blocks"]
+	if hasBlocks {
+		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
-	if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
-		log.Error(err.Error())
+	_, hasTx := cfg.Databases["transactions"]
+	if hasTx {
+		log.Info("has transactions", "transactions", cfg.Databases["transactions"])
 	}
-	if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
-		log.Error(err.Error())
+	_, hasMempool := cfg.Databases["mempool"]
+	if hasMempool {
+		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
 	}
 
-	txFeed, err := txfeed.ResolveTransactionFeed(cfg.brokers[0].URL, cfg.TxTopic)
+	if hasBlocks {
+		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasTx {
+		if err := migrations.MigrateTransactions(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasLogs {
+		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasMempool {
+		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+
+	pluginMigrations := pl.Lookup("Migrate", func(v interface{}) bool {
+		_, ok := v.(func(*sql.DB, uint64) error)
+		return ok
+	})
+
+	for _, mgt := range pluginMigrations {
+		fn := mgt.(func(*sql.DB, uint64) error)
+		if err := fn(logsdb, cfg.Chainid); err != nil {
+			log.Error("Unable to migrate from plugin", "err", err.Error())
+		}
+	}
+
+	txFeed, err := txfeed.ResolveTransactionFeed(cfg.BrokerParams[0].URL, cfg.TxTopic)
 	if err != nil {
 		log.Error(err.Error())
 	}
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	consumer, _ := AquireConsumer(logsdb, cfg.brokers, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
-	indexes := []indexer.Indexer{
-		indexer.NewBlockIndexer(cfg.Chainid),
-		indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock),
-		indexer.NewLogIndexer(),
+	consumer, _ := AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	indexes := []indexer.Indexer{}
+
+	if hasBlocks {
+		indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid))
 	}
+	if hasTx {
+		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+	}
+	if hasLogs {
+		indexes = append(indexes, indexer.NewLogIndexer())
+	}
+
+	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
+		_, ok := v.(func(*config.Config) indexer.Indexer)
+		return ok
+	})
+
+	for _, fni := range pluginIndexers {
+		fn := fni.(func(*config.Config) indexer.Indexer)
+		idx := fn(cfg)
+		if idx != nil {
+			indexes = append(indexes, fn(cfg))
+		}
+	}
+
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
 	tm.AddHTTPServer(cfg.Port)
-	tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid))
-	tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid))
-	tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid))
-	tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid))
-	tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid))
-	tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid))
+
+	if hasLogs {
+		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
+	}
+	if hasTx && hasBlocks {
+		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl))
+	}
+	if hasTx && hasBlocks && hasLogs && hasMempool {
+		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl))
+	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 
 	<-consumer.Ready()

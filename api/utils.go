@@ -4,15 +4,19 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+
+	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
 	"io"
 	"io/ioutil"
-	log "github.com/inconshreveable/log15"
 	"math/big"
 	"os"
 	"sort"
@@ -73,8 +77,8 @@ func bytesToAddressPtr(data []byte) *common.Address {
 	result := bytesToAddress(data)
 	return &result
 }
-func bytesToHash(data []byte) common.Hash {
-	result := common.Hash{}
+func bytesToHash(data []byte) types.Hash {
+	result := types.Hash{}
 	copy(result[32-len(data):], data[:])
 	return result
 }
@@ -135,22 +139,23 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 		if err != nil {
 			return nil, err
 		}
-		var accessList *types.AccessList
+		var accessList *evm.AccessList
 		var chainID, gasFeeCap, gasTipCap *hexutil.Big
 		switch txType {
-		case types.AccessListTxType:
-			accessList = &types.AccessList{}
+		case evm.AccessListTxType:
+			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
-		case types.DynamicFeeTxType:
-			accessList = &types.AccessList{}
+		case evm.DynamicFeeTxType:
+			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
 			gasTipCap = bytesToHexBig(gasTipCapBytes)
-		case types.LegacyTxType:
+		case evm.LegacyTxType:
 			chainID = nil
 		}
+
 		results = append(results, map[string]interface{}{
 			"blockHash":            &blockHash,
 			"blockNumber":          uintToHexBig(blockNumber),
@@ -216,18 +221,21 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			log.Error("Error decompressing data", "err", err.Error())
 			return nil, err
 		}
-		unclesList := []common.Hash{}
+		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
+		var bn [8]byte
+		binary.BigEndian.PutUint64(bn[:], uint64(nonce))
 		fields := map[string]interface{}{
-			"difficulty":       hexutil.Uint64(difficulty),
-			"extraData":        hexutil.Bytes(extra),
-			"gasLimit":         hexutil.Uint64(gasLimit),
-			"gasUsed":          hexutil.Uint64(gasUsed),
-			"hash":             bytesToHash(hash),
-			"logsBloom":        hexutil.Bytes(logsBloom),
-			"miner":            bytesToAddress(coinbase),
-			"mixHash":          bytesToHash(mixDigest),
-			"nonce":            types.EncodeNonce(uint64(nonce)),
+			"difficulty": hexutil.Uint64(difficulty),
+			"extraData":  hexutil.Bytes(extra),
+			"gasLimit":   hexutil.Uint64(gasLimit),
+			"gasUsed":    hexutil.Uint64(gasUsed),
+			"hash":       bytesToHash(hash),
+			"logsBloom":  hexutil.Bytes(logsBloom),
+			"miner":      bytesToAddress(coinbase),
+			"mixHash":    bytesToHash(mixDigest),
+			// "nonce":            int64(binary.BigEndian.Uint64(nonce[:])),
+			"nonce":            hexutil.Bytes(bn[:]),
 			"number":           hexutil.Uint64(number),
 			"parentHash":       bytesToHash(parentHash),
 			"receiptsRoot":     bytesToHash(receiptRoot),
@@ -245,7 +253,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 				return nil, err
 			}
 		} else {
-			txs := []common.Hash{}
+			txs := []types.Hash{}
 			txRows, err := db.QueryContext(ctx, "SELECT hash FROM transactions.transactions WHERE block = ? ORDER BY transactionIndex ASC", number)
 			if err != nil {
 				return nil, err
@@ -314,21 +322,21 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, offset, limit int, 
 		if err != nil {
 			return nil, err
 		}
-		var accessList *types.AccessList
+		var accessList *evm.AccessList
 		var chainID, gasFeeCap, gasTipCap *hexutil.Big
 		//move below and assign to mao conditionally
 		switch txType {
-		case types.AccessListTxType:
-			accessList = &types.AccessList{}
+		case evm.AccessListTxType:
+			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
-		case types.DynamicFeeTxType:
-			accessList = &types.AccessList{}
+		case evm.DynamicFeeTxType:
+			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
 			gasTipCap = bytesToHexBig(gasTipCapBytes)
-		case types.LegacyTxType:
+		case evm.LegacyTxType:
 			chainID = nil
 		}
 		results = append(results, map[string]interface{}{
@@ -377,7 +385,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		log.Error("Error selecting logs", "query", query, "err", err.Error())
 		return nil, err
 	}
-	txLogs := make(map[common.Hash]sortLogs)
+	txLogs := make(map[types.Hash]sortLogs)
 	for logRows.Next() {
 		var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 		var logIndex uint
@@ -391,7 +399,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		if _, ok := txLogs[txHash]; !ok {
 			txLogs[txHash] = sortLogs{}
 		}
-		topics := []common.Hash{}
+		topics := []types.Hash{}
 		if len(topic0) > 0 {
 			topics = append(topics, bytesToHash(topic0))
 		}
@@ -408,13 +416,13 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		if err != nil {
 			return nil, err
 		}
-		txLogs[txHash] = append(txLogs[txHash], &types.Log{
+		txLogs[txHash] = append(txLogs[txHash], &logType{
 			Address:     bytesToAddress(address),
 			Topics:      topics,
-			Data:        input,
-			BlockNumber: blockNumber,
+			Data:        hexutil.Bytes(input),
+			BlockNumber: hexutil.EncodeUint64(blockNumber),
 			TxHash:      txHash,
-			Index:       logIndex,
+			Index:       hexutil.Uint(logIndex),
 		})
 	}
 	logRows.Close()
@@ -476,7 +484,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		}
 		txh := bytesToHash(txHash)
 		for i := range txLogs[txh] {
-			txLogs[txh][i].TxIndex = uint(txIndex)
+			txLogs[txh][i].TxIndex = hexutil.Uint(txIndex)
 			txLogs[txh][i].BlockHash = bytesToHash(blockHash)
 		}
 		logs, ok := txLogs[txh]

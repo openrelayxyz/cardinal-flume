@@ -1,29 +1,34 @@
 package api
 
 import (
+	"context"
 	"database/sql"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"fmt"
 	"sort"
 	"strings"
-	"context"
-	"fmt"
+
+	// evm "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type LogsAPI struct {
 	db      *sql.DB
 	network uint64
+	pl      *plugins.PluginLoader
 }
 
-func NewLogsAPI(db *sql.DB, network uint64) *LogsAPI {
+func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {
 	return &LogsAPI{
 		db:      db,
 		network: network,
+		pl:      pl,
 	}
 }
 
-func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log, error) {
+func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		// handleError(err.Error(), call.ID, 500)
@@ -99,7 +104,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log
 			return nil, fmt.Errorf("database error")
 		}
 		blockNumbersInResponse[blockNumber] = struct{}{}
-		topics := []common.Hash{}
+		topics := []types.Hash{}
 		if len(topic0) > 0 {
 			topics = append(topics, bytesToHash(topic0))
 		}
@@ -118,15 +123,15 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*types.Log
 			// handleError("database error", call.ID, 500)
 			return nil, fmt.Errorf("database error")
 		}
-		logs = append(logs, &types.Log{
+		logs = append(logs, &logType{
 			Address:     bytesToAddress(address),
 			Topics:      topics,
-			Data:        input,
-			BlockNumber: blockNumber,
+			Data:        hexutil.Bytes(input),
+			BlockNumber: hexutil.EncodeUint64(blockNumber),
 			TxHash:      bytesToHash(transactionHash),
-			TxIndex:     transactionIndex,
+			TxIndex:     hexutil.Uint(transactionIndex),
 			BlockHash:   bytesToHash(blockHash),
-			Index:       logIndex,
+			Index:       hexutil.Uint(logIndex),
 		})
 		if len(logs) > 10000 && len(blockNumbersInResponse) > 1 {
 			// handleError("query returned more than 10,000 results spanning multiple blocks", call.ID, 413)

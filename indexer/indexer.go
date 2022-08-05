@@ -1,21 +1,24 @@
 package indexer
 
 import (
-	"os"
 	"bytes"
 	"context"
 	"database/sql"
-	"math/big"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/klauspost/compress/zlib"
+
+	"github.com/openrelayxyz/cardinal-evm/common"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
-	"github.com/openrelayxyz/flume/txfeed"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/flume/txfeed"
+
 	log "github.com/inconshreveable/log15"
+	"github.com/klauspost/compress/zlib"
+	"math/big"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,7 +82,7 @@ type bytesable interface {
 // that will be safe for execution. Note that this should only be used in the
 // context of blocks, transactions, and logs - beyond the datatypes used in
 // those datatypes, safety is not guaranteed.
-func applyParameters(query string, params ...interface{}) string {
+func ApplyParameters(query string, params ...interface{}) string {
 	preparedParams := make([]interface{}, len(params))
 	for i, param := range params {
 		switch value := param.(type) {
@@ -136,8 +139,6 @@ func applyParameters(query string, params ...interface{}) string {
 			}
 		case hexutil.Uint64:
 			preparedParams[i] = fmt.Sprintf("%v", uint64(value))
-		case types.BlockNonce:
-			preparedParams[i] = fmt.Sprintf("%v", int64(value.Uint64()))
 		default:
 			preparedParams[i] = fmt.Sprintf("%v", value)
 		}
@@ -148,7 +149,7 @@ func applyParameters(query string, params ...interface{}) string {
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
-	txCh := make(chan *types.Transaction, 200)
+	txCh := make(chan *evm.Transaction, 200)
 	txSub := txFeed.Subscribe(txCh)
 	csCh := make(chan *delivery.ChainUpdate, 10)
 	if csConsumer != nil {
@@ -161,7 +162,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
 	txCount := 0
-	txDedup := make(map[common.Hash]struct{})
+	txDedup := make(map[types.Hash]struct{})
 	defer txSub.Unsubscribe()
 	db.Exec("DELETE FROM mempool.transactions WHERE 1;")
 	for {
@@ -213,7 +214,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								continue
 							}
 
-							megaStatement = append(megaStatement, applyParameters(
+							megaStatement = append(megaStatement, ApplyParameters(
 								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
 						}
 					}

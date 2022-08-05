@@ -8,7 +8,8 @@ import (
 
 	"compress/gzip"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/flume/plugins"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
@@ -35,7 +36,8 @@ func TestERCMethods(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	ft := NewFlumeTokensAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	ft := NewFlumeTokensAPI(db, 1, pl)
 
 	data, _ := tokenDataDecompress()
 
