@@ -8,9 +8,9 @@ import (
 
 	"encoding/json"
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
@@ -117,7 +117,7 @@ func TestTransactionAPI(t *testing.T) {
 				}
 				if !bytes.Equal(data, receiptsMap[i][k]) {
 					// t.Fatalf("receipts error %v %v %v %v", i, k, string(data), string(receiptsMap[i+7][k]))
-					t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test" + string(data), "control" + string(receiptsMap[i][k]))
+					t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test"+string(data), "control"+string(receiptsMap[i][k]))
 				}
 			}
 		})

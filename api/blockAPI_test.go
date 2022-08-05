@@ -4,31 +4,31 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"testing"
 	"reflect"
+	"testing"
 
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/flume/migrations"
 	"github.com/openrelayxyz/flume/plugins"
 
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
+	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
 	"path/filepath"
 	"sync"
-	log "github.com/inconshreveable/log15"
 )
 
 var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
-	sqlitePath := "../main.sqlite"
+	sqlitePath := "../testdata.sqlite"
 
 	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "mempool.sqlite")
 	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "blocks.sqlite")

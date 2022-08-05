@@ -1,14 +1,14 @@
 package indexer
 
 import (
-	"fmt"
 	"encoding/binary"
+	"fmt"
 
-	evm "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
+	"github.com/openrelayxyz/cardinal-types"
 	"golang.org/x/crypto/sha3"
 	"io"
 	"math/big"

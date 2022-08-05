@@ -72,7 +72,7 @@ func TestTransactionIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	ti := NewTxIndexer(1, 2675000, 1150000)
-
+	log.Info("Transaciton indexer test", "Decompressing batches of length:", len(batches))
 	statements := []string{}
 	for _, pb := range batches {
 		group, err := ti.Index(pb)

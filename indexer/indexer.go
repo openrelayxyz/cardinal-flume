@@ -6,8 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
@@ -15,9 +15,9 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/flume/txfeed"
 
-	"math/big"
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"

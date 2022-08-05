@@ -3,11 +3,11 @@ package txfeed
 import (
 	"fmt"
 
-	"github.com/openrelayxyz/cardinal-types"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-streams/utils"
+	"github.com/openrelayxyz/cardinal-types"
 	"strings"
 )
 

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/flume/plugins"
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type FlumeTokensAPI struct {

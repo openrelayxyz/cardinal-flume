@@ -3,10 +3,10 @@ package indexer
 import (
 	"database/sql"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
-	log "github.com/inconshreveable/log15"
 	"strings"
 	"time"
 )

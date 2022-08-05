@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
 )
 

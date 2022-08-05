@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"fmt"
 	"encoding/binary"
-	
-	"github.com/openrelayxyz/cardinal-types"
+	"fmt"
+
 	"github.com/openrelayxyz/cardinal-evm/common"
-	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
 	log "github.com/inconshreveable/log15"
@@ -226,14 +226,14 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		var bn [8]byte
 		binary.BigEndian.PutUint64(bn[:], uint64(nonce))
 		fields := map[string]interface{}{
-			"difficulty":       hexutil.Uint64(difficulty),
-			"extraData":        hexutil.Bytes(extra),
-			"gasLimit":         hexutil.Uint64(gasLimit),
-			"gasUsed":          hexutil.Uint64(gasUsed),
-			"hash":             bytesToHash(hash),
-			"logsBloom":        hexutil.Bytes(logsBloom),
-			"miner":            bytesToAddress(coinbase),
-			"mixHash":          bytesToHash(mixDigest),
+			"difficulty": hexutil.Uint64(difficulty),
+			"extraData":  hexutil.Bytes(extra),
+			"gasLimit":   hexutil.Uint64(gasLimit),
+			"gasUsed":    hexutil.Uint64(gasUsed),
+			"hash":       bytesToHash(hash),
+			"logsBloom":  hexutil.Bytes(logsBloom),
+			"miner":      bytesToAddress(coinbase),
+			"mixHash":    bytesToHash(mixDigest),
 			// "nonce":            int64(binary.BigEndian.Uint64(nonce[:])),
 			"nonce":            hexutil.Bytes(bn[:]),
 			"number":           hexutil.Uint64(number),
