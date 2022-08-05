@@ -13,23 +13,29 @@ import (
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
+	"path/filepath"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 )
 
-func openControlDatabase(connection, file string) (*sql.DB, error) {
-	sql.Register(fmt.Sprintf("sqlite3_%v", connection),
+func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
+	registrar := filepath.Base(dbs["control"])
+	i := strings.LastIndex(registrar, ".sqlite")
+	sql.Register(fmt.Sprintf("sqlite3_%v", registrar[:i]),
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'control';", file), nil)
+				for name, path := range dbs {
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v';", path, name), nil)
+				}
 				return nil
 			},
 		})
-	memDB, err := sql.Open(fmt.Sprintf("sqlite3_%v", connection), ":memory:")
+
+	memDB, err := sql.Open(fmt.Sprintf("sqlite3_%v", registrar[:i]), ":memory:")
 	if err != nil {
-		return nil, err
+		log.Error(err.Error())
 	}
 	memDB.SetConnMaxLifetime(0)
 	memDB.SetMaxIdleConns(32)
@@ -57,10 +63,15 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 }
 
 func TestBlockIndexer(t *testing.T) {
-	controlDB, err := openControlDatabase("bk", "../blocks.sqlite")
+
+	test_dbs := make(map[string]string)
+	test_dbs["control"] = "../blocks.sqlite"
+
+	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE blocks (
 				number      BIGINT PRIMARY KEY,
 				hash        varchar(32) UNIQUE,

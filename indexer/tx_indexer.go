@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"fmt"
+	// "encoding/json"
 
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
@@ -98,7 +99,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := make([]string, 0, len(txData)+1)
 
-	statements = append(statements, ApplyParameters("DELETE FROM transactions WHERE block >= %v", pb.Number))
+	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
 
 	for i := 0; i < len(txData); i++ {
 		transaction := txData[int(i)]
