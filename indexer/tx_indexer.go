@@ -48,12 +48,6 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
-		log.Error("its this one")
-		// var generic interface{}
-		// h := []byte(header)
-		// json.Unmarshal(h, &generic)
-		// bg := generic.([]byte)
-		// log.Info(string(generic.(string)))
 		panic(err.Error())
 	}
 
@@ -105,7 +99,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := make([]string, 0, len(txData)+1)
 
-	statements = append(statements, ApplyParameters("DELETE FROM transactions WHERE block >= %v", pb.Number))
+	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
 
 	for i := 0; i < len(txData); i++ {
 		transaction := txData[int(i)]
@@ -124,7 +118,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 		input := getCopy(compress(transaction.Data()))
 		statements = append(statements, ApplyParameters(
-			"INSERT INTO transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),
 			gasPrice,
