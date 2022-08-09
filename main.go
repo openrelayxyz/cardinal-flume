@@ -155,6 +155,7 @@ func main() {
 	}
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
+		log.Debug("found indexer plugin")
 		_, ok := v.(func(*config.Config) indexer.Indexer)
 		return ok
 	})

@@ -147,6 +147,7 @@ func ApplyParameters(query string, params ...interface{}) string {
 }
 
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
+	log.Debug("indexer length", "len", len(indexers))
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
