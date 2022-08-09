@@ -76,7 +76,7 @@ func compress(data []byte) []byte {
 }
 
 func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
-	log.Info("Polygon plugin loaded")
+	log.Info("Polygon migrate and indexing plugin loaded")
 }
 
 func Indexer(cfg *config.Config) indexer.Indexer {
@@ -85,6 +85,8 @@ func Indexer(cfg *config.Config) indexer.Indexer {
 
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
+	log.Info("inside of polygon indexer")
+
 	encNum := make([]byte, 8)
 	binary.BigEndian.PutUint64(encNum, uint64(pb.Number))
 	txHash := crypto.Keccak256(append(append([]byte("matic-bor-receipt-"), encNum...), pb.Hash.Bytes()...))
@@ -92,11 +94,12 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*evm.Log)
 
-	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE number >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
+	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
 
 	for k, v := range pb.Values {
 		switch {
 		case borReceiptRegexp.MatchString(k):
+			log.Info("bor receipt located", "string", k, "blocknumber", pb.Number)
 			parts := borReceiptRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			receiptData[int(txIndex)] = v
@@ -119,7 +122,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 		for txIndex, logsBloom := range receiptData {
 			statements = append(statements, indexer.ApplyParameters(
-				"INSERT INTO bor_receipts(hash, transactionIndex, number) VALUES (%v, %v, %v)",
+				"INSERT INTO bor_receipts(hash, transactionIndex, logsBloom, number) VALUES (%v, %v, %v, %v)",
 				txHash,
 				txIndex,
 				compress(logsBloom),
