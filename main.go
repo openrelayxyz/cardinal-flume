@@ -176,7 +176,6 @@ func main() {
 		_, ok := v.(func(*rpcTransports.TransportManager) error)
 		return ok
 	})
-	log.Info("PluginAPIs", "len", len(pluginAPIs))
 
 	for _, api := range pluginAPIs {
 		fn := api.(func(*rpcTransports.TransportManager) error)

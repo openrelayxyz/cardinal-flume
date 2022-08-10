@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 
 	log "github.com/inconshreveable/log15"
@@ -24,10 +25,6 @@ func RegisterAPI(tm *rpcTransports.TransportManager) error {
 	return nil	
 }
 
-func (service *PolygonService) PolygonTest() string {
-	return "Goodbye Horses"
-}
-
 func bytesToHash(data []byte) types.Hash {
 	result := types.Hash{}
 	copy(result[32-len(data):], data[:])
@@ -38,19 +35,16 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 	var txHash  []byte
 	var txIndex  uint64
 
-	row, err := db.Query("SELECT hash, transactionIndex FROM bor.bor_receipts WHERE block = '%v';", blockVal["number"])
-	if err != nil {return nil, err}
-	
-	if err := row.Scan(&txHash, &txIndex); err != nil {return nil, err}
-	
+	if err := db.QueryRowContext(context.Background(), "SELECT hash, transactionIndex FROM bor.bor_receipts WHERE block = ?;", uint64(blockVal["number"].(hexutil.Uint64))).Scan(&txHash, &txIndex);
+	err != nil {
+		log.Info("sql response", "err", err)
+	}
 
 	if txHash != nil {
-
 		switch blockVal["transactions"].(type) {
-
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
-			txns = append(txns, bytesToHash(txHash))
+			blockVal["transactions"] = append(txns, bytesToHash(txHash))
 			return blockVal, nil
 
 		case []map[string]interface{}:
@@ -72,12 +66,10 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 				"v": "0x0",
 				"value": "0x0",
 			}
-			txns = append(txns, borTx)
+			blockVal["transactions"] = append(txns, borTx)
 			return blockVal, nil
-
 		}
 	}
-
 	return nil, nil
 }
 
@@ -85,11 +77,10 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 	var txHash  []byte
 	var txIndex  uint64
 
-	row, err := db.Query("SELECT transactionHash, transactionIndex FROM bor.bor_receipts WHERE blockHash = '%v';", blockVal["hash"])
-	if err != nil {return nil, err}
-	
-	if err := row.Scan(&txHash, &txIndex); err != nil {return nil, err}
-	
+	if err := db.QueryRowContext(context.Background(), "SELECT transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", blockVal["hash"]).Scan(&txHash, &txIndex)
+	err != nil {
+		log.Info("sql response", "err", err)
+	}
 
 	if txHash != nil {
 
@@ -97,7 +88,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
-			txns = append(txns, bytesToHash(txHash))
+			blockVal["transactions"] = append(txns, bytesToHash(txHash))
 			return blockVal, nil
 
 		case []map[string]interface{}:
@@ -119,7 +110,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 				"v": "0x0",
 				"value": "0x0",
 			}
-			txns = append(txns, borTx)
+			blockVal["transactions"] = append(txns, borTx)
 			return blockVal, nil
 
 		}

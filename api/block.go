@@ -39,7 +39,7 @@ func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (map[string]interface{}, error) {
 
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
-		_, ok := v.(func(map[string]interface{}, *sql.DB) map[string]interface{})
+		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		return ok
 	})
 
@@ -61,14 +61,21 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 	}
 
 	for _, fni := range pluginMethods {
-		fn := fni.(func(map[string]interface{}, *sql.DB) map[string]interface{})
-		blockVal = fn(blockVal, api.db)
+		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
+		if blockVal, err = fn(blockVal, api.db); err != nil {
+			return nil, err
+		}
 	}
 
 	return blockVal, nil
 }
 
 func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxs bool) (map[string]interface{}, error) {
+
+	pluginMethods := api.pl.Lookup("GetBlockByHash", func(v interface{}) bool {
+		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
+		return ok
+	})
 
 	blocks, err := getBlocks(ctx, api.db, includeTxs, api.network, "hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
@@ -78,6 +85,14 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 	if len(blocks) > 0 {
 		blockVal = blocks[0]
 	}
+
+	for _, fni := range pluginMethods {
+		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
+		if blockVal, err = fn(blockVal, api.db); err != nil {
+			return nil, err
+		}
+	}
+
 	return blockVal, nil
 }
 
