@@ -18,25 +18,23 @@ import (
 )
 
 type PolygonService struct {
+	db *sql.DB
 }
 
 func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon API plugin loaded")
 }
 
-func RegisterAPI(tm *rpcTransports.TransportManager) error {
-	tm.Register("eth", &PolygonService{})
+func RegisterAPI(tm *rpcTransports.TransportManager, db *sql.DB) error {
+	tm.Register("eth", &PolygonService{
+			db: db,
+	})
 	log.Info("PolygonService registered")
 	return nil	
 }
 
 func (service *PolygonService) GetTransactionReceiptsByBlock() string {
 	// GetTransactionReceiptsByBlock(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error)
-	return "Under construction"
-}
-
-func (service *PolygonService) GetBlockBorReceipt() string {
-	// GetBorBlockReceipt(ctx context.Context, hash common.Hash) (*types.Receipt, error)
 	return "Under construction"
 }
 
@@ -308,10 +306,134 @@ func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{
 
 		return txObj, nil
 	}
-
 	return nil, nil
-
 }
+
+func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash types.Hash) (map[string]interface{}, error) {
+	var bloomBytes, txHash []byte
+	var blockNumber, txIndex uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT DISTINCT block, transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", bkHash).Scan(&blockNumber, &txHash, &txIndex);
+	err != nil {
+		log.Info("sql response", "err", err)
+		return nil, nil
+	}
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT logsBloom FROM bor.bor_receipts WHERE block = ?;", blockNumber).Scan(&bloomBytes);
+	err != nil {
+		log.Info("sql response", "err", err)
+		return nil, nil
+	} 
+
+	logRows, err := service.db.QueryContext(context.Background(), "SELECT DISTINCT transactionHash, address, topic0, topic1, topic2, topic3, data, logIndex from bor.bor_logs WHERE block = ?;", blockNumber)
+	if err != nil {
+		log.Info("sql response error", "err", err)
+		return nil, err
+	} 
+
+		if bloomBytes != nil {
+
+			logsBloom, err := decompress(bloomBytes)
+		if err != nil {
+			log.Error("Error decompressing logsBloom", "err", err.Error())
+			return nil, err
+		}
+
+		txLogs := make(map[types.Hash]sortLogs)
+		for logRows.Next() {
+			var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
+			var logIndex uint
+			err := logRows.Scan(&txHashBytes, &address, &topic0, &topic1, &topic2, &topic3, &data, &logIndex)
+			if err != nil {
+				logRows.Close()
+				return nil, err
+			}
+			txHash := bytesToHash(txHashBytes)
+			if _, ok := txLogs[txHash]; !ok {
+				txLogs[txHash] = sortLogs{}
+			}
+			topics := []types.Hash{}
+			if len(topic0) > 0 {
+				topics = append(topics, bytesToHash(topic0))
+			}
+			if len(topic1) > 0 {
+				topics = append(topics, bytesToHash(topic1))
+			}
+			if len(topic2) > 0 {
+				topics = append(topics, bytesToHash(topic2))
+			}
+			if len(topic3) > 0 {
+				topics = append(topics, bytesToHash(topic3))
+			}
+			input, err := decompress(data)
+			if err != nil {
+				return nil, err
+			}
+			txLogs[txHash] = append(txLogs[txHash], &logType{
+				Address:     bytesToAddress(address),
+				Topics:      topics,
+				Data:        hexutil.Bytes(input),
+				BlockNumber: hexutil.EncodeUint64(blockNumber),
+				TxHash:      txHash,
+				Index:       hexutil.Uint(logIndex),
+			})
+		}
+		logRows.Close()
+		if err := logRows.Err(); err != nil {
+			return nil, err
+		}
+
+		borBlockObj := map[string]interface{}{
+			"root": "0x",
+			"status": "0x1",
+			"cumulativeGasUsed": "0x0",
+			"logsBloom": hexutil.Bytes(logsBloom),
+			"logs": txLogs,
+			"transactionHash": bytesToHash(txHash),
+  			"contractAddress": "0x0000000000000000000000000000000000000000",
+  			"gasUsed": "0x0",
+  			"blockHash": bkHash,
+  			"blockNumber": hexutil.Uint64(blockNumber),
+  			"transactionIndex": hexutil.Uint64(txIndex),
+		}
+		return borBlockObj, nil
+		}
+	return nil, nil
+}
+
+
+// {
+//     "root": "0x",
+//     "status": "0x1",
+//     "cumulativeGasUsed": "0x0",
+//     "logsBloom": "0x00000000400000000000000080002000020000000000000000000000040000000400000000000000000820140010000000008000000000800000090800200000000000000000000910008008000800800000000000000000000100000000000000000000020000000000000000000800010000000020000100000010018000000001000000000000040024800000000000010000440004000110000000000000020004000000000000000000000000000200000400000000000400000000004000000102400002000000800000000000004801000000800001508008000120000010008000400010000000000000000080000001000000080010000000100403",
+//     "logs": [
+
+
+// {
+// 	"address": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174",
+// 	"topics": [
+// 	  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+// 	  "0x00000000000000000000000076b22b8c1079a44f1211d867d68b1eda76a635a7",
+// 	  "0x0000000000000000000000006a11bb3014df9d228037f62510940633215ca1b5"
+// 	],
+// 	"data": "0x000000000000000000000000000000000000000000000000000000003b97dbbb",
+// 	"blockNumber": "0x19d8340",
+// 	"transactionHash": "0xdc98c1082ea71326c6b895b4839a3559518483747aea199c0288bf3f4421aade",
+// 	"transactionIndex": "0xd1",
+// 	"blockHash": "0x031871dde8d9b8fab7386ad0cf20629a01c8187bdf68deec30b0ae3013ba3bf1",
+// 	"logIndex": "0x317",
+// 	"removed": false
+//   }
+
+//   ],
+//   "transactionHash": "0xdc98c1082ea71326c6b895b4839a3559518483747aea199c0288bf3f4421aade",
+//   "contractAddress": "0x0000000000000000000000000000000000000000",
+//   "gasUsed": "0x0",
+//   "blockHash": "0x031871dde8d9b8fab7386ad0cf20629a01c8187bdf68deec30b0ae3013ba3bf1",
+//   "blockNumber": "0x19d8340",
+//   "transactionIndex": "0xd1"
+// }
 
 
 

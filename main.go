@@ -173,13 +173,13 @@ func main() {
 	tm.AddHTTPServer(cfg.Port)
 
 	pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
-		_, ok := v.(func(*rpcTransports.TransportManager) error)
+		_, ok := v.(func(*rpcTransports.TransportManager, *sql.DB) error)
 		return ok
 	})
 
 	for _, api := range pluginAPIs {
-		fn := api.(func(*rpcTransports.TransportManager) error)
-		if err := fn(tm); err != nil {
+		fn := api.(func(*rpcTransports.TransportManager, *sql.DB) error)
+		if err := fn(tm, logsdb); err != nil {
 			log.Error("Unable to load api plugins", "fn", fn)
 		}
 	}
