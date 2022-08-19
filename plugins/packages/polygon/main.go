@@ -297,7 +297,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		}
 	}
 	if schemaVersion < 2 {
-		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee from blocks.blocks where coinbase = X'00';")
+		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee FROM blocks.blocks WHERE coinbase = X'00';")
 		defer rows.Close()
 
 		for rows.Next() {
@@ -339,7 +339,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			}
 			var miner common.Address
 			if len(hdr.Extra) == 0 {
-				miner = common.HexToAddress("0x0000000000000000000000000000000000000000")
+				miner = common.Address{}
 			} else {
 				miner, _ = getBlockAuthor(hdr)
 			}
