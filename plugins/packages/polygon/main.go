@@ -1,11 +1,18 @@
 package main
 
 import (
+	"context"
 	"bytes"
 	"database/sql"
 	"encoding/binary"
 	"regexp"
 	"strconv"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"math/big"
+
+	"golang.org/x/crypto/sha3"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -46,6 +53,21 @@ func getTopicIndex(topics []types.Hash, idx int) []byte {
 	return []byte{}
 }
 
+func decompress(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+	r, err := zlib.NewReader(bytes.NewBuffer(data))
+	if err != nil {
+		return []byte{}, err
+	}
+	raw, err := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return raw, nil
+	}
+	return raw, err
+}
+
 func trimPrefix(data []byte) []byte {
 	if len(data) == 0 {
 		return data
@@ -57,8 +79,21 @@ func trimPrefix(data []byte) []byte {
 	return v
 }
 
+func bytesToAddress(data []byte) common.Address {
+	result := common.Address{}
+	copy(result[20-len(data):], data[:])
+	return result
+}
+
+func bytesToHash(data []byte) types.Hash {
+	result := types.Hash{}
+	copy(result[32-len(data):], data[:])
+	return result
+}
+
 var compressor *zlib.Writer
 var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
+var extraSeal = 65
 
 func compress(data []byte) []byte {
 	if len(data) == 0 {
@@ -79,13 +114,66 @@ func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon migrate and indexing plugin loaded")
 }
 
+
+func sealHash(header *evm.Header) (hash types.Hash) {
+	hasher := sha3.NewLegacyKeccak256()
+	encodeSigHeader(hasher, header)
+	hasher.Sum(hash[:0])
+
+	return hash
+}
+
+func encodeSigHeader(w io.Writer, header *evm.Header) {
+	enc := []interface{}{
+		header.ParentHash,
+		header.UncleHash,
+		header.Coinbase,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Difficulty,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
+		header.MixDigest,
+		header.Nonce,
+	}
+
+	// if c.IsJaipur(header.Number.Uint64()) {
+	if header.BaseFee != nil {
+		enc = append(enc, header.BaseFee)
+	}
+	// }
+
+	if err := rlp.Encode(w, enc); err != nil {
+		panic("can't encode: " + err.Error())
+	}
+}
+
+func getBlockAuthor(header *evm.Header) (common.Address, error) {
+
+	signature := header.Extra[len(header.Extra)-65:]
+
+	pubkey, err := crypto.Ecrecover(sealHash(header).Bytes(), signature)
+	if err != nil {
+		log.Info("pubkey error", "err", err.Error())
+	}
+
+	var signer common.Address
+
+	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
+
+	return signer, nil
+}
+
 func Indexer(cfg *config.Config) indexer.Indexer {
 	return &PolygonIndexer{Chainid: cfg.Chainid}
 }
 
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-
-	log.Info("inside of polygon indexer")
 
 	encNum := make([]byte, 8)
 	binary.BigEndian.PutUint64(encNum, uint64(pb.Number))
@@ -96,10 +184,23 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
 
+	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", pg.Chainid, pb.Hash.Bytes())]
+	header := &evm.Header{}
+	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
+		panic(err.Error())
+	}
+
+	author, err := getBlockAuthor(header)
+	if err != nil {
+		log.Info("getBlockAuthor error", "err", err.Error())
+	}
+
+	stmt := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", author, pb.Number)
+	statements = append(statements, stmt)
+
 	for k, v := range pb.Values {
 		switch {
 		case borReceiptRegexp.MatchString(k):
-			log.Info("bor receipt located", "string", k, "blocknumber", pb.Number)
 			parts := borReceiptRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			receiptData[int(txIndex)] = v
@@ -118,9 +219,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			logData[int64(logIndex)] = logRecord
 			}
 		}
-		if len(logData) == 0 {
-			return []string{}, nil
-		}
+	
 		for txIndex, logsBloom := range receiptData {
 			statements = append(statements, indexer.ApplyParameters(
 				"INSERT INTO bor_receipts(hash, transactionIndex, logsBloom, block) VALUES (%v, %v, %v, %v)",
@@ -146,9 +245,9 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 				logIndex,
 			))
 		}
-
 	return statements, nil
 }
+
 
 func Migrate(db *sql.DB, chainid uint64) error {
 	var tableName string
@@ -196,7 +295,80 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		if _, err := db.Exec(`CREATE INDEX bor.logsBkHash ON bor_logs(blockHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 		}
+	}
+	if schemaVersion < 2 {
+		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee FROM blocks.blocks WHERE coinbase = X'00';")
+		defer rows.Close()
+
+		for rows.Next() {
+			var bloomBytes, parentHash, uncleHash, root, txRoot, receiptRoot, extra, mixDigest, baseFee []byte
+			var number, gasLimit, gasUsed, time, difficulty uint64
+			var nonce int64
+			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
+			if err != nil {log.Info("sacn error", "err", err.Error())}
+			
+			if number%1000000 == 0 {
+				log.Info("blocks migration in progress", "blockNumber", number)
+			}
+
+			logsBloom, _ := decompress(bloomBytes)
+			if err != nil {
+				log.Info("Error decompressing data", "err", err.Error())
+			}
+			
+			var lb [256]byte
+			copy(lb[:], logsBloom)
+			var bn [8]byte
+			binary.BigEndian.PutUint64(bn[:], uint64(nonce))
+			dif := new(big.Int).SetUint64(difficulty)
+			num := new(big.Int).SetUint64(number)
+			hdr := &evm.Header{
+				ParentHash: bytesToHash(parentHash),
+				UncleHash: bytesToHash(uncleHash),
+				Root: bytesToHash(root),
+				TxHash: bytesToHash(txRoot),
+				ReceiptHash: bytesToHash(receiptRoot),
+				Bloom: lb,
+				Difficulty: dif,
+				Number: num,
+				GasLimit: gasLimit,
+				GasUsed: gasUsed,
+				Time: time,
+				Extra: extra,
+				MixDigest: bytesToHash(mixDigest),
+				Nonce: bn,
+			}
+			if len(baseFee) > 0 {
+				hdr.BaseFee = new(big.Int).SetBytes(baseFee)
+			}
+			var miner common.Address
+			if len(hdr.Extra) == 0 {
+				miner = common.Address{}
+			} else {
+				miner, _ = getBlockAuthor(hdr)
+			}
+			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
+				dbtx, err := db.BeginTx(context.Background(), nil)
+				if err != nil {
+					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
+				}
+				if _, err := dbtx.Exec(statement); err != nil {
+					dbtx.Rollback()
+					log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
+					continue
+				}
+				if err := dbtx.Commit(); err != nil {
+					log.Warn("Failed to insert statement polygon plugin", "err", err.Error())
+					continue
+					}
+		}
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
+			log.Warn("polygon migrations v2 error", "err", err.Error())
+		}
 		log.Info("bor migrations done")
+	} 
+	if schemaVersion >= 2 {
+		log.Info("bor migrations up to date")
 	}
 	return nil
 }

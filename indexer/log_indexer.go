@@ -25,8 +25,8 @@ func getTopicIndex(topics []types.Hash, idx int) []byte {
 	return []byte{}
 }
 
-func NewLogIndexer() Indexer {
-	return &LogIndexer{}
+func NewLogIndexer(chainid uint64) Indexer {
+	return &LogIndexer{chainid: chainid}
 }
 
 func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
