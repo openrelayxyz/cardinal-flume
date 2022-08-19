@@ -29,7 +29,6 @@ import (
 
 type PolygonIndexer struct {
 	Chainid uint64
-	Name string
 }
 
 type cardinalBorReceiptMeta struct {
@@ -171,12 +170,8 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 }
 
 func Indexer(cfg *config.Config) indexer.Indexer {
-	return &PolygonIndexer{
-		Chainid: cfg.Chainid,
-		Name: "polygon",
-	}
+	return &PolygonIndexer{Chainid: cfg.Chainid}
 }
-
 
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
@@ -206,7 +201,6 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	for k, v := range pb.Values {
 		switch {
 		case borReceiptRegexp.MatchString(k):
-			log.Info("bor receipt located", "string", k, "blocknumber", pb.Number)
 			parts := borReceiptRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			receiptData[int(txIndex)] = v
@@ -253,6 +247,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 	return statements, nil
 }
+
 
 func Migrate(db *sql.DB, chainid uint64) error {
 	var tableName string
