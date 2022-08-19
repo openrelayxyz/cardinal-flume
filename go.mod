@@ -8,7 +8,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/openrelayxyz/cardinal-evm v1.1.3
 	github.com/openrelayxyz/cardinal-rpc v1.0.0
-	github.com/openrelayxyz/cardinal-streams v1.0.1
+	github.com/openrelayxyz/cardinal-streams v1.1.0-init-memory-leak-0
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	gopkg.in/yaml.v2 v2.4.0
