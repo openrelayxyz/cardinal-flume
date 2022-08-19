@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"bytes"
+	"sort"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -213,6 +214,21 @@ type logType struct {
 
 type sortLogs []*logType
 
+func (ms sortLogs) Len() int {
+	return len(ms)
+}
+
+func (ms sortLogs) Less(i, j int) bool {
+	if ms[i].BlockNumber != ms[j].BlockNumber {
+		return ms[i].BlockNumber < ms[j].BlockNumber
+	}
+	return ms[i].Index < ms[j].Index
+}
+
+func (ms sortLogs) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
+}
+
 func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {
 	var blockHash, bloomBytes []byte
 	var blockNumber, txIndex uint64
@@ -286,8 +302,10 @@ func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{
 		}
 		logRows.Close()
 		if err := logRows.Err(); err != nil {
-			return nil, err
-			}
+			log.Warn("Rows close() error", "err", err.Error())
+		}
+
+		sort.Sort(txLogs)
 
 		txObj := map[string]interface{}{
 			"blockHash": bytesToHash(blockHash),
@@ -381,7 +399,7 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
 		}
 		logRows.Close()
 		if err := logRows.Err(); err != nil {
-			return nil, err
+			log.Warn("Rows close() error", "err", err.Error())
 		}
 
 		log.Info("object inspect", "bkHash", bkHash, "txIndex", txIndex)
