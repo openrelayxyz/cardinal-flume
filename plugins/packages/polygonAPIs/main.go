@@ -243,7 +243,7 @@ func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{
 			return nil, err
 		}
 
-		txLogs := make(map[types.Hash]sortLogs)
+		txLogs := sortLogs{}
 		for logRows.Next() {
 			var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 			var logIndex uint
@@ -253,9 +253,9 @@ func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{
 				return nil, err
 			}
 			txHash := bytesToHash(txHashBytes)
-			if _, ok := txLogs[txHash]; !ok {
-				txLogs[txHash] = sortLogs{}
-			}
+			// if _, ok := txLogs[txHash]; !ok {
+			// 	txLogs[txHash] = sortLogs{}
+			// }
 			topics := []types.Hash{}
 			if len(topic0) > 0 {
 				topics = append(topics, bytesToHash(topic0))
@@ -273,11 +273,13 @@ func GetTransactionReceipt(txHash types.Hash, db *sql.DB) (map[string]interface{
 			if err != nil {
 				return nil, err
 			}
-			txLogs[txHash] = append(txLogs[txHash], &logType{
+			txLogs = append(txLogs, &logType{
 				Address:     bytesToAddress(address),
 				Topics:      topics,
 				Data:        hexutil.Bytes(input),
 				BlockNumber: hexutil.EncodeUint64(blockNumber),
+				BlockHash: 	 bytesToHash(blockHash),
+				TxIndex: hexutil.Uint(txIndex), 
 				TxHash:      txHash,
 				Index:       hexutil.Uint(logIndex),
 			})
@@ -339,7 +341,7 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
 			return nil, err
 		}
 
-		txLogs := make(map[types.Hash]sortLogs)
+		txLogs := sortLogs{}
 		for logRows.Next() {
 			var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 			var logIndex uint
@@ -349,9 +351,6 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
 				return nil, err
 			}
 			txHash := bytesToHash(txHashBytes)
-			if _, ok := txLogs[txHash]; !ok {
-				txLogs[txHash] = sortLogs{}
-			}
 			topics := []types.Hash{}
 			if len(topic0) > 0 {
 				topics = append(topics, bytesToHash(topic0))
@@ -369,11 +368,13 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
 			if err != nil {
 				return nil, err
 			}
-			txLogs[txHash] = append(txLogs[txHash], &logType{
+			txLogs = append(txLogs, &logType{
 				Address:     bytesToAddress(address),
 				Topics:      topics,
 				Data:        hexutil.Bytes(input),
 				BlockNumber: hexutil.EncodeUint64(blockNumber),
+				TxIndex: hexutil.Uint(txIndex),
+				BlockHash: bkHash,
 				TxHash:      txHash,
 				Index:       hexutil.Uint(logIndex),
 			})
@@ -382,6 +383,8 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
 		if err := logRows.Err(); err != nil {
 			return nil, err
 		}
+
+		log.Info("object inspect", "bkHash", bkHash, "txIndex", txIndex)
 
 		borBlockObj := map[string]interface{}{
 			"root": "0x",
@@ -394,7 +397,7 @@ func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash ty
   			"gasUsed": "0x0",
   			"blockHash": bkHash,
   			"blockNumber": hexutil.Uint64(blockNumber),
-  			"transactionIndex": hexutil.Uint64(txIndex),
+  			"transactionIndex": hexutil.Uint(txIndex),
 		}
 		return borBlockObj, nil
 		}
