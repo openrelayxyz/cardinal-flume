@@ -307,6 +307,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
 			if err != nil {log.Info("sacn error", "err", err.Error())}
 			
+			if number%1000000 == 0 {
+				log.Info("blocks migration in progress", "blockNumber", number)
+			}
+
 			logsBloom, _ := decompress(bloomBytes)
 			if err != nil {
 				log.Info("Error decompressing data", "err", err.Error())
