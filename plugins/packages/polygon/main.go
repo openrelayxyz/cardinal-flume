@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"time"
 	"math/big"
 
 	"golang.org/x/crypto/sha3"
@@ -168,8 +167,6 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
 
-	// log.Info("got signer", "signer", signer, "number", header.Number)
-
 	return signer, nil
 }
 
@@ -180,13 +177,8 @@ func Indexer(cfg *config.Config) indexer.Indexer {
 	}
 }
 
-func (pg *PolygonIndexer) TestFunc(pb *delivery.PendingBatch) (uint64, error) {
-	return uint64(pb.Number), nil
-}
 
 func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-
-	log.Info("inside of polygon indexer")
 
 	encNum := make([]byte, 8)
 	binary.BigEndian.PutUint64(encNum, uint64(pb.Number))
@@ -209,11 +201,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	}
 
 	stmt := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", author, pb.Number)
-	log.Info("apply params statement", "statement", stmt)
-
 	statements = append(statements, stmt)
-
-	log.Info("before the range loop", "len", len(statements))
 
 	for k, v := range pb.Values {
 		switch {
@@ -238,9 +226,6 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			}
 		}
 	
-		if len(logData) == 0 {
-			return []string{}, nil
-		}
 		for txIndex, logsBloom := range receiptData {
 			statements = append(statements, indexer.ApplyParameters(
 				"INSERT INTO bor_receipts(hash, transactionIndex, logsBloom, block) VALUES (%v, %v, %v, %v)",
@@ -266,7 +251,6 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 				logIndex,
 			))
 		}
-	log.Info("before return", "len", len(statements))
 	return statements, nil
 }
 
@@ -316,10 +300,8 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		if _, err := db.Exec(`CREATE INDEX bor.logsBkHash ON bor_logs(blockHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 		}
-		// log.Info("bor migrations done")
 	}
 	if schemaVersion < 2 {
-		log.Info("Inside bor migration v2", "time", time.Now())
 		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee from blocks.blocks where coinbase = X'00';")
 		defer rows.Close()
 
@@ -366,11 +348,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			} else {
 				miner, _ = getBlockAuthor(hdr)
 			}
-			// log.Info("miner and number", "miner", miner, "number", hdr.Number, "header", hdr)
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
 				dbtx, err := db.BeginTx(context.Background(), nil)
 				if err != nil {
-					log.Info("Error creating a transaction polygon plugin", "err", err.Error())
+					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
 				}
 				if _, err := dbtx.Exec(statement); err != nil {
 					dbtx.Rollback()
@@ -378,14 +359,17 @@ func Migrate(db *sql.DB, chainid uint64) error {
 					continue
 				}
 				if err := dbtx.Commit(); err != nil {
-					log.Info("Failed to insert statement polygon plugin", "err", err.Error())
+					log.Warn("Failed to insert statement polygon plugin", "err", err.Error())
 					continue
 					}
 		}
 		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
-			log.Info("polygon migrations v2 error")
+			log.Warn("polygon migrations v2 error", "err", err.Error())
 		}
+		log.Info("bor migrations done")
+	} 
+	if schemaVersion >= 2 {
+		log.Info("bor migrations up to date")
 	}
-	log.Info("bor migrations done")
 	return nil
 }
