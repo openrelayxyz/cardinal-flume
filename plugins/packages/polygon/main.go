@@ -297,6 +297,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		}
 	}
 	if schemaVersion < 2 {
+		dbtx, err := db.BeginTx(context.Background(), nil)
+		if err != nil {
+			log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
+		}
 		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee FROM blocks.blocks WHERE coinbase = X'00';")
 		defer rows.Close()
 
@@ -347,24 +351,30 @@ func Migrate(db *sql.DB, chainid uint64) error {
 
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
 			
+			// mut := &sync.RWMutex{}
+			// mut.Lock()
+
 			
+			if _, err := dbtx.Exec(statement); err != nil {
+				dbtx.Rollback()
+				log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
+				continue
+			}
+
 			
 			if number%500 == 0 {
-				dbtx, err := db.BeginTx(context.Background(), nil)
-				if err != nil {
-					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
-				}
-				if _, err := dbtx.Exec(statement); err != nil {
-					dbtx.Rollback()
-					log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
-					continue
-				}
 				if err := dbtx.Commit(); err != nil {
 					log.Warn("Failed to insert statement polygon plugin", "blockNumber", number, "err", err.Error())
 					continue
 				}
 				log.Info("blocks migration in progress", "blockNumber", number)
+				dbtx, err = db.BeginTx(context.Background(), nil)
+				if err != nil {
+					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
+				}
+				// mut.Unlock()
 			}
+
 
 		}
 		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
