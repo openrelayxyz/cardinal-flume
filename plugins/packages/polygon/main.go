@@ -350,9 +350,6 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			}
 
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
-			
-			// mut := &sync.RWMutex{}
-			// mut.Lock()
 
 			
 			if _, err := dbtx.Exec(statement); err != nil {
@@ -372,7 +369,6 @@ func Migrate(db *sql.DB, chainid uint64) error {
 				if err != nil {
 					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
 				}
-				// mut.Unlock()
 			}
 
 
