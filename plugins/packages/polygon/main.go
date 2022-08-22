@@ -297,6 +297,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		}
 	}
 	if schemaVersion < 2 {
+		dbtx, err := db.BeginTx(context.Background(), nil)
+		if err != nil {
+			log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
+		}
 		rows, _ := db.QueryContext(context.Background(), "SELECT parentHash, uncleHash, root, txRoot, receiptRoot, bloom, difficulty, number, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, baseFee FROM blocks.blocks WHERE coinbase = X'00';")
 		defer rows.Close()
 
@@ -306,10 +310,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			var nonce int64
 			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
 			if err != nil {log.Info("sacn error", "err", err.Error())}
-			
-			if number%1000000 == 0 {
-				log.Info("blocks migration in progress", "blockNumber", number)
-			}
+
 
 			logsBloom, _ := decompress(bloomBytes)
 			if err != nil {
@@ -347,20 +348,30 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			} else {
 				miner, _ = getBlockAuthor(hdr)
 			}
+
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
-				dbtx, err := db.BeginTx(context.Background(), nil)
+
+			
+			if _, err := dbtx.Exec(statement); err != nil {
+				dbtx.Rollback()
+				log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
+				continue
+			}
+
+			
+			if number%500 == 0 {
+				if err := dbtx.Commit(); err != nil {
+					log.Warn("Failed to insert statement polygon plugin", "blockNumber", number, "err", err.Error())
+					continue
+				}
+				log.Info("blocks migration in progress", "blockNumber", number)
+				dbtx, err = db.BeginTx(context.Background(), nil)
 				if err != nil {
 					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
 				}
-				if _, err := dbtx.Exec(statement); err != nil {
-					dbtx.Rollback()
-					log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
-					continue
-				}
-				if err := dbtx.Commit(); err != nil {
-					log.Warn("Failed to insert statement polygon plugin", "err", err.Error())
-					continue
-					}
+			}
+
+
 		}
 		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
 			log.Warn("polygon migrations v2 error", "err", err.Error())
