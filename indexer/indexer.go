@@ -147,6 +147,7 @@ func ApplyParameters(query string, params ...interface{}) string {
 }
 
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
+	
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -158,6 +159,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 		log.Info("Starting consumer")
 		csConsumer.Start()
 		log.Info("Consumer started")
+	}
+	for _, idx := range indexers {
+		log.Debug("got indexer", "indexer", idx)
 	}
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
@@ -187,6 +191,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				for _, pb := range chainUpdate.Added() {
 					for _, indexer := range indexers {
 						s, err := indexer.Index(pb)
+						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
 						if err != nil {
 							log.Error("Error computing updates", "err", err.Error())
 							continue

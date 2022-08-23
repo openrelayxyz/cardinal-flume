@@ -151,7 +151,7 @@ func main() {
 		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
 	}
 	if hasLogs {
-		indexes = append(indexes, indexer.NewLogIndexer())
+		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
 	}
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {

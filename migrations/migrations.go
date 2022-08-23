@@ -62,6 +62,8 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		db.Exec(`UPDATE blocks.migrations SET version = 1;`)
 		log.Info("blocks migration done")
 
+	} else {
+		log.Info("blocks migration up to date")
 	}
 	return nil
 }
@@ -119,6 +121,8 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		db.Exec(`UPDATE transactions.migrations SET version = 1;`)
 		log.Info("transaction migrations done")
 
+	} else {
+		log.Info("transactions migrations up to date")
 	}
 	return nil
 }
@@ -166,7 +170,8 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 
 		db.Exec(`UPDATE logs.migrations SET version = 1;`)
 		log.Info("logs migrations done")
-
+	} else {
+		log.Info("logs migrations up to date")
 	}
 	return nil
 }
@@ -213,6 +218,5 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 		db.Exec(`UPDATE mempool.migrations SET version = 1;`)
 		log.Info("mempool migrations done")
 	}
-	// chainid
 	return nil
 }
