@@ -91,7 +91,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
 	pluginMethods := api.pl.Lookup("GetTransactionReceipt", func(v interface{}) bool {
-		_, ok := v.(func(types.Hash, *sql.DB) (map[string]interface{}, error))
+		_, ok := v.(func(*sql.DB, types.Hash) (map[string]interface{}, error))
 		return ok
 	})
 
@@ -102,12 +102,12 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	}
 	result := returnSingleReceipt(receipts)
 
-	for _, fni := range pluginMethods {
-		fn := fni.(func(types.Hash, *sql.DB) (map[string]interface{}, error))
-		if result, err = fn(txHash, api.db); err != nil {
-			return nil, err
+		for _, fni := range pluginMethods {
+			fn := fni.(func(*sql.DB, types.Hash) (map[string]interface{}, error))
+			if result, err = fn(api.db, txHash); err != nil {
+				return nil, err
+			}
 		}
-	}
 
 	return result, nil
 }

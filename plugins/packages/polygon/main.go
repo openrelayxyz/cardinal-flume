@@ -2,30 +2,36 @@ package main
 
 import (
 	"context"
-	"bytes"
+	// "bytes"
 	"database/sql"
 	"encoding/binary"
 	"regexp"
 	"strconv"
 	"fmt"
-	"io"
-	"io/ioutil"
+	// "io"
+	// "io/ioutil"
 	"math/big"
 
-	"golang.org/x/crypto/sha3"
+	// "golang.org/x/crypto/sha3"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/klauspost/compress/zlib"
+	// "github.com/klauspost/compress/zlib"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/plugins"
+	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 )
+
+func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
+	log.Info("Polygon migrate and indexing plugin loaded")
+}
 
 type PolygonIndexer struct {
 	Chainid uint64
@@ -45,129 +51,6 @@ var (
 	borReceiptRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/br/([0-9a-z]+)")
 	borLogRegexp     *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
 )
-
-func getTopicIndex(topics []types.Hash, idx int) []byte {
-	if len(topics) > idx {
-		return trimPrefix(topics[idx].Bytes())
-	}
-	return []byte{}
-}
-
-func decompress(data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return data, nil
-	}
-	r, err := zlib.NewReader(bytes.NewBuffer(data))
-	if err != nil {
-		return []byte{}, err
-	}
-	raw, err := ioutil.ReadAll(r)
-	if err == io.EOF || err == io.ErrUnexpectedEOF {
-		return raw, nil
-	}
-	return raw, err
-}
-
-func trimPrefix(data []byte) []byte {
-	if len(data) == 0 {
-		return data
-	}
-	v := bytes.TrimLeft(data, string([]byte{0}))
-	if len(v) == 0 {
-		return []byte{0}
-	}
-	return v
-}
-
-func bytesToAddress(data []byte) common.Address {
-	result := common.Address{}
-	copy(result[20-len(data):], data[:])
-	return result
-}
-
-func bytesToHash(data []byte) types.Hash {
-	result := types.Hash{}
-	copy(result[32-len(data):], data[:])
-	return result
-}
-
-var compressor *zlib.Writer
-var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
-var extraSeal = 65
-
-func compress(data []byte) []byte {
-	if len(data) == 0 {
-		return data
-	}
-	compressionBuffer.Reset()
-	if compressor == nil {
-		compressor = zlib.NewWriter(compressionBuffer)
-	} else {
-		compressor.Reset(compressionBuffer)
-	}
-	compressor.Write(data)
-	compressor.Close()
-	return compressionBuffer.Bytes()
-}
-
-func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
-	log.Info("Polygon migrate and indexing plugin loaded")
-}
-
-
-func sealHash(header *evm.Header) (hash types.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
-	encodeSigHeader(hasher, header)
-	hasher.Sum(hash[:0])
-
-	return hash
-}
-
-func encodeSigHeader(w io.Writer, header *evm.Header) {
-	enc := []interface{}{
-		header.ParentHash,
-		header.UncleHash,
-		header.Coinbase,
-		header.Root,
-		header.TxHash,
-		header.ReceiptHash,
-		header.Bloom,
-		header.Difficulty,
-		header.Number,
-		header.GasLimit,
-		header.GasUsed,
-		header.Time,
-		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
-		header.MixDigest,
-		header.Nonce,
-	}
-
-	// if c.IsJaipur(header.Number.Uint64()) {
-	if header.BaseFee != nil {
-		enc = append(enc, header.BaseFee)
-	}
-	// }
-
-	if err := rlp.Encode(w, enc); err != nil {
-		panic("can't encode: " + err.Error())
-	}
-}
-
-func getBlockAuthor(header *evm.Header) (common.Address, error) {
-
-	signature := header.Extra[len(header.Extra)-65:]
-
-	pubkey, err := crypto.Ecrecover(sealHash(header).Bytes(), signature)
-	if err != nil {
-		log.Info("pubkey error", "err", err.Error())
-	}
-
-	var signer common.Address
-
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
-
-	return signer, nil
-}
 
 func Indexer(cfg *config.Config) indexer.Indexer {
 	return &PolygonIndexer{Chainid: cfg.Chainid}
@@ -190,7 +73,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		panic(err.Error())
 	}
 
-	author, err := getBlockAuthor(header)
+	author, err := plugins.GetBlockAuthor(header)
 	if err != nil {
 		log.Info("getBlockAuthor error", "err", err.Error())
 	}
@@ -225,7 +108,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 				"INSERT INTO bor_receipts(hash, transactionIndex, logsBloom, block) VALUES (%v, %v, %v, %v)",
 				txHash,
 				txIndex,
-				compress(logsBloom),
+				plugins.Compress(logsBloom),
 				pb.Number,
 			))
 		}
@@ -233,11 +116,11 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			statements = append(statements, indexer.ApplyParameters(
 				"INSERT INTO bor_logs(address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash, block, logIndex) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 				logRecord.Address,
-				getTopicIndex(logRecord.Topics, 0),
-				getTopicIndex(logRecord.Topics, 1),
-				getTopicIndex(logRecord.Topics, 2),
-				getTopicIndex(logRecord.Topics, 3),
-				compress(logRecord.Data),
+				plugins.GetTopicIndex(logRecord.Topics, 0),
+				plugins.GetTopicIndex(logRecord.Topics, 1),
+				plugins.GetTopicIndex(logRecord.Topics, 2),
+				plugins.GetTopicIndex(logRecord.Topics, 3),
+				plugins.Compress(logRecord.Data),
 				txHash,
 				logRecord.TxIndex,
 				pb.Hash,
@@ -312,7 +195,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			if err != nil {log.Info("sacn error", "err", err.Error())}
 
 
-			logsBloom, _ := decompress(bloomBytes)
+			logsBloom, _ := plugins.Decompress(bloomBytes)
 			if err != nil {
 				log.Info("Error decompressing data", "err", err.Error())
 			}
@@ -324,11 +207,11 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			dif := new(big.Int).SetUint64(difficulty)
 			num := new(big.Int).SetUint64(number)
 			hdr := &evm.Header{
-				ParentHash: bytesToHash(parentHash),
-				UncleHash: bytesToHash(uncleHash),
-				Root: bytesToHash(root),
-				TxHash: bytesToHash(txRoot),
-				ReceiptHash: bytesToHash(receiptRoot),
+				ParentHash: plugins.BytesToHash(parentHash),
+				UncleHash: plugins.BytesToHash(uncleHash),
+				Root: plugins.BytesToHash(root),
+				TxHash: plugins.BytesToHash(txRoot),
+				ReceiptHash: plugins.BytesToHash(receiptRoot),
 				Bloom: lb,
 				Difficulty: dif,
 				Number: num,
@@ -336,7 +219,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 				GasUsed: gasUsed,
 				Time: time,
 				Extra: extra,
-				MixDigest: bytesToHash(mixDigest),
+				MixDigest: plugins.BytesToHash(mixDigest),
 				Nonce: bn,
 			}
 			if len(baseFee) > 0 {
@@ -346,7 +229,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			if len(hdr.Extra) == 0 {
 				miner = common.Address{}
 			} else {
-				miner, _ = getBlockAuthor(hdr)
+				miner, _ = plugins.GetBlockAuthor(hdr)
 			}
 
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 
@@ -382,4 +265,295 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		log.Info("bor migrations up to date")
 	}
 	return nil
+}
+
+type PolygonService struct {
+	db *sql.DB
+	cfg *config.Config
+}
+
+func RegisterAPI(tm *rpcTransports.TransportManager, db *sql.DB, cfg *config.Config) error {
+	tm.Register("eth", &PolygonService{
+			db: db,
+			cfg: cfg,
+	})
+	log.Info("PolygonService registered")
+	return nil	
+}
+
+func (service *PolygonService) ChainId(ctx context.Context) hexutil.Uint64 {
+	return hexutil.Uint64(service.cfg.Chainid)
+}
+
+func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
+	var txHash  []byte
+	var txIndex  uint64
+
+	if err := db.QueryRowContext(context.Background(), "SELECT hash, transactionIndex FROM bor.bor_receipts WHERE block = ?;", uint64(blockVal["number"].(hexutil.Uint64))).Scan(&txHash, &txIndex);
+	err != nil {
+		log.Info("sql response", "err", err)
+	}
+
+	if txHash != nil {
+		switch blockVal["transactions"].(type) {
+		case []types.Hash:
+			txns := blockVal["transactions"].([]types.Hash)
+			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
+			return blockVal, nil
+
+		case []map[string]interface{}:
+			txns := blockVal["transactions"].([]map[string]interface{})
+			borTx := map[string]interface{}{
+				"blockHash": blockVal["hash"],
+				"blockNumber": blockVal["number"],
+				"from": "0x0000000000000000000000000000000000000000",
+				"gas": "0x0",
+				"gasPrice": "0x0",
+				"hash": plugins.BytesToHash(txHash),
+				"input": "0x",
+				"nonce": "0x0",
+				"r": "0x0",
+				"s": "0x0",
+				"to": "0x0000000000000000000000000000000000000000",
+				"transactionIndex": hexutil.Uint64(txIndex),
+				"type": "0x0",
+				"v": "0x0",
+				"value": "0x0",
+			}
+			blockVal["transactions"] = append(txns, borTx)
+			return blockVal, nil
+		}
+	}
+	return nil, nil
+}
+
+func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
+	var txHash  []byte
+	var txIndex  uint64
+
+	if err := db.QueryRowContext(context.Background(), "SELECT transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", blockVal["hash"]).Scan(&txHash, &txIndex)
+	err != nil {
+		log.Info("sql response", "err", err)
+	}
+
+	if txHash != nil {
+
+		switch blockVal["transactions"].(type) {
+
+		case []types.Hash:
+			txns := blockVal["transactions"].([]types.Hash)
+			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
+			return blockVal, nil
+
+		case []map[string]interface{}:
+			txns := blockVal["transactions"].([]map[string]interface{})
+			borTx := map[string]interface{}{
+				"blockHash": blockVal["hash"],
+				"blockNumber": blockVal["number"],
+				"from": "0x0000000000000000000000000000000000000000",
+				"gas": "0x0",
+				"gasPrice": "0x0",
+				"hash": plugins.BytesToHash(txHash),
+				"input": "0x",
+				"nonce": "0x0",
+				"r": "0x0",
+				"s": "0x0",
+				"to": "0x0000000000000000000000000000000000000000",
+				"transactionIndex": hexutil.Uint64(txIndex),
+				"type": "0x0",
+				"v": "0x0",
+				"value": "0x0",
+			}
+			blockVal["transactions"] = append(txns, borTx)
+			return blockVal, nil
+
+		}
+	}
+
+	return nil, nil
+}
+
+func GetTransactionByHash(txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {  // method is very slow to respond 10+ secs
+	var blockHash []byte
+	var blockNumber, txIndex  uint64
+
+	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+	err != nil {
+		log.Info("sql response", "err", err)
+		return nil, nil
+	} 
+
+	if blockHash != nil {
+
+		borTxObj :=  map[string]interface{}{
+				"blockHash": plugins.BytesToHash(blockHash),
+				"blockNumber": hexutil.Uint64(blockNumber),
+				"from": "0x0000000000000000000000000000000000000000",
+				"gas": "0x0",
+				"gasPrice": "0x0",
+				"hash": txHash,
+				"input": "0x",
+				"nonce": "0x0",
+				"to": "0x0000000000000000000000000000000000000000",
+				"transactionIndex": hexutil.Uint64(txIndex),
+				"value": "0x0",
+				"type": "0x0",
+				"v": "0x0",
+				"r": "0x0",
+				"s": "0x0",
+		}
+		return borTxObj, nil
+	}
+	return nil, nil
+}
+
+func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{}, error) { 
+	var blockHash []byte
+	var blockNumber, txIndex uint64
+
+	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+	err != nil {
+		log.Info("GTR sql response", "err", err)
+		return nil, nil
+	} 
+
+	if blockHash != nil {
+		
+		bkHash := plugins.BytesToHash(blockHash)
+
+		logsBloom, err := plugins.GetLogsBloom(db, blockNumber)
+		if err != nil {
+			log.Error("Error fetching logsBloom", "err", err.Error())
+			return nil, err
+		}
+
+		txLogs, err := plugins.GetLogs(db, blockNumber, bkHash, txIndex) 
+		if err != nil {
+			log.Error("Error fetching logs", "err", err.Error())
+			return nil, err
+		}
+
+		txObj := map[string]interface{}{
+			"blockHash": plugins.BytesToHash(blockHash),
+    		"blockNumber": hexutil.Uint64(blockNumber),
+    		"contractAddress": nil,
+    		"cumulativeGasUsed": "0x0",
+    		"effectiveGasPrice": "0x0",
+    		"from": "0x0000000000000000000000000000000000000000",
+    		"gasUsed": "0x0",
+    		"logs": txLogs,
+			"logsBloom": hexutil.Bytes(logsBloom),
+    		"status": "0x1",
+    		"to": "0x0000000000000000000000000000000000000000",
+    		"transactionHash": txHash,
+    		"transactionIndex": hexutil.Uint64(txIndex),
+    		"type": "0x0",
+		}
+
+		return txObj, nil
+	}
+	return nil, nil
+}
+
+
+func (service *PolygonService) GetBorBlockReceipt(ctx context.Context, bkHash types.Hash) (map[string]interface{}, error) {
+	var transactionHash []byte
+	var blockNumber, txIndex uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT DISTINCT block, transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", bkHash).Scan(&blockNumber, &transactionHash, &txIndex);
+	err != nil {
+		log.Info("sql response", "err", err)
+		return nil, nil
+	}
+
+	if transactionHash != nil {
+
+		txHash := plugins.BytesToHash(transactionHash)
+
+		logsBloom, err := plugins.GetLogsBloom(service.db, blockNumber)
+		if err != nil {
+			log.Error("Error fetching logsBloom", "err", err.Error())
+			return nil, err
+		}
+
+		txLogs, err := plugins.GetLogs(service.db, blockNumber, bkHash, txIndex) 
+		if err != nil {
+			log.Error("Error fetching logs", "err", err.Error())
+			return nil, err
+		}
+
+		borBlockObj := map[string]interface{}{
+			"root": "0x",
+			"status": "0x1",
+			"cumulativeGasUsed": "0x0",
+			"logsBloom": hexutil.Bytes(logsBloom),
+			"logs": txLogs,
+			"transactionHash": txHash,
+			"contractAddress": "0x0000000000000000000000000000000000000000",
+			"gasUsed": "0x0",
+			"blockHash": bkHash,
+			"blockNumber": hexutil.Uint64(blockNumber),
+			"transactionIndex": hexutil.Uint(txIndex),
+			}
+	
+		return borBlockObj, nil
+	}
+	
+	return nil, nil
+}
+
+func (service *PolygonService) GetTransactionReceiptsByBlock(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]map[string]interface{}, error) {
+	errResponse := make(map[string]interface{})
+	receipts := []map[string]interface{}{}
+
+	number, numOk := blockNrOrHash.Number()
+	hash, hshOk := blockNrOrHash.Hash()
+
+	var column interface{}
+	var whereClause string
+	var borTxQuery string
+
+	switch true {
+		case numOk: 
+			column = number
+			whereClause = "block = ?"
+			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE block = ?;"
+		case hshOk:
+			column = plugins.TrimPrefix(hash.Bytes())
+			whereClause = "blocks.hash = ?"
+			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE blockHash = ?;"
+		default:
+			errResponse["message"] = "invalid argument 0: json: cannot unmarshal number into Go value of type string"
+			receipts = append(receipts, errResponse)
+			return receipts, nil
+	}
+
+	var err error
+	receipts, err = plugins.GetTransactionReceiptsBlock(context.Background(), service.db, 0, 100000, service.cfg.Chainid, whereClause, column)
+	if err != nil {
+		return nil, err
+	}
+
+	var borTxHashBytes  []byte
+	
+	if err := service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
+	err != nil {
+		log.Error("bor tx query", "err", err)
+		return nil, err
+	}
+	
+	borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
+	
+	
+	receipts = append(receipts, borReceipt)
+	
+	// if len(receipts) > 0 {
+	// 	for _, receipt := range receipts {
+	// 		delete(receipt, "effectiveGasPrice")
+	// 		delete(receipt, "type")
+	// 		receipt["transactionHash"] = plugins.BytesToHash(borTxHashBytes)
+	// 	}
+	// } I am leaving this here for debugging / exploring purposes. 
+
+	return receipts, nil
 }
