@@ -2,20 +2,15 @@ package main
 
 import (
 	"context"
-	// "bytes"
 	"database/sql"
 	"encoding/binary"
 	"regexp"
 	"strconv"
 	"fmt"
-	// "io"
-	// "io/ioutil"
 	"math/big"
 
-	// "golang.org/x/crypto/sha3"
 
 	log "github.com/inconshreveable/log15"
-	// "github.com/klauspost/compress/zlib"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
