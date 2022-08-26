@@ -323,7 +323,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			var nonce int64
 			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
 			if err != nil {
-				log.Info("sacn error", "err", err.Error())
+				log.Info("scan error", "err", err.Error())
 				return nil
 			}
 			
