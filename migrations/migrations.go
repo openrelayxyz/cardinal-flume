@@ -201,8 +201,6 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 
 		db.Exec(`UPDATE logs.migrations SET version = 1;`)
 		log.Info("logs migrations done")
-	} else {
-		log.Info("logs migrations up to date")
 	}
 
 	log.Info("logs migrations up to date")
@@ -239,12 +237,15 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 
 		if _, err := db.Exec(`CREATE INDEX mempool.sender ON transactions(sender, nonce);`); err != nil {
 			log.Error("Migrate mempool CREATE INDEX sender error", "err", err.Error())
+			return nil
 		}
 		if _, err := db.Exec(`CREATE INDEX mempool.recipient ON transactions(recipient);`); err != nil {
 			log.Error("Migrate Logs CREATE INDEX recipient rror", "err", err.Error())
+			return nil
 		}
 		if _, err := db.Exec(`CREATE INDEX mempool.gasPrice ON transactions(gasPrice);`); err != nil {
 			log.Error("Migrate Logs CREATE INDEX gasPrice error", "err", err.Error())
+			return nil
 		}
 		db.Exec(`UPDATE mempool.migrations SET version = 1;`)
 		log.Info("mempool migrations done")
