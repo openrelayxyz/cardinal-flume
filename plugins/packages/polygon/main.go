@@ -260,6 +260,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	var schemaVersion uint
 	db.QueryRow("SELECT version FROM bor.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
+		log.Info("Applying bor v1 migration")
 		db.Exec(`CREATE TABLE bor.bor_receipts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			hash varchar(32) UNIQUE,
@@ -287,10 +288,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
 			);`)
-		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
-			log.Error("bor update migration v1 error", "err", err.Error())
-			return nil
-		}
+			
 		if _, err := db.Exec(`CREATE INDEX bor.logsTxHash ON bor_logs(transactionHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 			return nil
@@ -299,12 +297,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 			return nil
 		}
-		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
-			log.Warn("polygon migrations v2 error", "err", err.Error())
-			return nil
-		}
+		db.Exec("UPDATE bor.migrations SET version = 1;")
 	}
 	if schemaVersion < 2 {
+		log.Info("Applying mempool v2 migration")
 
 		var highestBlock uint64
 		db.QueryRow("SELECT MAX(number) FROM blocks.blocks;").Scan(&highestBlock)
@@ -395,32 +391,10 @@ func Migrate(db *sql.DB, chainid uint64) error {
 				log.Info("polygon migration v2 finished on block", "blockNumber", number)
 			}
 		}
-			if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
-				log.Error("polygon migrations v2 error", "err", err.Error())
-				return nil
-			}
-	}
-	
-
-	if schemaVersion < 3 {
-
-		if _, err := db.Exec(`CREATE INDEX blocks.bkHash ON blocks(hash);`); err != nil {
-			log.Error("polygon migrations CREATE INDEX bkHash On blocks error", "err", err.Error())
-			return nil
-		}	
-		if _, err := db.Exec(`CREATE INDEX transactions.	txHash ON transactions(hash);`); err != nil {
-			log.Error("polygon migrations CREATE INDEX txHash On transactions error", "err", err.Error())
-			return nil
-		}
-		if _, err := db.Exec("UPDATE bor.migrations SET version = 3;"); err != nil {
-			log.Error("polygon migrations v2 error", "err", err.Error())
-			return nil
-		}
+		db.Exec("UPDATE bor.migrations SET version = 2;")
 		log.Info("bor migrations done")
 	}
-
-	if schemaVersion >= 3 {
-		log.Info("bor migrations up to date")
-	}
+	
+	log.Info("bor migrations up to date")
 	return nil
 }
