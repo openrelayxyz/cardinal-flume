@@ -1,30 +1,29 @@
 package main
 
 import (
-	"context"
-	"bytes"
-	"database/sql"
-	"encoding/binary"
 	"regexp"
-	// "strconv"
-	// "fmt"
-	"io"
-	"io/ioutil"
-	"math/big"
-
-	"golang.org/x/crypto/sha3"
-
+	"bytes"
+	"fmt"
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
-	"github.com/openrelayxyz/cardinal-evm/rlp"
-	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/plugins"
+	
+	"github.com/openrelayxyz/cardinal-types"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"golang.org/x/crypto/sha3"
+	"encoding/binary"
+	"database/sql"
+	"context"
+	"io"
+	"io/ioutil"
+	"math/big"
+	"github.com/openrelayxyz/cardinal-evm/common"
+
 )
 
 
@@ -33,33 +32,55 @@ func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 }
 
 type PolygonOneOffIndexer struct {
-	Chainid uint64
+	chainid uint64
 }
 
 func Indexer(cfg *config.Config) indexer.Indexer {
-	return &PolygonOneOffIndexer{Chainid: cfg.Chainid}
+	return &PolygonOneOffIndexer{chainid: cfg.Chainid}
 }
 
-var (
-	borSnapshotRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/(bor-)+([0-9a-z]+)/bs")
-	borReceiptRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/br/([0-9a-z]+)")
-	// "c/89/b/06d35e77532add58ef4a476b9d6e81fa9929d1bbffcd092b3bbf6eb5e3e39bc2/br/ae"
-	borLogRegexp     *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/([0-9a-z]+)/bl/([0-9a-z]+)/([0-9a-z]+)")
-)
+var borSnapshotRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/bs")
 
 func (pg *PolygonOneOffIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-	log.Info("here I am")
-	for k, _ := range pb.Values {
-		switch {
-		case borReceiptRegexp.MatchString(k):
-			log.Error("found bor receipt", "key", k)
-		// case borLogRegexp.MatchString(k):
-		// 	log.Error("found bor log", "key", k)
-		case borSnapshotRegexp.MatchString(k):
-			log.Error("found bor Snapshot", "snapshot", k)
+	// statements := []string{indexer.ApplyParameters("DELETE FROM bor_snapshots WHERE number >= 0")}
+
+	for k, v := range pb.Values{
+		if borSnapshotRegexp.MatchString(k){
+			log.Error("found snapshot", "v", v)
 		}
 	}
+
+
+	snapShotBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/bs", 89, pb.Hash.Bytes())]
+
+	log.Info("ssb", "len", len(snapShotBytes), "bytes", snapShotBytes)
+
+	// statements = append(statements, indexer.ApplyParameters(
+	// 	"INSERT INTO bor_snapshots(blockNumber, blockHash, snapshot) VALUES (%v, %v, %v)",
+	// 	pb.Number,
+	// 	pb.Hash,
+	// 	compress(snapShotBytes),
+	// )) 
+
 	return nil, nil
+}
+
+var compressor *zlib.Writer
+var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
+
+func compress(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	compressionBuffer.Reset()
+	if compressor == nil {
+		compressor = zlib.NewWriter(compressionBuffer)
+	} else {
+		compressor.Reset(compressionBuffer)
+	}
+	compressor.Write(data)
+	compressor.Close()
+	return compressionBuffer.Bytes()
 }
 
 func decompress(data []byte) ([]byte, error) {
@@ -139,10 +160,10 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 // nil coinbase blocks: 31122501 - 31122623
 
 func Migrate(db *sql.DB, chainid uint64) error {
-	log.Info("one off")
 	var lowRangeBlock uint64
 	var highRangeBlock uint64
 	db.QueryRow("SELECT MIN(number), MAX(number) FROM blocks.blocks where coinbase = X'00' AND number != 0;").Scan(&lowRangeBlock, &highRangeBlock)
+	log.Info("one off coinbase migration patch", "low", lowRangeBlock, "high", highRangeBlock)
 
 	if lowRangeBlock != 27099501 || highRangeBlock != 27099999 {
 		log.Error("cb X'00' block ranges do not match", "expected low", 27099501, "actual low", lowRangeBlock, "expected high", 27099999, "actual high", highRangeBlock)
@@ -152,6 +173,20 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	db.QueryRow("SELECT version FROM bor.migrations;").Scan(&schemaVersion)
 
 	if schemaVersion == 2 {
+
+		if _, err := db.Exec(`CREATE TABLE bor.bor_snapshots (blockNumber BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
+		err != nil {
+			log.Error("Migrate bor create table bor_snapshots error", "err", err.Error())
+			return nil
+		}
+		log.Info("bor snapshot table created")
+
+		if _, err := db.Exec(`CREATE INDEX bor.bkHash ON bor_snapshots(blockHash);`); err != nil {
+			log.Error("Migrate bor CREATE INDEX bkHash error", "err", err.Error())
+			return nil
+		}
+
+
 		dbtx, err := db.BeginTx(context.Background(), nil)
 		if err != nil {
 			log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
@@ -225,8 +260,6 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			}
 		}
 	}
-	if schemaVersion != 2 {
-		log.Info("bor migrations terminated without fixing any block range")
-	}
+
 	return nil
 }
