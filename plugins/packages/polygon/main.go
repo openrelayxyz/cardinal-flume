@@ -60,7 +60,21 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*evm.Log)
 
-	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
+	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), 
+	indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number), 
+	indexer.ApplyParameters("DELETE FROM bor_snapshots WHERE block >= %v", pb.Number)}
+
+	snapshotBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/bs", pg.Chainid, pb.Hash.Bytes())]
+
+	if len(snapshotBytes) > 0 {
+		log.Error("found bor snapshot on block", "block", pb.Number)
+		statements = append(statements, indexer.ApplyParameters(
+			"INSERT INTO bor_snapshots(block, blockHash, snapshot) VALUES (%v, %v, %v)",
+			pb.Number, 
+			pb.Hash,
+			plugins.Compress(snapshotBytes),
+		)) 
+	}
 
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", pg.Chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
@@ -138,6 +152,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	var schemaVersion uint
 	db.QueryRow("SELECT version FROM bor.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
+		log.Info("Applying bor v1 migration")
 		db.Exec(`CREATE TABLE bor.bor_receipts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			hash varchar(32) UNIQUE,
@@ -148,6 +163,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 
 		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+			return nil
 		}
 
 		db.Exec(`CREATE TABLE bor.bor_logs (
@@ -164,17 +180,24 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
 			);`)
-		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
-			return err
-		}
+			
 		if _, err := db.Exec(`CREATE INDEX bor.logsTxHash ON bor_logs(transactionHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+			return nil
 		}
 		if _, err := db.Exec(`CREATE INDEX bor.logsBkHash ON bor_logs(blockHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+			return nil
 		}
+		db.Exec("UPDATE bor.migrations SET version = 1;")
 	}
 	if schemaVersion < 2 {
+		log.Info("Applying mempool v2 migration")
+
+		var highestBlock uint64
+		db.QueryRow("SELECT MAX(number) FROM blocks.blocks;").Scan(&highestBlock)
+		terminus := highestBlock / 500 * 500
+
 		dbtx, err := db.BeginTx(context.Background(), nil)
 		if err != nil {
 			log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
@@ -187,8 +210,11 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			var number, gasLimit, gasUsed, time, difficulty uint64
 			var nonce int64
 			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
-			if err != nil {log.Info("sacn error", "err", err.Error())}
-
+			if err != nil {
+				log.Info("scan error", "err", err.Error())
+				return nil
+			}
+			
 
 			logsBloom, _ := plugins.Decompress(bloomBytes)
 			if err != nil {
@@ -233,32 +259,48 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			if _, err := dbtx.Exec(statement); err != nil {
 				dbtx.Rollback()
 				log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
-				continue
+				return nil
 			}
-
-			
-			if number%500 == 0 {
+			if number <= terminus {
+				if number%500 == 0 { 
+					if err := dbtx.Commit(); err != nil {
+						log.Error("Failed to commit statements in loop, polygon plugin", "blockNumber", number, "err", err.Error())
+						return nil
+					}
+					log.Info("blocks migration in progress", "blockNumber", number)
+					dbtx, err = db.BeginTx(context.Background(), nil)
+					if err != nil {
+						log.Error("Error creating a transaction in loop, polygon plugin", "err", err.Error())
+						return nil
+					}
+				} 
+			}
+			if number == highestBlock {
 				if err := dbtx.Commit(); err != nil {
-					log.Warn("Failed to insert statement polygon plugin", "blockNumber", number, "err", err.Error())
-					continue
+					log.Error("Failed to insert statements at terminus, polygon plugin", "blockNumber", number, "err", err.Error())
+					return nil
 				}
-				log.Info("blocks migration in progress", "blockNumber", number)
-				dbtx, err = db.BeginTx(context.Background(), nil)
-				if err != nil {
-					log.Warn("Error creating a transaction polygon plugin", "err", err.Error())
-				}
+				log.Info("polygon migration v2 finished on block", "blockNumber", number)
 			}
-
-
 		}
-		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
-			log.Warn("polygon migrations v2 error", "err", err.Error())
-		}
-		log.Info("bor migrations done")
-	} 
-	if schemaVersion >= 2 {
-		log.Info("bor migrations up to date")
+		db.Exec("UPDATE bor.migrations SET version = 2;")
 	}
+
+	if schemaVersion < 3 {
+		log.Info("Applying mempool v3 migration")
+		db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
+		
+		log.Info("bor snapshot table created")
+
+		if _, err := db.Exec(`CREATE INDEX bor.bkHash ON bor_snapshots(blockHash);`); err != nil {
+			log.Error("Migrate bor CREATE INDEX bkHash error", "err", err.Error())
+			return nil
+		}
+		db.Exec("UPDATE bor.migrations SET version = 3;")
+		log.Info("bor migrations done")
+	}
+	
+	log.Info("bor migrations up to date")
 	return nil
 }
 
