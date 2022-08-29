@@ -43,6 +43,10 @@ var borSnapshotRegexp *regexp.Regexp = regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z
 
 func (pg *PolygonOneOffIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
+	if pb.Number > 27099999 {
+		panic("caught up with terminus")
+	}
+
 	statements := []string{indexer.ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number)}
 
 	tdBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/d", pg.chainid, pb.Hash.Bytes())]
