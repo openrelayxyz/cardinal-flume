@@ -60,7 +60,21 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	receiptData := make(map[int][]byte)
 	logData := make(map[int64]*evm.Log)
 
-	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number)}
+	statements := []string{indexer.ApplyParameters("DELETE FROM bor_receipts WHERE block >= %v", pb.Number), 
+	indexer.ApplyParameters("DELETE FROM bor_logs WHERE block >= %v", pb.Number), 
+	indexer.ApplyParameters("DELETE FROM bor_snapshots WHERE block >= %v", pb.Number)}
+
+	snapshotBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/bs", pg.Chainid, pb.Hash.Bytes())]
+
+	if len(snapshotBytes) > 0 {
+		log.Error("found bor snapshot on block", "block", pb.Number)
+		statements = append(statements, indexer.ApplyParameters(
+			"INSERT INTO bor_snapshots(block, blockHash, snapshot) VALUES (%v, %v, %v)",
+			pb.Number, 
+			pb.Hash,
+			plugins.Compress(snapshotBytes),
+		)) 
+	}
 
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", pg.Chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
@@ -270,6 +284,19 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			}
 		}
 		db.Exec("UPDATE bor.migrations SET version = 2;")
+	}
+
+	if schemaVersion < 3 {
+		log.Info("Applying mempool v3 migration")
+		db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
+		
+		log.Info("bor snapshot table created")
+
+		if _, err := db.Exec(`CREATE INDEX bor.bkHash ON bor_snapshots(blockHash);`); err != nil {
+			log.Error("Migrate bor CREATE INDEX bkHash error", "err", err.Error())
+			return nil
+		}
+		db.Exec("UPDATE bor.migrations SET version = 3;")
 		log.Info("bor migrations done")
 	}
 	

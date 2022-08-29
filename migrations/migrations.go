@@ -55,13 +55,13 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 					value          BIGINT
 					)`)
 		if _, err := db.Exec(`CREATE INDEX blocks.coinbase ON blocks(coinbase)`); err != nil {
-			return nil
 			log.Error("Migrate Blocks CREATE INDEX error", "err", err.Error())
+			return nil
 		}
 
 		if _, err := db.Exec(`CREATE INDEX blocks.timestamp ON blocks(time)`); err != nil {
-			return nil
 			log.Error("Migrate Blocks CREATE INDEX error", "err", err.Error())
+			return nil
 		}
 		db.Exec(`UPDATE blocks.migrations SET version = 1;`)
 
@@ -90,7 +90,7 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		db.Exec("INSERT INTO transactions.migrations(version) VALUES (0);")
 	}
 	var schemaVersion uint
-	if err := db.QueryRow("SELECT version FROM transactions.migrations;").Scan(&schemaVersion)
+	db.QueryRow("SELECT version FROM transactions.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
 		log.Info("Applying transacitons v1 migration")
 		db.Exec(`CREATE TABLE transactions.transactions (
@@ -137,7 +137,9 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		}
 		db.Exec(`UPDATE transactions.migrations SET version = 1;`)
 
-	} if schemaVersion < 2 {
+	} 
+	
+	if schemaVersion < 2 {
 		log.Info("Applying transactions v2 migration")
 
 		if _, err := db.Exec(`CREATE INDEX transactions.txHash ON transactions(hash);`); err != nil {
