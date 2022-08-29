@@ -172,6 +172,18 @@ func main() {
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
 	tm.AddHTTPServer(cfg.Port)
 
+	pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
+		_, ok := v.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+		return ok
+	})
+
+	for _, api := range pluginAPIs {
+		fn := api.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+		if err := fn(tm, logsdb, cfg); err != nil {
+			log.Error("Unable to load api plugins", "fn", fn)
+		}
+	}
+
 	if hasLogs {
 		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl))
 		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
