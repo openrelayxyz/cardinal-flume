@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"fmt"
 	"math/big"
+	"errors"
 
 
 	log "github.com/inconshreveable/log15"
@@ -22,6 +24,7 @@ import (
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/plugins"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
@@ -307,6 +310,12 @@ func Migrate(db *sql.DB, chainid uint64) error {
 type PolygonService struct {
 	db *sql.DB
 	cfg *config.Config
+	recents *lru.ARCCache
+}
+
+type PolygonBorService struct {
+	db *sql.DB
+	cfg *config.Config
 }
 
 func RegisterAPI(tm *rpcTransports.TransportManager, db *sql.DB, cfg *config.Config) error {
@@ -315,6 +324,11 @@ func RegisterAPI(tm *rpcTransports.TransportManager, db *sql.DB, cfg *config.Con
 			cfg: cfg,
 	})
 	log.Info("PolygonService registered")
+	tm.Register("bor", &PolygonBorService{
+		db: db,
+		cfg: cfg,
+	})
+	log.Info("PolygonBorService registered")
 	return nil	
 }
 
@@ -594,3 +608,169 @@ func (service *PolygonService) GetTransactionReceiptsByBlock(ctx context.Context
 
 	return receipts, nil
 }
+
+
+func (service *PolygonBorService) GetRootHash(ctx context.Context, starBlockNr uint64, endBlockNr uint64) (string, error) {
+	return "goodbye horses", nil
+}
+
+func (service *PolygonService) InspectSnapshot(ctx context.Context, blockNumber uint64) (interface{}, error) {
+	var snapshotBytes []byte
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
+	err != nil {
+		log.Error("sql snapshot fetch error", "err", err)
+		return nil, err
+	}
+
+
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error", "err", err)
+		return nil, err
+	}
+
+	var snapshot interface{}
+
+	json.Unmarshal(ssb, &snapshot)
+
+
+	return snapshot, nil
+}
+
+func (service *PolygonService) Snapshot(ctx context.Context, blockNumber uint64) (*Snapshot, error) {
+	var snapshotBytes []byte
+
+	log.Info("Inside of snapshot()", "bknum", blockNumber)
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
+	err != nil {
+		log.Error("sql snapshot fetch error Snapshot()", "err", err)
+		return nil, err
+	}
+
+	log.Info("fetching fucntio pre compress snapshot")
+
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error Snapshot()", "err", err)
+		return nil, err
+	}
+
+	var snapshot *Snapshot
+
+	json.Unmarshal(ssb, &snapshot)
+
+
+	return snapshot, nil
+}
+
+type Snapshot struct {
+	Hash types.Hash `json:"hash,omitempty"`
+	Number uint64 `json:"number,omitempty"`
+	Recents map[uint64]common.Address `json:"recents,omitempty"`
+
+}
+
+
+
+func (service *PolygonService) GetSnapshot(ctx context.Context, hash types.Hash) (*Snapshot, error) {
+
+	var blockNumber uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT number FROM blocks.blocks WHERE hash = ?;", hash).Scan(&blockNumber); 
+	err != nil {
+		log.Error("Sql blocknumber fetch error", "err", err.Error())
+		return nil, err
+	}
+	
+	if snapshot, err := service.Snapshot(context.Background(), blockNumber); err == nil {
+		log.Info("got a snapshot", "snapshot", snapshot)
+		return snapshot, nil
+	} else {
+
+		var blockRange []uint64
+		recents := make(map[uint64]common.Address)
+
+		for i := blockNumber - 63; i <= blockNumber; i++ {
+			blockRange = append(blockRange, i)
+		}
+
+		// var extra []byte
+
+		// if err := service.db.QueryRowContext(context.Background(), "SELECT extra FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&extra); 
+		// err != nil {
+		// 	log.Error("Sql blocknumber fetch error", "err", err.Error())
+		// 	return nil, err
+		// }
+		
+		// validatorBytes := extra[extraVanity : len(header.Extra)-extraSeal]
+
+		for _, block := range blockRange {
+			var signer common.Address
+			if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", block).Scan(&signer); 
+			err != nil {
+				return nil, err
+			}
+			recents[block] = signer
+		}
+
+
+		return &Snapshot{
+			Hash: hash, 
+			Number: blockNumber,
+			Recents: recents,
+		}, nil
+
+	}
+
+}
+
+type Validator struct {
+	ID               uint64         `json:"ID"`
+	Address          common.Address `json:"signer"`
+	VotingPower      int64          `json:"power"`
+	ProposerPriority int64          `json:"accum"`
+}
+
+func NewValidator(address common.Address, votingPower int64) *Validator {
+	return &Validator{
+		Address:          address,
+		VotingPower:      votingPower,
+		ProposerPriority: 0,
+	}
+}
+
+func ParseValidators(validatorsBytes []byte) ([]*Validator, error) {
+	if len(validatorsBytes)%40 != 0 {
+		log.Error("Invalid validator bytes")
+		return nil, errors.New("Invalid validators bytes")
+	}
+
+	result := make([]*Validator, len(validatorsBytes)/40)
+
+	for i := 0; i < len(validatorsBytes); i += 40 {
+		address := make([]byte, 20)
+		power := make([]byte, 20)
+
+		copy(address, validatorsBytes[i:i+20])
+		copy(power, validatorsBytes[i+20:i+40])
+
+		result[i/40] = NewValidator(common.BytesToAddress(address), big.NewInt(0).SetBytes(power).Int64())
+	}
+
+	return result, nil
+}
+
+// extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
+// extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
+
+// type Snapshot struct {
+// 	config   *params.BorConfig // Consensus engine parameters to fine tune behavior
+// 	sigcache *lru.ARCCache     // Cache of recent block signatures to speed up ecrecover
+
+// 	Number       uint64                    `json:"number"`       // Block number where the snapshot was created
+// 	Hash         common.Hash               `json:"hash"`         // Block hash where the snapshot was created
+// 	ValidatorSet *valset.ValidatorSet      `json:"validatorSet"` // Validator set at this moment
+// 	Recents      map[uint64]common.Address `json:"recents"`      // Set of recent signers for spam protections
+// }
