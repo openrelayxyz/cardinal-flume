@@ -49,11 +49,14 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
-		if result, err = fn(result, txHash, api.db); err != nil {
-			log.Warn("Error in plugin", "err", err.Error())
-			return nil, nil
+		if pluginResult, err := fn(result, txHash, api.db); err == nil {
+			return pluginResult, nil
+		} else {
+			log.Warn("Error evoking GetTransactionByhash in plugin", "err", err.Error())
+			return nil, err
 		}
 	}
+
 	return result, nil
 }
 
@@ -101,14 +104,15 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	}
 	result := returnSingleReceipt(receipts)
 
-		for _, fni := range pluginMethods {
-			fn := fni.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
-			if result, err = fn(result, api.db, txHash); err != nil {
-				log.Warn("Error in plugin", "err", err.Error())
-				return nil, nil
-			}
-			
+	for _, fni := range pluginMethods {
+		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
+		if pluginResult, err := fn(result, txHash, api.db); err == nil {
+			return pluginResult, nil
+		} else {
+			log.Warn("Error evoking GetTransactionReceipt in plugin", "err", err.Error())
+			return nil, err
 		}
+	}
 
 	return result, nil
 }

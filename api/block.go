@@ -63,9 +63,11 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
-		if blockVal, err = fn(blockVal, api.db); err != nil {
-			log.Warn("Error in plugin", "err", err.Error())
-			return nil, nil
+		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
+			return pluginBlockVal, nil
+		} else {
+			log.Warn("Error evoking GetBlockByNumber in plugin", "err", err.Error())
+			return nil, err
 		}
 	}
 
@@ -90,9 +92,11 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
-		if blockVal, err = fn(blockVal, api.db); err != nil {
-			log.Warn("Error in plugin", "err", err.Error())
-			return nil, nil
+		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
+			return pluginBlockVal, nil
+		} else {
+			log.Warn("Error evoking GetBlockByHash in plugin", "err", err.Error())
+			return nil, err
 		}
 	}
 
