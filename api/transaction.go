@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	// log "github.com/inconshreveable/log15"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
@@ -28,9 +28,8 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *Tr
 }
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
-
 	pluginMethods := api.pl.Lookup("GetTransactionByHash", func(v interface{}) bool {
-		_, ok := v.(func(types.Hash, *sql.DB) (map[string]interface{}, error))
+		_, ok := v.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		return ok
 	})
 
@@ -49,12 +48,12 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	result := returnSingleTransaction(txs)
 
 	for _, fni := range pluginMethods {
-		fn := fni.(func(types.Hash, *sql.DB) (map[string]interface{}, error))
-		if result, err = fn(txHash, api.db); err != nil {
-			return nil, err
+		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
+		if result, err = fn(result, txHash, api.db); err != nil {
+			log.Warn("Error in plugin", "err", err.Error())
+			return nil, nil
 		}
 	}
-
 	return result, nil
 }
 
@@ -91,7 +90,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
 	pluginMethods := api.pl.Lookup("GetTransactionReceipt", func(v interface{}) bool {
-		_, ok := v.(func(*sql.DB, types.Hash) (map[string]interface{}, error))
+		_, ok := v.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
 		return ok
 	})
 
@@ -103,10 +102,12 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	result := returnSingleReceipt(receipts)
 
 		for _, fni := range pluginMethods {
-			fn := fni.(func(*sql.DB, types.Hash) (map[string]interface{}, error))
-			if result, err = fn(api.db, txHash); err != nil {
-				return nil, err
+			fn := fni.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
+			if result, err = fn(result, api.db, txHash); err != nil {
+				log.Warn("Error in plugin", "err", err.Error())
+				return nil, nil
 			}
+			
 		}
 
 	return result, nil
