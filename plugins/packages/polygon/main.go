@@ -815,14 +815,6 @@ func (service *PolygonService) GetSnapshot(ctx context.Context, hash types.Hash)
 
 		return snap, nil
 
-
-		// return &Snapshot{
-		// 	Hash: hash, 
-		// 	Number: blockNumber,
-		// 	Recents: recents,
-		// 	ValidatorSet: v,
-		// }, nil
-
 	}
 
 }
