@@ -361,7 +361,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 			return blockVal, nil
 		}
 	}
-	return nil, nil
+	return blockVal, nil
 }
 
 func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
@@ -410,18 +410,19 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 	return nil, nil
 }
 
-func GetTransactionByHash(txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {  // method is very slow to respond 10+ secs
-	var blockHash []byte
-	var blockNumber, txIndex  uint64
+func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
+	
+	if txObj == nil {
 
-	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
-	err != nil {
-		log.Info("sql response", "err", err)
-		return nil, nil
-	} 
+		var blockHash []byte
+		var blockNumber, txIndex  uint64
 
-	if blockHash != nil {
-
+		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+		err != nil {
+			log.Info("sql response", "err", err)
+			return nil, nil
+		} 
+	
 		borTxObj :=  map[string]interface{}{
 				"blockHash": plugins.BytesToHash(blockHash),
 				"blockNumber": hexutil.Uint64(blockNumber),
@@ -439,22 +440,27 @@ func GetTransactionByHash(txHash types.Hash, db *sql.DB) (map[string]interface{}
 				"r": "0x0",
 				"s": "0x0",
 		}
-		return borTxObj, nil
+
+		txObj = borTxObj
+
 	}
-	return nil, nil
+
+	return txObj, nil
 }
 
-func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{}, error) { 
-	var blockHash []byte
-	var blockNumber, txIndex uint64
+func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
+	
+	if receiptObj == nil {
+	
+		var blockHash []byte
+		var blockNumber, txIndex uint64
 
-	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
-	err != nil {
-		log.Info("GTR sql response", "err", err)
-		return nil, nil
-	} 
+		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+		err != nil {
+			log.Info("GTR sql response", "err", err)
+			return nil, nil
+		} 
 
-	if blockHash != nil {
 		
 		bkHash := plugins.BytesToHash(blockHash)
 
@@ -470,7 +476,7 @@ func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{
 			return nil, err
 		}
 
-		txObj := map[string]interface{}{
+		borReceiptObj := map[string]interface{}{
 			"blockHash": plugins.BytesToHash(blockHash),
     		"blockNumber": hexutil.Uint64(blockNumber),
     		"contractAddress": nil,
@@ -487,9 +493,10 @@ func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{
     		"type": "0x0",
 		}
 
-		return txObj, nil
+		receiptObj =  borReceiptObj
 	}
-	return nil, nil
+
+	return receiptObj, nil
 }
 
 
@@ -579,7 +586,8 @@ func (service *PolygonService) GetTransactionReceiptsByBlock(ctx context.Context
 		return nil, err
 	}
 	
-	borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
+	var dummyMap map[string]interface{}
+	borReceipt, err := GetTransactionReceipt(dummyMap, plugins.BytesToHash(borTxHashBytes), service.db)
 	
 	
 	receipts = append(receipts, borReceipt)
