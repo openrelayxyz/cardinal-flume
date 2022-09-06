@@ -41,6 +41,29 @@ func (service *PolygonBorService) InspectSnapshot(ctx context.Context, blockNumb
 	return snapshot, nil
 }
 
+func (service *PolygonBorService) snapshot(ctx context.Context, blockNumber uint64) (*Snapshot, error) {
+	var snapshotBytes []byte
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
+	err != nil {
+		log.Error("sql snapshot fetch error Snapshot()", "err", err)
+		return nil, err
+	}
+
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error Snapshot()", "err", err)
+		return nil, err
+	}
+
+	var snapshot *Snapshot
+
+	json.Unmarshal(ssb, &snapshot)
+
+
+	return snapshot, nil
+}
+
 func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Hash) (*Snapshot, error) {
 
 	var blockNumber uint64
@@ -53,7 +76,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Ha
 
 	snap := &Snapshot{}
 	
-	if snapshot, err := service.Snapshot(context.Background(), blockNumber); err == nil {
+	if snapshot, err := service.snapshot(context.Background(), blockNumber); err == nil {
 		log.Info("got a snapshot from db", "snapshot", snapshot)
 		snap = snapshot
 		return snap, nil
@@ -77,12 +100,12 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Ha
 		}
 		
 		validatorBytes := extra[extraVanity : len(extra)-extraSeal]
-
+		
 		newVals, _ := ParseValidators(validatorBytes)
 		v := getUpdatedValidatorSet(previousSnap.ValidatorSet.Copy(), newVals)
 		v.IncrementProposerPriority(1)
 		snap.ValidatorSet = v
-
+		
 		for _, block := range blockRange {
 			var signer common.Address
 			if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", block).Scan(&signer); 
@@ -95,46 +118,32 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Ha
 		snap.Number = blockNumber
 		snap.Hash = hash
 		snap.Recents = recents
-
+		
 		return snap, nil
 
 	}
-
-}
-func (service *PolygonBorService) Snapshot(ctx context.Context, blockNumber uint64) (*Snapshot, error) {
-	var snapshotBytes []byte
-
-	log.Info("Inside of snapshot()", "bknum", blockNumber)
-
-	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
-	err != nil {
-		log.Error("sql snapshot fetch error Snapshot()", "err", err)
-		return nil, err
-	}
-
-	log.Info("fetching fucntio pre compress snapshot")
-
-	ssb, err := plugins.Decompress(snapshotBytes)
-	if err != nil {
-		log.Error("sql snapshot decompress error Snapshot()", "err", err)
-		return nil, err
-	}
-
-	var snapshot *Snapshot
-
-	json.Unmarshal(ssb, &snapshot)
-
-
-	return snapshot, nil
-}
-
-// type Snapshot struct {
-// 	Hash types.Hash `json:"hash,omitempty"`
-// 	Number uint64 `json:"number,omitempty"`
-// 	Recents map[uint64]common.Address `json:"recents,omitempty"`
-// 	ValidatorSet *Validator
 	
-// }
+}
+
+func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snapshot, error) {
+	var lastSnapBlock uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block < ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&lastSnapBlock);
+	err != nil {
+		log.Error("sql previous snapshot fetch error", "err", err)
+		return nil, err
+	}
+
+	log.Info("fetching previous snapshot")
+
+	snap, err := service.Snapshot(context.Background(), lastSnapBlock)
+	if err != nil {
+		log.Error("error fetching previous snapshot")
+		return nil, err
+	}
+
+	return snap, nil
+}
 
 type Snapshot struct {
 	// config   *params.BorConfig // Consensus engine parameters to fine tune behavior
@@ -196,29 +205,6 @@ const (
 )
 
 type ValidatorsByAddress []*Validator
-
-func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snapshot, error) {
-	var lastSnapBlock uint64
-
-	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block < ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&lastSnapBlock);
-	err != nil {
-		log.Error("sql previous snapshot fetch error", "err", err)
-		return nil, err
-	}
-
-	log.Info("fetching previous snapshot")
-
-	snap, err := service.Snapshot(context.Background(), lastSnapBlock)
-	if err != nil {
-		log.Error("error fetching previous snapshot")
-		return nil, err
-	}
-
-	return snap, nil
-}
-
-
-
 
 func NewValidator(address common.Address, votingPower int64) *Validator {
 	return &Validator{
