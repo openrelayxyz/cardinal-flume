@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 
 	"golang.org/x/crypto/sha3"
 
@@ -70,6 +71,11 @@ func GetTopicIndex(topics []types.Hash, idx int) []byte {
 		return TrimPrefix(topics[idx].Bytes())
 	}
 	return []byte{}
+}
+
+func UintToHexBig(a uint64) *hexutil.Big {
+	x := hexutil.Big(*new(big.Int).SetUint64(a))
+	return &x
 }
 
 var compressor *zlib.Writer

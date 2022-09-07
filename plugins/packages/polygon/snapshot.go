@@ -136,7 +136,7 @@ func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snap
 
 	log.Info("fetching previous snapshot")
 
-	snap, err := service.Snapshot(context.Background(), lastSnapBlock)
+	snap, err := service.snapshot(context.Background(), lastSnapBlock)
 	if err != nil {
 		log.Error("error fetching previous snapshot")
 		return nil, err
