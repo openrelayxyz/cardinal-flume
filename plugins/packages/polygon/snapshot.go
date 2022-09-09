@@ -17,29 +17,305 @@ import (
 	"github.com/openrelayxyz/flume/plugins"
 )
 
-func (service *PolygonBorService) InspectSnapshot(ctx context.Context, blockNumber uint64) (interface{}, error) {
-	var snapshotBytes []byte
+// func (service *PolygonBorService) InspectSnapshot(ctx context.Context, blockNumber uint64) (interface{}, error) {
+// 	var snapshotBytes []byte
 	
-	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
-	err != nil {
-		log.Error("sql snapshot fetch error", "err", err)
-		return nil, err
-	}
-	
-	
-	ssb, err := plugins.Decompress(snapshotBytes)
-	if err != nil {
-		log.Error("sql snapshot decompress error", "err", err)
-		return nil, err
-	}
-	
-	var snapshot interface{}
-	
-	json.Unmarshal(ssb, &snapshot)
+// 	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
+// 	err != nil {
+// 		log.Error("sql snapshot fetch error", "err", err)
+// 		return nil, err
+// 	}
 	
 	
-	return snapshot, nil
+// 	ssb, err := plugins.Decompress(snapshotBytes)
+// 	if err != nil {
+// 		log.Error("sql snapshot decompress error", "err", err)
+// 		return nil, err
+// 	}
+	
+// 	var snapshot interface{}
+
+// 	json.Unmarshal(ssb, &snapshot)
+
+
+// 	return snapshot, nil
+// }
+
+type Snapshot struct {
+	// config   *params.BorConfig // Consensus engine parameters to fine tune behavior
+	// sigcache *lru.ARCCache     // Cache of recent block signatures to speed up ecrecover
+
+	Number       uint64                    `json:"number"`       // Block number where the snapshot was created
+	Hash         types.Hash               `json:"hash"`         // Block hash where the snapshot was created
+	ValidatorSet *ValidatorSet      `json:"validatorSet"` // Validator set at this moment
+	Recents      map[uint64]common.Address `json:"recents"`      // Set of recent signers for spam protections
 }
+
+type ValidatorSet struct {
+	Validators []*Validator `json:"validators"`
+	Proposer   *Validator   `json:"proposer"`
+
+	// cached (unexported)
+	totalVotingPower int64
+	validatorsMap    map[common.Address]int // address -> index
+}
+
+type Validator struct {
+	ID               uint64         `json:"ID"`
+	Address          common.Address `json:"signer"`
+	VotingPower      int64          `json:"power"`
+	ProposerPriority int64          `json:"accum"`
+}
+
+func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snapshot, error) { 
+	var lastSnapBlock uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block < ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&lastSnapBlock);
+	err != nil {
+		log.Error("sql previous snapshot fetch error", "err", err)
+		return nil, err
+	}
+
+	log.Info("fetching previous snapshot")
+
+	snap, err := service.snapshot(context.Background(), lastSnapBlock)
+	if err != nil {
+		log.Error("error fetching previous snapshot")
+		return nil, err
+	}
+
+	return snap, nil
+}
+
+func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumber plugins.BlockNumber) (interface{}, error) {
+
+	
+	
+	if blockNumber.Int64() % 1024 == 0 {
+		snap := &Snapshot{}
+		snap, _ = service.snapshot(ctx, uint64(blockNumber.Int64()))	
+		return snap, nil
+	}
+
+
+
+	if (blockNumber.Int64() + 1) % 64 == 0 {
+		degree := ((blockNumber.Int64() / 64) % 16 ) + 1
+		frames := make([]*Snapshot, degree, degree)
+		for i := 0; i < int(degree); i++ {
+			snap := &Snapshot{}
+			snap, _ = service.getKeyFrame(uint64(blockNumber.Int64()) + (uint64(64) * uint64(i)))
+			frames[i] = snap
+		}
+		return frames, nil
+	}
+
+	return nil, nil
+
+	// check if keyframe (number +1 % 64 == 0)
+	// if is keyframe check how far from last master key, fetch objects and pull values through
+
+	//if is not keyframe calculate last keyframe number and return starting from that position. 
+
+}
+
+func (service *PolygonBorService) getArmature(blockNumber uint64) (*Snapshot, error) {
+
+	var  hashBytes []byte
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&hashBytes);
+		err != nil {
+			log.Error("GetTestSnapshot fetch hash error", "err", err)
+			return nil, err
+		}
+	
+	snap := &Snapshot{}
+
+	recents, err := service.getRecents(blockNumber)
+	if err != nil {
+		log.Error("GetTestSnapshot fetch recents error", "err", err)
+		return nil, err
+	}
+
+	snap.Hash = plugins.BytesToHash(hashBytes)
+	snap.Number = uint64(blockNumber)
+	snap.Recents = recents
+
+	return snap, nil	
+
+
+}
+
+func (service *PolygonBorService) getKeyFrame(blockNumber uint64) (*Snapshot, error) {
+
+	snap, _ := service.getArmature(blockNumber)
+
+
+	return snap, nil
+
+}
+
+func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]common.Address, error) {
+
+	recents := make(map[uint64]common.Address)
+
+	for i := blockNumber - 64; i <= blockNumber; i++ {
+		var signer common.Address
+		if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", i).Scan(&signer); 
+		err != nil {
+			log.Error("getRecents() error fetching signers", "err", err.Error())
+			return nil, err
+		}
+		recents[i] = signer
+	}
+
+	return recents, nil 
+
+
+}
+
+func (service *PolygonBorService) GetVals(start, end uint64) ([][]*Validator, error) { 
+
+	numbers := make([]uint64, 0, 16)
+	for i := start; i < end + 1; i += 64 {
+		numbers = append(numbers, i)
+	}
+
+	length := end - start
+
+	vals := make([][]*Validator, 0, length / 64)
+
+	for _, number := range numbers {
+	
+		var extra []byte 
+
+		if err := service.db.QueryRowContext(context.Background(), "SELECT extra FROM blocks.blocks WHERE number = ?;", number).Scan(&extra);
+		err != nil {
+			log.Error("sql keyframe extra fetch error", "err", err)
+			return nil, err
+		}
+
+		validatorBytes := extra[extraVanity : len(extra)-extraSeal]
+
+ 		newVals, _ := ParseValidators(validatorBytes)
+
+		vals = append(vals, newVals)
+
+	}
+
+	return vals, nil
+	
+	}
+
+// 	return snap, nil
+// }
+
+// func (service *PolygonBorService) testSnapshot(ctx context.Context, blockNumber plugins.BlockNumber) (*Snapshot, error) {
+
+// 	var hashBytes []byte
+
+// 	if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber.Int64()).Scan(&hashBytes); 
+// 	err != nil {
+// 		log.Error("Sql blockHash fetch error, InstpectSnapshot()", "err", err.Error())
+// 		return nil, err
+// 	}
+
+// 	snap := &Snapshot{}
+
+// 	if snapshot, err := service.snapshot(context.Background(), uint64(blockNumber.Int64())); err == nil {
+// 		log.Info("got a snapshot from db")
+// 		snap = snapshot
+// 		return snap, nil
+// 	} else {
+
+		
+// 		blockRange := make([]uint64, 0, 64)
+// 		recents := make(map[uint64]common.Address)
+
+// 		for i := uint64(blockNumber.Int64()) - 63; i <= uint64(blockNumber.Int64()); i++ {
+// 			blockRange = append(blockRange, i)
+// 		}
+
+		
+// 		for _, block := range blockRange {
+// 			var signer common.Address
+// 			if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", block).Scan(&signer); 
+// 			err != nil {
+// 				return nil, err
+// 			}
+// 			recents[block] = signer
+// 		}
+		
+// 		var extra []byte
+		
+// 		previousSnap, psNumber, _ := service.getPreviousSnapshot(uint64(blockNumber.Int64()))
+
+// 		keyFrameSnap, _ := service.getKeySnapshot(blockNumber)
+
+// 	}
+
+// func (service *PolygonBorService) InspectSnapshot(ctx context.Context, blockNumber plugins.BlockNumber) (*Snapshot, error) {
+
+// 	var hashBytes []byte
+
+// 	if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber.Int64()).Scan(&hashBytes); 
+// 	err != nil {
+// 		log.Error("Sql blockHash fetch error, InstpectSnapshot()", "err", err.Error())
+// 		return nil, err
+// 	}
+
+// 	snap := &Snapshot{}
+	
+// 	if snapshot, err := service.snapshot(context.Background(), uint64(blockNumber.Int64())); err == nil {
+// 		log.Info("got a snapshot from db", "snapshot", snapshot)
+// 		snap = snapshot
+// 		return snap, nil
+// 	} else {
+
+// 		previousSnap, _ := service.getPreviousSnapshot(uint64(blockNumber.Int64()))
+
+// 		var blockRange []uint64
+// 		recents := make(map[uint64]common.Address)
+
+// 		for i := uint64(blockNumber.Int64()) - 63; i <= uint64(blockNumber.Int64()); i++ {
+// 			blockRange = append(blockRange, i)
+// 		}
+
+// 		var extra []byte
+
+// 		if err := service.db.QueryRowContext(context.Background(), "SELECT extra FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&extra); 
+// 		err != nil {
+// 			log.Error("Sql blocknumber fetch error", "err", err.Error())
+// 			return nil, err
+// 		}
+		
+// 		validatorBytes := extra[extraVanity : len(extra)-extraSeal]
+
+// 		// validatorBytes := extra 
+		
+// 		newVals, _ := ParseValidators(validatorBytes)
+// 		v := getUpdatedValidatorSet(previousSnap.ValidatorSet, newVals)
+// 		v.IncrementProposerPriority(1)
+// 		snap.ValidatorSet = v
+		
+// 		for _, block := range blockRange {
+// 			var signer common.Address
+// 			if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", block).Scan(&signer); 
+// 			err != nil {
+// 				return nil, err
+// 			}
+// 			recents[block] = signer
+// 		}
+
+// 		snap.Number = uint64(blockNumber.Int64())
+// 		snap.Hash = plugins.BytesToHash(hashBytes)
+// 		snap.Recents = recents
+		
+// 		return snap, nil
+
+// 	}
+	
+// }
 
 func (service *PolygonBorService) snapshot(ctx context.Context, blockNumber uint64) (*Snapshot, error) {
 	var snapshotBytes []byte
@@ -98,11 +374,25 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Ha
 			log.Error("Sql blocknumber fetch error", "err", err.Error())
 			return nil, err
 		}
+		log.Error("length of extra", "len", len(extra))
+
+		// extraVanity = 32 
+		// extraSeal   = 65
+		// len(extra) = 97
+		// 32: (97 - 65)
+		// 32:32
+		// len = 0
 		
 		validatorBytes := extra[extraVanity : len(extra)-extraSeal]
+
+		// validatorBytes := extra
+
+		log.Error("validatorBytes", "len", len(validatorBytes), "vb", validatorBytes)
 		
 		newVals, _ := ParseValidators(validatorBytes)
+		log.Error("new validotor set", "newVals", newVals)
 		v := getUpdatedValidatorSet(previousSnap.ValidatorSet.Copy(), newVals)
+		log.Error("update validator set", "v", v)
 		v.IncrementProposerPriority(1)
 		snap.ValidatorSet = v
 		
@@ -125,52 +415,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Ha
 	
 }
 
-func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snapshot, error) {
-	var lastSnapBlock uint64
 
-	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block < ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&lastSnapBlock);
-	err != nil {
-		log.Error("sql previous snapshot fetch error", "err", err)
-		return nil, err
-	}
-
-	log.Info("fetching previous snapshot")
-
-	snap, err := service.snapshot(context.Background(), lastSnapBlock)
-	if err != nil {
-		log.Error("error fetching previous snapshot")
-		return nil, err
-	}
-
-	return snap, nil
-}
-
-type Snapshot struct {
-	// config   *params.BorConfig // Consensus engine parameters to fine tune behavior
-	// sigcache *lru.ARCCache     // Cache of recent block signatures to speed up ecrecover
-
-	Number       uint64                    `json:"number"`       // Block number where the snapshot was created
-	Hash         types.Hash               `json:"hash"`         // Block hash where the snapshot was created
-	ValidatorSet *ValidatorSet      `json:"validatorSet"` // Validator set at this moment
-	Recents      map[uint64]common.Address `json:"recents"`      // Set of recent signers for spam protections
-}
-
-type Validator struct {
-	ID               uint64         `json:"ID"`
-	Address          common.Address `json:"signer"`
-	VotingPower      int64          `json:"power"`
-	ProposerPriority int64          `json:"accum"`
-}
-
-type ValidatorSet struct {
-	// NOTE: persisted via reflect, must be exported.
-	Validators []*Validator `json:"validators"`
-	Proposer   *Validator   `json:"proposer"`
-
-	// cached (unexported)
-	totalVotingPower int64
-	validatorsMap    map[common.Address]int // address -> index
-}
 
 
 func (v *Validator) Copy() *Validator {
@@ -528,31 +773,6 @@ func (vals *ValidatorSet) UpdateTotalVotingPower() error {
 
 	return nil
 }
-
-// func (vals *ValidatorSet) IncrementProposerPriority(times int) {
-// 	if vals.IsNilOrEmpty() {
-// 		panic("empty validator set")
-// 	}
-
-// 	if times <= 0 {
-// 		panic("Cannot call IncrementProposerPriority with non-positive times")
-// 	}
-
-// 	// Cap the difference between priorities to be proportional to 2*totalPower by
-// 	// re-normalizing priorities, i.e., rescale all priorities by multiplying with:
-// 	//  2*totalVotingPower/(maxPriority - minPriority)
-// 	diffMax := PriorityWindowSizeFactor * vals.TotalVotingPower()
-// 	vals.RescalePriorities(diffMax)
-// 	vals.shiftByAvgProposerPriority()
-
-// 	var proposer *Validator
-// 	// Call IncrementProposerPriority(1) times times.
-// 	for i := 0; i < times; i++ {
-// 		proposer = vals.incrementProposerPriority()
-// 	}
-
-// 	vals.Proposer = proposer
-// }
 
 type TotalVotingPowerExceededError struct {
 	Sum        int64
