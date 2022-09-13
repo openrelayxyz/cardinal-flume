@@ -119,7 +119,7 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 
 	recents := make(map[uint64]common.Address)
 
-	for i := blockNumber - 64; i <= blockNumber; i++ {
+	for i := blockNumber - 63; i <= blockNumber; i++ {
 		var signer common.Address
 		if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", i).Scan(&signer); 
 		err != nil {
@@ -138,12 +138,14 @@ func (service *PolygonBorService) getArmature(blockNumber uint64) (*Snapshot, er
 
 	var  hashBytes []byte
 
+	log.Info("getArmature", "blockNumber", blockNumber)
+
 	if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&hashBytes);
-		err != nil {
-			log.Error("getArmature fetch hash error", "err", err)
-			return nil, err
-		}
-	
+	err != nil {
+		log.Error("getArmature fetch hash error", "err", err)
+		return nil, err
+	}
+
 	snap := &Snapshot{}
 
 	recents, err := service.getRecents(blockNumber)
@@ -170,7 +172,6 @@ func (service *PolygonBorService) getArmature(blockNumber uint64) (*Snapshot, er
 
 	return snap, nil	
 
-
 }
 
 func getDegree(number int64) int64 {
@@ -179,26 +180,72 @@ func getDegree(number int64) int64 {
 }
 
 func (service *PolygonBorService) getFrames(blockNumber uint64, degree int64) []*Snapshot {
+
 	frames := make([]*Snapshot, degree)
-		for i := 0; i < int(degree); i++ {
-			log.Error("inside get frames loop", "i", i)
-			snap := &Snapshot{}
-			snap, _ = service.getArmature((blockNumber) + (uint64(64) * uint64(i)))
-			frames[i] = snap
-		}
-	return frames
+
+	// log.Warn("inside get frames, len frames", "len", len(frames), "pre loop degree", degree)
+
+	for i := 0; i < int(degree); i++ {
+		// log.Error("inside get frames loop", "i", i)
+		snap := &Snapshot{}
+		snap, _ = service.getArmature((blockNumber) + (uint64(64) * uint64(i)))
+		frames[i] = snap
+	}
+
+	// log.Warn("inside getFrames, len frames", "len", len(frames), "post loop degree", degree)
+
+	updatedFrames := service.UpdateValidators(blockNumber, frames)
+
+
+
+	return updatedFrames
 }
 
-func (service *PolygonBorService) getKeyFrame(blockNumber, uint64, snaps []*Snapshot) *Snapshot {
-	previousSnap := service.getPreviousSnapshot(blockNumber)
+func (service *PolygonBorService) UpdateValidators(blockNumber uint64, snaps []*Snapshot) []*Snapshot {
 
-	for i := 1; i <= len(snaps); i ++ {
-		for i, value := range snaps[i].ValidatorSet.Validators{}
+	previousSnap, _ := service.getPreviousSnapshot(blockNumber)
+	
+	expandedFrames := []*Snapshot{previousSnap}
+
+	expandedFrames = append(expandedFrames, snaps[:]...)
+
+	// log.Warn("inside update expanded frames", "len", len(expandedFrames))
+
+	for i := 1; i <= len(snaps); i++ {
+
+		votingPowerSum := int64(0)
+
+		maxPriority := int64(0)
+
+		var maxPriorityIndex int
+
+		for j, val := range expandedFrames[i].ValidatorSet.Validators {
+
+			votingPowerSum += val.VotingPower
+
+			previousVal := expandedFrames[i - 1].ValidatorSet.Validators[j]
+			
+			val.ProposerPriority = previousVal.VotingPower + previousVal.ProposerPriority 
+			
+			// log.Info("inside updateValidator loop", "new_accum", val.ProposerPriority, "degree", i)
+			
+			if val.ProposerPriority > maxPriority {
+				maxPriority = val.ProposerPriority
+				maxPriorityIndex = j
+			}
+		}
+
+		expandedFrames[i].ValidatorSet.Proposer = expandedFrames[i].ValidatorSet.Validators[maxPriorityIndex]
+		expandedFrames[i].ValidatorSet.Proposer.ProposerPriority = expandedFrames[i].ValidatorSet.Proposer.ProposerPriority - votingPowerSum
 	}
+
+	return expandedFrames
 }
 
 func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumber plugins.BlockNumber) (interface{}, error) {
 	
+	log.Warn("intial block value", "blockNumber", blockNumber)
+
 	switch {
 	case blockNumber.Int64() % 1024 == 0:
 		log.Info("is a snapshot")
@@ -208,14 +255,18 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 
 	case (blockNumber.Int64() + 1) % 64 == 0:
 		degree := getDegree(blockNumber.Int64())
+
+		origin := blockNumber.Int64() - (64 * (degree - 1))
+
 		log.Info("GetTestSnapshot", "block contains a keyframe value of degree", degree)
-		frames := service.getFrames(uint64(blockNumber.Int64()), degree)
+		frames := service.getFrames(uint64(origin), degree)
 		log.Info("retrieved snapshot frames", "len", len(frames), "degree", degree)
-		return frames, nil
+		return frames[len(frames) - 1], nil
 
 	case (blockNumber.Int64() + 1) % 64 != 0:
 		number := ((blockNumber.Int64() + 1) - ((blockNumber.Int64() + 1) % 64)) - 1
 		degree := getDegree(number)
+		origin := blockNumber.Int64() - (64 * (degree - 1))
 		log.Info("GetTestSnapshot", "generated a keyframe value of degree", degree)
 		frames := service.getFrames(uint64(blockNumber.Int64()), degree)
 		// frames := make([]*Snapshot, degree, degree)
@@ -225,7 +276,7 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 		// 	frames[i] = snap
 		// }
 		log.Info("generated snapshot frames", "len", len(frames), "degree", degree)
-		return frames, nil
+		return frames[len(frames) - 1], nil
 
 	default:
 		return "this is not a snapshot or a keyframe", nil
