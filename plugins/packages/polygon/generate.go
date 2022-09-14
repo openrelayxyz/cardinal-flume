@@ -266,17 +266,28 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 	case (blockNumber.Int64() + 1) % 64 != 0:
 		number := ((blockNumber.Int64() + 1) - ((blockNumber.Int64() + 1) % 64)) - 1
 		degree := getDegree(number)
-		origin := blockNumber.Int64() - (64 * (degree - 1))
+		origin := number - (64 * (degree - 1))
 		log.Info("GetTestSnapshot", "generated a keyframe value of degree", degree)
-		frames := service.getFrames(uint64(blockNumber.Int64()), degree)
-		// frames := make([]*Snapshot, degree, degree)
-		// for i := 0; i < int(degree); i++ {
-		// 	snap := &Snapshot{}
-		// 	snap, _ = service.getArmature(uint64(blockNumber.Int64()) + (uint64(64) * uint64(i)))
-		// 	frames[i] = snap
-		// }
+		frames := service.getFrames(uint64(origin), degree)
 		log.Info("generated snapshot frames", "len", len(frames), "degree", degree)
-		return frames[len(frames) - 1], nil
+
+		var hashBytes []byte
+
+		if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&hashBytes);
+		err != nil {
+			log.Error("getArmature fetch hash error", "err", err)
+			return nil, err
+		}
+
+		frame := frames[len(frames) - 1]
+
+		recents, _ := service.getRecents(uint64(blockNumber.Int64()))
+
+		frame.Number = uint64(blockNumber.Int64())
+		frame.Hash = plugins.BytesToHash(hashBytes)
+		frame.Recents = recents
+
+		return frame, nil
 
 	default:
 		return "this is not a snapshot or a keyframe", nil
