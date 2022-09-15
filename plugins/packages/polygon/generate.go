@@ -57,11 +57,31 @@ func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snap
 		return nil, err
 	}
 
-	log.Info("fetching previous snapshot")
+	log.Info("fetching previous snapshot", "")
 
 	snap, err := service.snapshot(context.Background(), lastSnapBlock)
 	if err != nil {
-		log.Error("error fetching previous snapshot")
+		log.Error("error fetching previous snapshot", "number", snap.Number)
+		return nil, err
+	}
+
+	return snap, nil
+}
+
+func (service *PolygonBorService) getSubsequentSnapshot(blockNumber uint64) (*Snapshot, error) { 
+	var nextSnapBlock uint64
+
+	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block > ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&nextSnapBlock);
+	err != nil {
+		log.Error("sql subsequent snapshot fetch error", "err", err)
+		return nil, err
+	}
+
+	log.Info("fetching subsequent snapshot")
+
+	snap, err := service.snapshot(context.Background(), nextSnapBlock)
+	if err != nil {
+		log.Error("error fetching subsequent snapshot", "number", snap.Number)
 		return nil, err
 	}
 
@@ -209,9 +229,11 @@ func (service *PolygonBorService) UpdateValidators(blockNumber uint64, snaps []*
 
 	expandedFrames = append(expandedFrames, snaps[:]...)
 
-	// log.Warn("inside update expanded frames", "len", len(expandedFrames))
+	log.Warn("inside update expanded frames", "len", len(expandedFrames))
 
 	for i := 1; i <= len(snaps); i++ {
+
+		log.Info("inside snaps loop UV", "i", i)
 
 		votingPowerSum := int64(0)
 
@@ -227,7 +249,7 @@ func (service *PolygonBorService) UpdateValidators(blockNumber uint64, snaps []*
 			
 			val.ProposerPriority = previousVal.VotingPower + previousVal.ProposerPriority 
 			
-			// log.Info("inside updateValidator loop", "new_accum", val.ProposerPriority, "degree", i)
+			log.Info("inside updateValidator loop", "new_accum", val.ProposerPriority, "degree", i)
 			
 			if val.ProposerPriority > maxPriority {
 				maxPriority = val.ProposerPriority
@@ -256,6 +278,19 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 	case (blockNumber.Int64() + 1) % 64 == 0:
 		degree := getDegree(blockNumber.Int64())
 
+		if degree == 16 {
+			snap, _ := service.getSubsequentSnapshot(uint64(blockNumber.Int64()))
+			var hashBytes []byte
+			if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(blockNumber.Int64())).Scan(&hashBytes);
+			err != nil {
+				log.Error("generate snapshot fetch hash error", "err", err)
+				return nil, err
+			}
+			snap.Number = uint64(blockNumber.Int64())
+			snap.Hash = plugins.BytesToHash(hashBytes)
+			return snap, nil
+		}
+
 		origin := blockNumber.Int64() - (64 * (degree - 1))
 
 		log.Info("GetTestSnapshot", "block contains a keyframe value of degree", degree)
@@ -266,6 +301,20 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 	case (blockNumber.Int64() + 1) % 64 != 0:
 		number := ((blockNumber.Int64() + 1) - ((blockNumber.Int64() + 1) % 64)) - 1
 		degree := getDegree(number)
+
+		if degree == 16 {
+			snap, _ := service.getSubsequentSnapshot(uint64(blockNumber.Int64()))
+			var hashBytes []byte
+			if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(blockNumber.Int64())).Scan(&hashBytes);
+			err != nil {
+				log.Error("generate snapshot fetch hash error", "err", err)
+				return nil, err
+			}
+			snap.Number = uint64(blockNumber.Int64())
+			snap.Hash = plugins.BytesToHash(hashBytes)
+			return snap, nil
+		}
+
 		origin := number - (64 * (degree - 1))
 		log.Info("GetTestSnapshot", "generated a keyframe value of degree", degree)
 		frames := service.getFrames(uint64(origin), degree)
@@ -273,9 +322,9 @@ func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumb
 
 		var hashBytes []byte
 
-		if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", blockNumber).Scan(&hashBytes);
+		if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(blockNumber.Int64())).Scan(&hashBytes);
 		err != nil {
-			log.Error("getArmature fetch hash error", "err", err)
+			log.Error("generate snapshot fetch hash error", "err", err)
 			return nil, err
 		}
 
