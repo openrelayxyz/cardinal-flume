@@ -218,17 +218,6 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 
 	recents := make(map[uint64]common.Address)
 
-	// for i := blockNumber - 63; i <= blockNumber; i++ {
-	// 	//rewrite as a for loop
-	// 	var signer common.Address
-	// 	if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", i).Scan(&signer); 
-	// 	err != nil {
-	// 		log.Error("getRecents() error fetching signers", "err", err.Error())
-	// 		return nil, err
-	// 	}
-	// 	recents[i] = signer
-	// }
-
 	initialBlock := blockNumber - 63
 	
 	rows, _ := service.db.QueryContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number >= ? AND number <= ?;", initialBlock, blockNumber)
