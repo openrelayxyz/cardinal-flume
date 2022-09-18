@@ -15,7 +15,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
-	"github.com/openrelayxyz/cardinal-types"
+	// "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
 	"golang.org/x/crypto/sha3"
@@ -201,11 +201,11 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 
 }
 
-func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, hash types.Hash) ([]common.Address, error) {
+func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]common.Address, error) {
 
 	var result []common.Address
 
-	snap, err := service.GetSnapshot(context.Background(), hash)
+	snap, err := service.GetSnapshot(context.Background(), blockNrOrHash)
 	if err != nil {
 		log.Error("Error fetching snapshot GetSignersAtHash", "err", err.Error())
 		return nil, err
@@ -221,17 +221,21 @@ func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, hash typ
 
 func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*Validator, error) {
 
-	var blockNumber int64
-	var hash []byte
-	err := service.db.QueryRowContext(ctx, "SELECT max(number), hash FROM blocks.blocks;").Scan(&blockNumber, &hash)
+	var blockNumber *plugins.BlockNumber
+
+	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
 	if err != nil {
 		log.Info("GetCurentValidators error", "err", err.Error())
 		return nil, err
 	}
 
+	bkNrOrHsh := plugins.BlockNumberOrHash {
+		BlockNumber: blockNumber,
+	}
+
 	var result []*Validator
 
-	snap, err := service.GetSnapshot(context.Background(), plugins.BytesToHash(hash))
+	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
 	if err != nil {
 		log.Error("Error fetching snapshot GetCurrentValidators", "err", err.Error())
 		return nil, err
@@ -249,11 +253,18 @@ func (service *PolygonBorService) GetCurrentProposer(ctx context.Context) (*comm
 
 	var result *common.Address
 
-	var blockNumber int64
-	var hash []byte
-	err := service.db.QueryRowContext(ctx, "SELECT max(number), hash FROM blocks.blocks;").Scan(&blockNumber, &hash)
+	var blockNumber *plugins.BlockNumber
+	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
+	if err != nil {
+		log.Info("GetCurentPropser error", "err", err.Error())
+		return nil, err
+	}
 
-	snap, err := service.GetSnapshot(context.Background(), plugins.BytesToHash(hash))
+	bkNrOrHsh := plugins.BlockNumberOrHash {
+		BlockNumber: blockNumber,
+	}
+
+	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
 	if err != nil {
 		log.Error("Error fetching snapshot GetCurrentProposer", "err", err.Error())
 		return nil, err

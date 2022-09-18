@@ -62,7 +62,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		panic(err.Error())
 	}
 
-	author, err := plugins.GetBlockAuthor(header)
+	author, err := getBlockAuthor(header)
 	if err != nil {
 		log.Info("getBlockAuthor error", "err", err.Error())
 	}
@@ -230,7 +230,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			if len(hdr.Extra) == 0 {
 				miner = common.Address{}
 			} else {
-				miner, _ = plugins.GetBlockAuthor(hdr)
+				miner, _ = getBlockAuthor(hdr)
 			}
 
 			statement := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", miner, number) 

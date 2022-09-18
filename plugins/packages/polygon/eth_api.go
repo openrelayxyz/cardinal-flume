@@ -252,7 +252,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	var whereClause string
 	var borTxQuery string
 
-	switch true {
+	switch {
 		case numOk: 
 			column = number
 			whereClause = "block = ?"

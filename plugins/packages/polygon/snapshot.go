@@ -110,13 +110,14 @@ func (service *PolygonBorService) getKeyFrame(blockNumber uint64, degree int64) 
 
 	frames := make([]*Snapshot, degree)
 
+	vals, err := service.getVals(blockNumber)
+	if err != nil {
+		log.Error("getKeyFrame, getVals error", "err", err.Error())
+		return nil, err
+	}
+	
 	for i := 0; i < int(degree); i++ {
 		snap := &Snapshot{}
-		vals, err := service.getVals(blockNumber)
-		if err != nil {
-			log.Error("getKeyFrame  getVals error", "err", err.Error())
-			return nil, err
-		}
 		vs := &ValidatorSet{
 			Validators: vals,
 		}
@@ -141,7 +142,11 @@ func (service *PolygonBorService) getVals(number uint64) ([]*Validator, error) {
 
 	validatorBytes := extra[extraVanity : len(extra)-extraSeal]
 
-	 newVals, _ := parseValidators(validatorBytes)
+	newVals, err := parseValidators(validatorBytes)
+	if err != nil {
+		log.Error("getVals parse validators error", "err", err)
+		return nil, err
+	}
 
 	var vals []*Validator
 
@@ -213,183 +218,128 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 
 	recents := make(map[uint64]common.Address)
 
-	for i := blockNumber - 63; i <= blockNumber; i++ {
+	// for i := blockNumber - 63; i <= blockNumber; i++ {
+	// 	//rewrite as a for loop
+	// 	var signer common.Address
+	// 	if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", i).Scan(&signer); 
+	// 	err != nil {
+	// 		log.Error("getRecents() error fetching signers", "err", err.Error())
+	// 		return nil, err
+	// 	}
+	// 	recents[i] = signer
+	// }
+
+	initialBlock := blockNumber - 63
+	
+	rows, _ := service.db.QueryContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number >= ? AND number <= ?;", initialBlock, blockNumber)
+	defer rows.Close()
+	
+	index := initialBlock
+	
+	for rows.Next() {
 		var signer common.Address
-		if err := service.db.QueryRowContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number = ?;", i).Scan(&signer); 
-		err != nil {
-			log.Error("getRecents() error fetching signers", "err", err.Error())
+		err := rows.Scan(&signer)
+		if err != nil {
+			log.Info("getRecents scan error", "err", err.Error())
 			return nil, err
 		}
-		recents[i] = signer
+		recents[index] = signer
+
+		index += 1
 	}
 
 	return recents, nil 
 
-
 }
 
-func (service *PolygonBorService) GetSnapshot(ctx context.Context, hash types.Hash) (*Snapshot, error) {
-	return &Snapshot{}, nil
-}
-
-func (service *PolygonBorService) GetTestSnapshot(ctx context.Context, blockNumber plugins.BlockNumber) (interface{}, error) {
+func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) (*Snapshot, error) {
 	
-	// blockNumber, numOk := plugins.BlockNumberOrHash.Number()
-	// blockHash, hshOk := plugins.BlockNumberOrHash.Hash()
+	bkNumber, bkHash, err := plugins.DeriveBlockNumberOrHash(service.db, blockNrOrHash)
+	if err != nil{
+		log.Error("Error deriving block or hash argument, GetSnapshot", "err", err)
+	}
 
-	// switch block {
-
-	// 	case numOk:
-	// 		var hashBytes []byte
-	// 		if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(blockNumber.Int64())).Scan(&hashBytes);
-	// 		err != nil {
-	// 			log.Error("GetTestSnapshot fetch hash error", "err", err)
-	// 			return nil, err
-	// 		}
-	// 		blockHash := plugins.BytesToHash(hashBytes)
-
-	// 	case hashOk:
-	// 		var blockNumber uint64
-	// 		if err := service.db.QueryRowContext(context.Background(), "SELECT number FROM blocks.blocks WHERE hash = ?;", blockHash).Scan(&blockNumber);
-	// 		err != nil {
-	// 			log.Error("GetTestSnapshot fetch hash error", "err", err)
-	// 			return nil, err
-	// 		}
-
-	// }
+	blockNumber := *bkNumber
+	blockHash := *bkHash
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 
-    if blockNumber.Int64() % 1024 == 0 {
+    if blockNumber % 1024 == 0 {
 		snap := &Snapshot{}
-		snap, _ = service.fetchSnapshot(ctx, uint64(blockNumber.Int64()))	
+		snap, _ = service.fetchSnapshot(ctx, blockNumber)	
 		return snap, nil
 	}
 
-	var hashBytes []byte
-	if err := service.db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(blockNumber.Int64())).Scan(&hashBytes);
-	err != nil {
-		log.Error("GetTestSnapshot fetch hash error", "err", err)
-		return nil, err
-	}
-
-	blockHash := plugins.BytesToHash(hashBytes)
-
-	recents, _ := service.getRecents(uint64(blockNumber.Int64()))
+	recents, _ := service.getRecents(blockNumber)
 
 	switch {
 
-		case (blockNumber.Int64() + 1) % 64 == 0:
+		case (blockNumber + 1) % 64 == 0:
 			var snap *Snapshot
 			var err error
 
-			degree := ((blockNumber.Int64() / 64) % 16 ) + 1
+			degree := ((blockNumber / 64) % 16 ) + 1
 
-			origin := blockNumber.Int64() - (64 * (degree - 1))
+			origin := blockNumber - (64 * (degree - 1))
 
 			if degree == 16 {
-				snap, _ := service.getSubsequentSnapshot(uint64(blockNumber.Int64()))
+				snap, _ := service.getSubsequentSnapshot(blockNumber)
 
-				snap.Number = uint64(blockNumber.Int64())
+				snap.Number = blockNumber
 				snap.Hash = blockHash
 				snap.Recents = recents
 					
 				return snap, nil
 			}
 
-			snap, err = service.getKeyFrame(uint64(origin), degree)
+			snap, err = service.getKeyFrame(origin, int64(degree))
 			if err != nil {
 				log.Error("GetSnapshot keyframe case error")
 				return nil, err
 			}
 
-			snap.Number = uint64(blockNumber.Int64())
-			snap.Hash = plugins.BytesToHash(hashBytes)
+			snap.Number = blockNumber
+			snap.Hash = blockHash
 			snap.Recents = recents
 
 
 			return snap, nil
 
-	case (blockNumber.Int64() + 1) % 64 != 0:
+	case (blockNumber + 1) % 64 != 0:
 		var snap *Snapshot
 		var err error
 
-		previousKeyframe := ((blockNumber.Int64() + 1) - ((blockNumber.Int64() + 1) % 64)) - 1
-		degree := ((blockNumber.Int64() / 64) % 16 )
+		previousKeyframe := ((blockNumber + 1) - ((blockNumber + 1) % 64)) - 1
+		degree := ((blockNumber / 64) % 16 )
 		
 		if degree == 0 {
-			snap, _ := service.getPreviousSnapshot(uint64(blockNumber.Int64()))
+			snap, _ := service.getPreviousSnapshot(blockNumber)
 			
-			snap.Number = uint64(blockNumber.Int64())
-			snap.Hash = plugins.BytesToHash(hashBytes)
+			snap.Number = blockNumber
+			snap.Hash = blockHash
 			snap.Recents = recents
 			return snap, nil
 		}
 		
 		origin := previousKeyframe - (64 * (degree -1))
-		snap, err = service.getKeyFrame(uint64(origin), degree)
+		snap, err = service.getKeyFrame(origin, int64(degree))
 		if err != nil {
 			log.Error("GetSnapshot non-keyframe case error")
 			return nil, err
 		}
 
-		snap.Number = uint64(blockNumber.Int64())
+		snap.Number = blockNumber
 		snap.Hash = blockHash
 		snap.Recents = recents
 
 		return snap, nil
 
 	default:
-		return "ivalid input, cannot generate snapshot", nil
+		var err error
+		err = errors.New("invalid input")
+		log.Error("Cannot generate snapshot", "err", err)
+		return nil, err
 
 	}
 
-}
-
-func (service *PolygonBorService) Wtf(ctx context.Context, number int64) interface{} {
-
-	var return_val map[string]interface{}
-
-	switch {
-		case number % 1024 == 0:
-
-			return_val = map[string]interface{}{
-				"type": "snapshot",
-			}
-
-			return return_val
-
-		case (number + 1) % 64 == 0:
-
-			degree := ((number / 64) % 16 ) + 1
-			origin := number - (64 * (degree - 1))
-
-			return_val = map[string]interface{}{
-				"type": "keyframe",
-				"degree": degree,
-				"origin": origin,
-			}
-
-			return return_val
-
-		case (number + 1) % 64 != 0:
-
-			degree := ((number / 64) % 16 )
-			derNumber := ((number + 1) - ((number + 1) % 64)) - 1
-			origin := derNumber - (64 * (degree - 1))
-
-			return_val = map[string]interface{}{
-				"type": "neither",
-				"degree": degree,
-				"origin": origin,
-				"previousKeyframe": derNumber,
-			}
-
-			return return_val
-
-		default:
-			return "proplematic input"
-
-
-	}
 }

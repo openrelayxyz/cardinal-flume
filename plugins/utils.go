@@ -7,12 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"golang.org/x/crypto/sha3"
-
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
-	"github.com/openrelayxyz/cardinal-evm/rlp"
-	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
@@ -95,60 +90,6 @@ func Compress(data []byte) []byte {
 	compressor.Write(data)
 	compressor.Close()
 	return compressionBuffer.Bytes()
-}
-
-func sealHash(header *evm.Header) (hash types.Hash) {
-	hasher := sha3.NewLegacyKeccak256()
-	encodeSigHeader(hasher, header)
-	hasher.Sum(hash[:0])
-
-	return hash
-}
-
-func encodeSigHeader(w io.Writer, header *evm.Header) {
-	enc := []interface{}{
-		header.ParentHash,
-		header.UncleHash,
-		header.Coinbase,
-		header.Root,
-		header.TxHash,
-		header.ReceiptHash,
-		header.Bloom,
-		header.Difficulty,
-		header.Number,
-		header.GasLimit,
-		header.GasUsed,
-		header.Time,
-		header.Extra[:len(header.Extra)-65], // Yes, this will panic if extra is too short
-		header.MixDigest,
-		header.Nonce,
-	}
-
-	// if c.IsJaipur(header.Number.Uint64()) {
-	if header.BaseFee != nil {
-		enc = append(enc, header.BaseFee)
-	}
-	// }
-
-	if err := rlp.Encode(w, enc); err != nil {
-		panic("can't encode: " + err.Error())
-	}
-}
-
-func GetBlockAuthor(header *evm.Header) (common.Address, error) {
-
-	signature := header.Extra[len(header.Extra)-65:]
-
-	pubkey, err := crypto.Ecrecover(sealHash(header).Bytes(), signature)
-	if err != nil {
-		log.Info("pubkey error", "err", err.Error())
-	}
-
-	var signer common.Address
-
-	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
-
-	return signer, nil
 }
 
 func GetLogs(db *sql.DB, blockNumber uint64, bkHash types.Hash, txIndex uint64) ([]*logType, error) {
@@ -358,4 +299,36 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		return nil, err
 	}
 	return results, nil
+}
+
+func DeriveBlockNumberOrHash(db *sql.DB, blockNrOrHash BlockNumberOrHash) (*uint64, *types.Hash, error) {
+	var hashBytes []byte
+	var blockNumber uint64
+	var blockHash types.Hash
+	
+	bkNumber, numOk := blockNrOrHash.Number()
+	bkHash, hashOk := blockNrOrHash.Hash()
+
+	switch {
+
+		case numOk:
+			if err := db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(bkNumber.Int64())).Scan(&hashBytes);
+			err != nil {
+				log.Error("DeriveBlockNumberOrHash fetch hash error", "err", err)
+				return nil, nil, err
+			}
+			blockHash = BytesToHash(hashBytes)
+			blockNumber = uint64(bkNumber.Int64())
+
+		case hashOk:
+			if err := db.QueryRowContext(context.Background(), "SELECT number FROM blocks.blocks WHERE hash = ?;", bkHash).Scan(&blockNumber);
+			err != nil {
+				log.Error("GetTestSnapshot fetch hash error", "err", err)
+				return nil, nil, err
+			}
+			blockHash = bkHash
+
+	}
+
+	return &blockNumber, &blockHash, nil
 }
