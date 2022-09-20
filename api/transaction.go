@@ -28,7 +28,6 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *Tr
 }
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
-
 	pluginMethods := api.pl.Lookup("GetTransactionByHash", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		return ok
