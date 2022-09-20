@@ -48,6 +48,7 @@ require (
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e // indirect
 	github.com/xdg/scram v1.0.3 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
+	github.com/xsleonard/go-merkle v1.1.0 // indirect
 	golang.org/x/net v0.0.0-20220615171555-694bf12d69de // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
