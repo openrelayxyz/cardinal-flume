@@ -16,10 +16,6 @@ type PolygonEthService struct {
 	cfg *config.Config
 }
 
-func (service *PolygonEthService) GetRootHash(ctx context.Context, starBlockNr uint64, endBlockNr uint64) (string, error) {
-	return "goodbye horsETHs", nil
-}
-
 
 func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
 	var txHash  []byte
@@ -36,7 +32,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 			txns := blockVal["transactions"].([]types.Hash)
 			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
 			return blockVal, nil
-			
+
 		case []map[string]interface{}:
 			txns := blockVal["transactions"].([]map[string]interface{})
 			borTx := map[string]interface{}{
@@ -60,27 +56,27 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 			return blockVal, nil
 		}
 	}
-	return nil, nil
+	return blockVal, nil
 }
 
 func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
 	var txHash  []byte
 	var txIndex  uint64
-	
+
 	if err := db.QueryRowContext(context.Background(), "SELECT transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", blockVal["hash"]).Scan(&txHash, &txIndex)
 	err != nil {
 		log.Info("sql response", "err", err)
 	}
-	
+
 	if txHash != nil {
 
 		switch blockVal["transactions"].(type) {
-			
+
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
 			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
 			return blockVal, nil
-			
+
 		case []map[string]interface{}:
 			txns := blockVal["transactions"].([]map[string]interface{})
 			borTx := map[string]interface{}{
@@ -105,24 +101,26 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 
 		}
 	}
-	
+
 	return nil, nil
 }
 
-func GetTransactionByHash(txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {  // method is very slow to respond 10+ secs
-	var blockHash []byte
-	var blockNumber, txIndex  uint64
 
-	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
-	err != nil {
-		log.Info("sql response", "err", err)
-		return nil, nil
+func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
+	
+	if txObj == nil {
+
+		var blockHash []byte
+		var blockNumber, txIndex  uint64
+
+		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+		err != nil {
+			log.Info("sql response", "err", err)
+			return nil, nil
 		} 
-
-	if blockHash != nil {
-
+	
 		borTxObj :=  map[string]interface{}{
-			"blockHash": plugins.BytesToHash(blockHash),
+				"blockHash": plugins.BytesToHash(blockHash),
 				"blockNumber": hexutil.Uint64(blockNumber),
 				"from": "0x0000000000000000000000000000000000000000",
 				"gas": "0x0",
@@ -138,22 +136,27 @@ func GetTransactionByHash(txHash types.Hash, db *sql.DB) (map[string]interface{}
 				"r": "0x0",
 				"s": "0x0",
 		}
-		return borTxObj, nil
+
+		txObj = borTxObj
+
 	}
-	return nil, nil
+
+	return txObj, nil
 }
 
-func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{}, error) { 
-	var blockHash []byte
-	var blockNumber, txIndex uint64
+func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
 	
-	if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
-	err != nil {
-		log.Info("GTR sql response", "err", err)
-		return nil, nil
-	} 
+	if receiptObj == nil {
+	
+		var blockHash []byte
+		var blockNumber, txIndex uint64
 
-	if blockHash != nil {
+		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
+		err != nil {
+			log.Info("GTR sql response", "err", err)
+			return nil, nil
+		} 
+
 		
 		bkHash := plugins.BytesToHash(blockHash)
 
@@ -162,14 +165,14 @@ func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{
 			log.Error("Error fetching logsBloom", "err", err.Error())
 			return nil, err
 		}
-		
+
 		txLogs, err := plugins.GetLogs(db, blockNumber, bkHash, txIndex) 
 		if err != nil {
 			log.Error("Error fetching logs", "err", err.Error())
 			return nil, err
 		}
-		
-		txObj := map[string]interface{}{
+
+		borReceiptObj := map[string]interface{}{
 			"blockHash": plugins.BytesToHash(blockHash),
     		"blockNumber": hexutil.Uint64(blockNumber),
     		"contractAddress": nil,
@@ -185,10 +188,11 @@ func GetTransactionReceipt(db *sql.DB, txHash types.Hash) (map[string]interface{
     		"transactionIndex": hexutil.Uint64(txIndex),
     		"type": "0x0",
 		}
-		
-		return txObj, nil
+
+		receiptObj =  borReceiptObj
 	}
-	return nil, nil
+
+	return receiptObj, nil
 }
 
 func (service *PolygonEthService) ChainId(ctx context.Context) hexutil.Uint64 {
