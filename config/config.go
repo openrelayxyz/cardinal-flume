@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -36,27 +36,30 @@ type broker struct {
 }
 
 type Config struct {
-	Port           int64  `yaml:"port"`
-	PprofPort      int    `yaml:"pprofPort"`
-	MinSafeBlock   int    `yaml:"minSafeBlock"`
-	Network        string `yaml:"networkName"`
-	Chainid        uint64 `yaml:"chainid"`
-	HomesteadBlock uint64 `yaml:"homesteadBlock"`
-	Eip155Block    uint64 `yaml:"eip155Block"`
-	TxTopic        string `yaml:"mempoolTopic"`
-	KafkaRollback  int64  `yaml:"kafkaRollback"`
-	ReorgThreshold int64  `yaml:"reorgThreshold"`
-	MempoolDb      string `yaml:"mempoolDB"`
-	BlocksDb       string `yaml:"blocksDB"`
-	TxDb           string `yaml:"transactionsDB"`
-	LogsDb         string `yaml:"logsDB"`
-	MempoolSlots   int    `yaml:"mempoolSize"`
-	Concurrency    int    `yaml:"concurrency"`
-	LogLevel       string `yaml:"loggingLevel"`
-	Brokers        []broker `yaml:"brokers"`
-	brokers        []transports.BrokerParams
-	Statsd *statsdOpts `yaml:"statsd"`
-	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
+	Port           int64             `yaml:"port"`
+	PprofPort      int               `yaml:"pprofPort"`
+	MinSafeBlock   int               `yaml:"minSafeBlock"`
+	Network        string            `yaml:"networkName"`
+	Chainid        uint64            `yaml:"chainid"`
+	HomesteadBlock uint64            `yaml:"homesteadBlock"`
+	Eip155Block    uint64            `yaml:"eip155Block"`
+	TxTopic        string            `yaml:"mempoolTopic"`
+	KafkaRollback  int64             `yaml:"kafkaRollback"`
+	ReorgThreshold int64             `yaml:"reorgThreshold"`
+	Databases      map[string]string `yaml:"databases"`
+	MempoolDb      string            `yaml:"mempoolDB"`
+	BlocksDb       string            `yaml:"blocksDB"`
+	TxDb           string            `yaml:"transactionsDB"`
+	LogsDb         string            `yaml:"logsDB"`
+	MempoolSlots   int               `yaml:"mempoolSize"`
+	Concurrency    int               `yaml:"concurrency"`
+	LogLevel       string            `yaml:"loggingLevel"`
+	Plugins        []string          `yaml:"plugins"`
+	PluginDir      string            `yaml:pluginPath`
+	Brokers        []broker          `yaml:"brokers"`
+	BrokerParams   []transports.BrokerParams
+	Statsd         *statsdOpts     `yaml:"statsd"`
+	CloudWatch     *cloudwatchOpts `yaml:"cloudwatch"`
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -69,18 +72,12 @@ func LoadConfig(fname string) (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.MempoolDb == "" {
-		return nil, errors.New("No mempool database specified")
-	}
-	if cfg.BlocksDb == "" {
-		return nil, errors.New("No blocks database specified")
-	}
-	if cfg.TxDb == "" {
-		return nil, errors.New("No transactions database specified")
-	}
-	if cfg.LogsDb == "" {
-		return nil, errors.New("No logs database specified")
-	}
+	cfg.PluginDir = cfg.PluginDir + "plugins"
+
+	// cfg.BlocksDb = cfg.Databases["blocks"]
+	// cfg.BlocksDb = cfg.Databases["transactions"]
+	// cfg.BlocksDb = cfg.Databases["logs"]
+	// cfg.BlocksDb = cfg.Databases["mempool"]
 
 	switch cfg.Network {
 	case "mainnet":
@@ -107,6 +104,14 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.Chainid = 11155111
 	case "kiln":
 		cfg.Chainid = 1337802
+	case "polygon":
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 137
+	case "mumbai":
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 80001
 	case "":
 		if cfg.Chainid == 0 {
 			err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
@@ -159,7 +164,7 @@ func LoadConfig(fname string) (*Config, error) {
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("Config must specify at least one broker")
 	}
-	cfg.brokers = make([]transports.BrokerParams, len(cfg.Brokers))
+	cfg.BrokerParams = make([]transports.BrokerParams, len(cfg.Brokers))
 	for i := range cfg.Brokers {
 		if cfg.Brokers[i].DefaultTopic == "" {
 			cfg.Brokers[i].DefaultTopic = fmt.Sprintf("cardinal-%v", cfg.Chainid)
@@ -179,7 +184,7 @@ func LoadConfig(fname string) (*Config, error) {
 		if cfg.Brokers[i].Rollback == 0 {
 			cfg.Brokers[i].Rollback = 5000
 		}
-		cfg.brokers[i] = transports.BrokerParams{
+		cfg.BrokerParams[i] = transports.BrokerParams{
 			URL:          cfg.Brokers[i].URL,
 			DefaultTopic: cfg.Brokers[i].DefaultTopic,
 			Topics: []string{

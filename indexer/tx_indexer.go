@@ -2,12 +2,15 @@ package indexer
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	gtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/openrelayxyz/cardinal-evm/rlp"
-	"github.com/openrelayxyz/cardinal-streams/delivery"
+	// "encoding/json"
+
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-streams/delivery"
+	"github.com/openrelayxyz/cardinal-types"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -43,40 +46,40 @@ func NewTxIndexer(chainid, eip155block, homesteadblock uint64) Indexer {
 
 func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
-	header := &gtypes.Header{}
+	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
 		panic(err.Error())
 	}
 
 	receiptData := make(map[int]*cardinalReceiptMeta)
-	txData := make(map[int]*gtypes.Transaction)
-	senderMap := make(map[common.Hash]<-chan common.Address)
+	txData := make(map[int]*evm.Transaction)
+	senderMap := make(map[types.Hash]<-chan common.Address)
 
 	for k, v := range pb.Values {
 		switch {
 		case txRegexp.MatchString(k):
 			parts := txRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
-			tx := &gtypes.Transaction{}
+			tx := &evm.Transaction{}
 			tx.UnmarshalBinary(v)
 
-			var signer gtypes.Signer
+			var signer evm.Signer
 			ch := make(chan common.Address, 1)
 			senderMap[tx.Hash()] = ch
-			go func(tx *gtypes.Transaction, ch chan<- common.Address) {
+			go func(tx *evm.Transaction, ch chan<- common.Address) {
 				switch {
-				case tx.Type() == gtypes.AccessListTxType:
-					signer = gtypes.NewEIP2930Signer(tx.ChainId())
-				case tx.Type() == gtypes.DynamicFeeTxType:
-					signer = gtypes.NewLondonSigner(tx.ChainId())
+				case tx.Type() == evm.AccessListTxType:
+					signer = evm.NewEIP2930Signer(tx.ChainId())
+				case tx.Type() == evm.DynamicFeeTxType:
+					signer = evm.NewLondonSigner(tx.ChainId())
 				case uint64(pb.Number) > indexer.eip155Block:
-					signer = gtypes.NewEIP155Signer(tx.ChainId())
+					signer = evm.NewEIP155Signer(tx.ChainId())
 				case uint64(pb.Number) > indexer.homesteadBlock:
-					signer = gtypes.HomesteadSigner{}
+					signer = evm.HomesteadSigner{}
 				default:
-					signer = gtypes.FrontierSigner{}
+					signer = evm.FrontierSigner{}
 				}
-				sender, err := gtypes.Sender(signer, tx)
+				sender, err := evm.Sender(signer, tx)
 				if err != nil {
 					log.Error("Signer error", "err", err.Error())
 				}
@@ -96,7 +99,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements := make([]string, 0, len(txData)+1)
 
-	statements = append(statements, applyParameters("DELETE FROM transactions WHERE block >= %v", pb.Number))
+	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
 
 	for i := 0; i < len(txData); i++ {
 		transaction := txData[int(i)]
@@ -107,15 +110,15 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		var accessListRLP []byte
 		gasPrice := transaction.GasPrice().Uint64()
 		switch transaction.Type() {
-		case gtypes.AccessListTxType:
+		case evm.AccessListTxType:
 			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
-		case gtypes.DynamicFeeTxType:
+		case evm.DynamicFeeTxType:
 			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
 		}
 		input := getCopy(compress(transaction.Data()))
-		statements = append(statements, applyParameters(
-			"INSERT INTO transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+		statements = append(statements, ApplyParameters(
+			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),
 			gasPrice,

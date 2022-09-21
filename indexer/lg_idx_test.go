@@ -9,10 +9,15 @@ import (
 )
 
 func TestLogIndexer(t *testing.T) {
-	controlDB, err := openControlDatabase("lg", "../logs.sqlite")
+
+	test_dbs := make(map[string]string)
+	test_dbs["control"] = "../logs.sqlite"
+
+	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE event_logs (
 				address varchar(20),
 				topic0 varchar(32),
@@ -36,7 +41,7 @@ func TestLogIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	log.Info("Log indexer test", "Decompressing batches of length:", len(batches))
-	l := NewLogIndexer()
+	l := NewLogIndexer(1)
 
 	statements := []string{}
 	for _, pb := range batches {

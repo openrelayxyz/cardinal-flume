@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/migrations"
+	"github.com/openrelayxyz/flume/plugins"
 
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
+	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	"io"
 	"io/ioutil"
@@ -25,7 +28,7 @@ import (
 var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
-	sqlitePath := "../main.sqlite"
+	sqlitePath := "../testdata.sqlite"
 
 	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "mempool.sqlite")
 	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "blocks.sqlite")
@@ -98,20 +101,20 @@ func receiptsDecompress() ([]map[string]json.RawMessage, error) {
 	return receiptsObject, nil
 }
 
-func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []rpc.BlockNumber {
-	result := []rpc.BlockNumber{}
+func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []vm.BlockNumber {
+	result := []vm.BlockNumber{}
 	for _, block := range jsonBlockObject {
-		var x rpc.BlockNumber
+		var x vm.BlockNumber
 		json.Unmarshal(block["number"], &x)
 		result = append(result, x)
 	}
 	return result
 }
 
-func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []common.Hash {
-	result := []common.Hash{}
+func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []types.Hash {
+	result := []types.Hash{}
 	for _, block := range jsonBlockObject {
-		var x common.Hash
+		var x types.Hash
 		json.Unmarshal(block["hash"], &x)
 		result = append(result, x)
 	}
@@ -124,7 +127,8 @@ func TestBlockNumber(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	b := NewBlockAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	b := NewBlockAPI(db, 1, pl)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
 	test, err := b.BlockNumber(context.Background())
 	if err != nil {
@@ -141,7 +145,8 @@ func TestBlockAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	b := NewBlockAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	b := NewBlockAPI(db, 1, pl)
 	blockObject, _ := blocksDecompress()
 	blockNumbers := getBlockNumbers(blockObject)
 	for i, block := range blockNumbers {
@@ -173,7 +178,12 @@ func TestBlockAPI(t *testing.T) {
 						t.Errorf("nope %v", k)
 					}
 					if !bytes.Equal(data, blockObject[i][k]) {
-						t.Fatalf("not equal %v", k)
+						var generic interface{}
+						json.Unmarshal(blockObject[i][k], &generic)
+						log.Info("values", "data", v, "test", generic)
+						log.Info("pre marshal type", "type", reflect.TypeOf(v))
+
+						t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 					}
 				}
 			}
@@ -196,7 +206,7 @@ func TestBlockAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			var uncleSlice []common.Hash
+			var uncleSlice []types.Hash
 			json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
 			if actual != hexutil.Uint64(len(uncleSlice)) {
 				t.Fatalf("uncle count by block %v %v", actual, hexutil.Uint64(len(uncleSlice)))
@@ -232,7 +242,8 @@ func TestBlockAPI(t *testing.T) {
 							t.Errorf("nope %v", k)
 						}
 						if !bytes.Equal(data, blockObject[i][k]) {
-							t.Fatalf("not equal %v", k)
+							log.Info("pre marshal type", "type", reflect.TypeOf(v))
+							t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 						}
 					}
 				}
@@ -254,7 +265,7 @@ func TestBlockAPI(t *testing.T) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}
-				var uncleSlice []common.Hash
+				var uncleSlice []types.Hash
 				json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
 				if actual != hexutil.Uint64(len(uncleSlice)) {
 					t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))

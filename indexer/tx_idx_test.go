@@ -27,12 +27,18 @@ func decompress(data []byte) ([]byte, error) {
 	return raw, err
 }
 
-func TestTransacitonIndexer(t *testing.T) {
-	controlDB, err := openControlDatabase("tx", "../transactions.sqlite")
+func TestTransactionIndexer(t *testing.T) {
+
+	test_dbs := make(map[string]string)
+	test_dbs["control"] = "../transactions.sqlite"
+	test_dbs["transactions"] = "../test.sqlite"
+
+	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	_, err = controlDB.Exec(`CREATE TABLE transactions (
+	defer controlDB.Close()
+	_, err = controlDB.Exec(`CREATE TABLE transactions.transactions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				gas BIGINT,
 				gasPrice BIGINT,
@@ -65,9 +71,8 @@ func TestTransacitonIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	log.Info("Transaction indexer test", "decompressing batches of length:", len(batches))
 	ti := NewTxIndexer(1, 2675000, 1150000)
-
+	log.Info("Transaciton indexer test", "Decompressing batches of length:", len(batches))
 	statements := []string{}
 	for _, pb := range batches {
 		group, err := ti.Index(pb)
@@ -103,7 +108,6 @@ func TestTransacitonIndexer(t *testing.T) {
 			rows.Scan(&block, &txDx, &typ, &control, &test)
 			cs := reflect.TypeOf(control)
 			ts := reflect.TypeOf(test)
-			// log.Info("results", "field", item, "block", block, "txDx", txDx, "control type:", cs, "test type:", ts, "control value:", control, "test value:", test)
 			switch v := test.(type) {
 			default:
 				t.Errorf("unknown type: item:%v, block:%v, txDx:%v, control type:%v, test type:%v, switch type:%v", item, block, txDx, cs, ts, v)

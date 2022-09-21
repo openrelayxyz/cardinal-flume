@@ -3,23 +3,25 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
-	"encoding/json"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
 )
 
-func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[common.Hash][]map[string]json.RawMessage {
+func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[types.Hash][]map[string]json.RawMessage {
 	bkHashes := getBlockHashes(jsonBlockObject)
-	result := map[common.Hash][]map[string]json.RawMessage{}
+	result := map[types.Hash][]map[string]json.RawMessage{}
 	for _, hash := range bkHashes {
 		receipts := []map[string]json.RawMessage{}
 		for _, receipt := range jsonReceiptObject {
-			var h common.Hash
+			var h types.Hash
 			json.Unmarshal(receipt["blockHash"], &h)
 			if hash == h {
 				receipts = append(receipts, receipt)
@@ -30,13 +32,13 @@ func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMes
 	return result
 }
 
-func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[rpc.BlockNumber][]map[string]json.RawMessage {
+func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[vm.BlockNumber][]map[string]json.RawMessage {
 	bkNumbers := getBlockNumbers(jsonBlockObject)
-	result := map[rpc.BlockNumber][]map[string]json.RawMessage{}
+	result := map[vm.BlockNumber][]map[string]json.RawMessage{}
 	for _, number := range bkNumbers {
 		receipts := []map[string]json.RawMessage{}
 		for _, receipt := range jsonReceiptObject {
-			var n rpc.BlockNumber
+			var n vm.BlockNumber
 			json.Unmarshal(receipt["blockNumber"], &n)
 			if number == n {
 				receipts = append(receipts, receipt)
@@ -116,7 +118,8 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	f := NewFlumeAPI(db, 1)
+	pl, _ := plugins.NewPluginLoader("")
+	f := NewFlumeAPI(db, 1, pl)
 
 	blockObject, _ := blocksDecompress()
 	receiptObject, _ := receiptsDecompress()
