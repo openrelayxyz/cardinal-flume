@@ -30,7 +30,7 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common
 		log.Error("Error getting pending txs", "err", err.Error())
 		return nil, err
 	}
-	ctxs, err := getTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
+	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
@@ -71,7 +71,7 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx context.Context, address com
 		log.Error("Error getting pending txs", "err", err.Error())
 		return nil, err
 	}
-	ctxs, err := getTransactions(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
+	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
@@ -111,7 +111,7 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 		log.Error("Error getting pending txs", "err", err.Error())
 		return nil, err
 	}
-	ctxs, err := getTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err

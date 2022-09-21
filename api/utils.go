@@ -562,3 +562,111 @@ func returnSingleReceipt(txs []map[string]interface{}) map[string]interface{} {
 	}
 	return result
 }
+
+func getFlumeTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	return getFlumeTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
+}
+
+func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
+	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var results []map[string]interface{}
+	for rows.Next() {
+		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
+		var nonce, gasLimit, blockNumber, gasPrice, time, txIndex, v uint64
+		var txTypeRaw sql.NullInt32
+		err := rows.Scan(
+			&blockHashBytes,
+			&blockNumber,
+			&time,
+			&gasLimit,
+			&gasPrice,
+			&txHash,
+			&data,
+			&nonce,
+			&to,
+			&txIndex,
+			&amount,
+			&v,
+			&r,
+			&s,
+			&from,
+			&txTypeRaw,
+			&cAccessListRLP,
+			&baseFeeBytes,
+			&gasFeeCapBytes,
+			&gasTipCapBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
+		txType := uint8(txTypeRaw.Int32)
+		blockHash := bytesToHash(blockHashBytes)
+		txIndexHex := hexutil.Uint64(txIndex)
+		inputBytes, err := decompress(data)
+		if err != nil {
+			return nil, err
+		}
+		accessListRLP, err := decompress(cAccessListRLP)
+		if err != nil {
+			return nil, err
+		}
+		var accessList *types.AccessList
+		var chainID, gasFeeCap, gasTipCap *hexutil.Big
+		switch txType {
+		case types.AccessListTxType:
+			accessList = &types.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			chainID = uintToHexBig(chainid)
+		case types.DynamicFeeTxType:
+			accessList = &types.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			chainID = uintToHexBig(chainid)
+			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
+			gasTipCap = bytesToHexBig(gasTipCapBytes)
+		case types.LegacyTxType:
+			chainID = nil
+		}
+		results = append(results, map[string]interface{}{
+			"blockHash":            &blockHash,
+			"blockNumber":          uintToHexBig(blockNumber),
+			"timestamp":            uintToHexBig(time),
+			"from":                 bytesToAddress(from),
+			"gas":                  hexutil.Uint64(gasLimit),
+			"gasPrice":             uintToHexBig(gasPrice),
+			"maxFeePerGas":         gasFeeCap,
+			"maxPriorityFeePerGas": gasTipCap,
+			"hash":                 bytesToHash(txHash),
+			"input":                hexutil.Bytes(inputBytes),
+			"nonce":                hexutil.Uint64(nonce),
+			"to":                   bytesToAddressPtr(to),
+			"transactionIndex":     &txIndexHex,
+			"value":                bytesToHexBig(amount),
+			"v":                    uintToHexBig(v),
+			"r":                    bytesToHexBig(r),
+			"s":                    bytesToHexBig(s),
+			"type":                 hexutil.Uint64(txType),
+			"chainID":              chainID,
+			"accessList":           accessList,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	keys := []string{"chainID", "accessList", "maxFeePerGas", "maxPriorityFeePerGas"}
+	for _, key := range keys {
+		for _, item := range results {
+			for k, v := range item {
+				if k == key || v == nil {
+					delete(item, k)
+				}
+			}
+		}
+	}
+
+	return results, nil
+}

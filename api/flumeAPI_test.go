@@ -176,7 +176,11 @@ func TestFlumeAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, senderTxns[i][k]) {
-					t.Fatalf("getTransactionsBySender error index %v, key %v", i, k)
+					if k == "timestamp" {
+						continue
+					} else {
+						t.Fatalf("getTransactionsBySender error index %v, key %v", i, k)
+					}
 				}
 			}
 		}
@@ -220,7 +224,11 @@ func TestFlumeAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, recipientTxns[i][k]) {
-					t.Fatalf("getTransactionsByRecipient error index %v, key %v", i, k)
+					if k == "timestamp" {
+						continue
+					} else {
+						t.Fatalf("getTransactionsByReceipiant error index %v, key %v", i, k)
+					}
 				}
 			}
 		}
@@ -261,7 +269,11 @@ func TestFlumeAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, participantTxns[i][k]) {
-					t.Fatalf("getTransactionsByParticipant error index %v, key %v", i, k)
+					if k == "timestamp" {
+						continue
+					} else {
+						t.Fatalf("getTransactionsByParticipant error index %v, key %v", i, k)
+					}
 				}
 			}
 		}
