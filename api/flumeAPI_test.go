@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
+	// "reflect"
 )
 
 func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[types.Hash][]map[string]json.RawMessage {
@@ -140,10 +141,10 @@ func TestFlumeAPI(t *testing.T) {
 						t.Errorf(err.Error())
 					}
 					if !bytes.Equal(data, receiptsByHash[hash][j][k]) {
-						if k == "timestamp" {
+						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
 							continue
 						} else {
-							t.Fatalf("getTransactionReceiptsByBlockHash error hash %v, index %v, key %v", hash, j, k)
+							t.Fatalf("getTransactionReceiptsByBlockHash error hash %v,  index %v, key %v", hash, j, k)
 						}
 					}
 				}
@@ -160,10 +161,10 @@ func TestFlumeAPI(t *testing.T) {
 						t.Errorf(err.Error())
 					}
 					if !bytes.Equal(data, receiptsByBlock[number][j][k]) {
-						if k == "timestamp" {
+						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {	
 							continue
 						} else {
-							t.Fatalf("getTransactionReceiptsByBlockNumber error index %v, key %v", j, k)
+							t.Fatalf("getTransactionReceiptsByBlockNumber error block %v, index %v, key %v", number, j, k)
 						}
 					}
 				}
@@ -321,8 +322,13 @@ func TestFlumeAPI(t *testing.T) {
 	})
 }
 
-var timeStamps = []string{"0", "1438269988", "1455404053", "1463003133", "1470173578", "1477324790", "1484475035", "1499633567", "1509953783", "1532118564", "1554358137",
-"1574706444", "1576239700", "1581934143", "1588598533", "1601957824", "1615234816", "1618482942", "1621898262", "1628632419", "1635345781", "1642114795", "1642114800", 
-"1642114824", "1642114825", "1642114850", "1642114852", "1642114865", "1642114881", "1642114895", "1642114917", "1642114924", "1642114928", "1642114931", "1642114961",
-"1642114971", "1642114982", "1642114988", "1642115010", "1642115039", "1642115047", "1642115052", "1642115064"}
+var timeStamps = []uint64{0, 1438269988, 1455404053, 1463003133, 1470173578, 1477324790, 1484475035, 1499633567, 1509953783, 1532118564, 1554358137, 1574706444, 
+1576239700, 1581934143, 1588598533, 1601957824, 1615234816, 1618482942, 1621898262, 1628632419, 1635345781, 1642114795, 1642114800, 1642114824, 1642114825, 1642114850, 
+1642114852, 1642114865, 1642114881, 1642114895, 1642114917, 1642114924, 1642114928, 1642114931, 1642114961, 1642114971, 1642114982, 1642114988, 1642115010, 1642115039, 
+1642115047, 1642115052, 1642115064}
+
+// var timeStamps = []string{"0", "1438269988", "1455404053", "1463003133", "1470173578", "1477324790", "1484475035", "1499633567", "1509953783", "1532118564", "1554358137",
+// "1574706444", "1576239700", "1581934143", "1588598533", "1601957824", "1615234816", "1618482942", "1621898262", "1628632419", "1635345781", "1642114795", "1642114800", 
+// "1642114824", "1642114825", "1642114850", "1642114852", "1642114865", "1642114881", "1642114895", "1642114917", "1642114924", "1642114928", "1642114931", "1642114961",
+// "1642114971", "1642114982", "1642114988", "1642115010", "1642115039", "1642115047", "1642115052", "1642115064"}
 
