@@ -54,7 +54,7 @@ jobs:
       - run:
           name: Message Slack
           command: |
-              ./slack-post.sh -w $SlackWebhook -m "*flume*:\nTag: $CIRCLE_TAG"
+              ./.circleci/slack-post.sh -w $SlackWebhook -m "*flume*:\nTag: $CIRCLE_TAG"
 
 
 workflows:
