@@ -18,6 +18,7 @@ type PolygonEthService struct {
 
 
 func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
+	log.Info("gbbn")
 	var txHash  []byte
 	var txIndex  uint64
 
@@ -27,6 +28,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 	}
 
 	if txHash != nil {
+		log.Info("gbbn", "got one", txHash)
 		switch blockVal["transactions"].(type) {
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
@@ -285,10 +287,10 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 		return nil, err
 	}
 	
-	borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
+	// borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
 	
 	
-	receipts = append(receipts, borReceipt)
+	// receipts = append(receipts, borReceipt)
 
 	// This is left here for exploring / debugging purposes
 	// if len(receipts) > 0 {

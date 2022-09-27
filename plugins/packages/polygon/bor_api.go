@@ -27,6 +27,13 @@ type PolygonBorService struct {
 	cfg *config.Config
 }
 
+func NewBorAPI(db *sql.DB, cfg *config.Config) *PolygonBorService {
+	return &PolygonBorService{
+		db:  db,
+		cfg: cfg,
+	}
+}
+
 
 func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber plugins.BlockNumber) (*common.Address, error) {
 	
