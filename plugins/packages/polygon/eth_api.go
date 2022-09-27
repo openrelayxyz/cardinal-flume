@@ -106,8 +106,8 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 }
 
 
-func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
-	
+func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {
+
 	if txObj == nil {
 
 		var blockHash []byte
@@ -117,8 +117,8 @@ func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *s
 		err != nil {
 			log.Info("sql response", "err", err)
 			return nil, nil
-		} 
-	
+		}
+
 		borTxObj :=  map[string]interface{}{
 				"blockHash": plugins.BytesToHash(blockHash),
 				"blockNumber": hexutil.Uint64(blockNumber),
@@ -144,10 +144,10 @@ func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *s
 	return txObj, nil
 }
 
-func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) { 
-	
+func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {
+
 	if receiptObj == nil {
-	
+
 		var blockHash []byte
 		var blockNumber, txIndex uint64
 
@@ -155,9 +155,9 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 		err != nil {
 			log.Info("GTR sql response", "err", err)
 			return nil, nil
-		} 
+		}
 
-		
+
 		bkHash := plugins.BytesToHash(blockHash)
 
 		logsBloom, err := plugins.GetLogsBloom(db, blockNumber)
@@ -166,7 +166,7 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 			return nil, err
 		}
 
-		txLogs, err := plugins.GetLogs(db, blockNumber, bkHash, txIndex) 
+		txLogs, err := plugins.GetLogs(db, blockNumber, bkHash, txIndex)
 		if err != nil {
 			log.Error("Error fetching logs", "err", err.Error())
 			return nil, err
@@ -219,7 +219,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 			return nil, err
 		}
 
-		txLogs, err := plugins.GetLogs(service.db, blockNumber, bkHash, txIndex) 
+		txLogs, err := plugins.GetLogs(service.db, blockNumber, bkHash, txIndex)
 		if err != nil {
 			log.Error("Error fetching logs", "err", err.Error())
 			return nil, err
@@ -238,10 +238,10 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 			"blockNumber": hexutil.Uint64(blockNumber),
 			"transactionIndex": hexutil.Uint(txIndex),
 			}
-	
+
 		return borBlockObj, nil
 	}
-	
+
 	return nil, nil
 }
 
@@ -257,7 +257,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	var borTxQuery string
 
 	switch {
-		case numOk: 
+		case numOk:
 			column = number
 			whereClause = "block = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE block = ?;"
@@ -278,17 +278,17 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	}
 
 	var borTxHashBytes  []byte
-	
+
 	if err := service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
 	err != nil {
 		log.Error("bor tx query", "err", err)
 		return nil, err
 	}
-	
-	borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
-	
-	
-	receipts = append(receipts, borReceipt)
+
+	// borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
+	//
+	//
+	// receipts = append(receipts, borReceipt)
 
 	// This is left here for exploring / debugging purposes
 	// if len(receipts) > 0 {
@@ -297,9 +297,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	// 		delete(receipt, "type")
 	// 		receipt["transactionHash"] = plugins.BytesToHash(borTxHashBytes)
 	// 	}
-	// }  
+	// }
 
 	return receipts, nil
 }
-
-
