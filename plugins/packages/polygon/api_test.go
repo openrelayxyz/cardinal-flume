@@ -7,11 +7,13 @@ import (
 	"reflect"
 	"testing"
 	"os"
+	// "net/http"
+	// "net/url"
 	// "flag"
 
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
-	// "github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/migrations"
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/api"
@@ -111,6 +113,21 @@ func snapshotsDecompress2() ([]*Snapshot, error) {
 	return Snapshots, nil
 }
 
+func roothashDecompress() ([]string, error) {
+	file, _ := ioutil.ReadFile("testdata/roothash.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var hashes []string
+	json.Unmarshal(raw, &hashes)
+	return hashes, nil
+}
+
 func blocksDecompress() ([]map[string]json.RawMessage, error) {
 	file, _ := ioutil.ReadFile("testdata/blocks.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
@@ -190,7 +207,39 @@ func TestEthAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
+	cfg, err := config.LoadConfig("testdata/config.yml")
+	if err != nil {
+		log.Error("Error parsing config", "err", err)
+		os.Exit(1)
+	}
+	eth := NewEthAPI(db, cfg)
+	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.AddHTTPServer(cfg.Port)
+	pluginsPath := cfg.PluginDir
+	pl, err := plugins.NewPluginLoader(pluginsPath)
+	if err != nil {
+		log.Error("No PluginLoader initialized", "err", err.Error())
+	}
+	pl.Initialize(cfg)
+	pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
+		_, ok := v.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+		return ok
+	})
+
+	for _, api := range pluginAPIs {
+		fn := api.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+		if err := fn(tm, db, cfg); err != nil {
+			log.Error("Unable to load api plugins", "fn", fn)
+		}
+	}
+	// pl, _ := plugins.NewPluginLoader("")
+	t.Run(fmt.Sprintf("ChainId"), func(t *testing.T) {
+		actual := eth.ChainId(context.Background())
+		log.Info("chain id", "id", actual)
+		if actual != hexutil.Uint64(137) {
+			t.Fatal(err.Error())
+		}
+	})
 	b := api.NewBlockAPI(db, 137, pl)
 	bObject, _ := blocksDecompress()
 	blockObject, _ := getBlockSubset(bObject)
@@ -376,14 +425,27 @@ func TestBorAPI(t *testing.T) {
 			if *actual.ValidatorSet.Proposer != *snaps[i].ValidatorSet.Proposer {
 				t.Fatalf("innacurate proposer on block %v", number)
 			}
-			// for k, v := range *actual {
-			// 	if v != *snaps[i][k] {
-			// 		t.Fatalf("innacurate snapshot %v", i)
-			// 	}
-			// }
 		})
 	}
+	rootHashes, _ := roothashDecompress()
+	start := uint64(0)
+	end := uint64(0)
+	for i := 0; i >= len(blockNumbers); i++ {
+		end += 25
+		t.Run(fmt.Sprintf("GetRootHash %v", i), func(t *testing.T) {
+			log.Info("s and e", "start", start, "end", end)
+			actual, err := bor.GetRootHash(context.Background(), start, end)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			if actual != rootHashes[i] {
+				t.Fatal(err.Error())
+			}
+		})	
+	} 
 }
+
+
 
 // type Snapshot struct {
 // 	Number       uint64                    `json:"number"`       // Block number where the snapshot was created

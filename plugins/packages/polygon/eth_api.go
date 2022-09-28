@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-
+	
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
@@ -16,6 +16,16 @@ type PolygonEthService struct {
 	cfg *config.Config
 }
 
+func NewEthAPI(db *sql.DB, cfg *config.Config) *PolygonEthService {
+	return &PolygonEthService{
+		db:  db,
+		cfg: cfg,
+	}
+}
+
+func (service *PolygonEthService) ChainId(ctx context.Context) hexutil.Uint64 {
+	return hexutil.Uint64(service.cfg.Chainid)
+}
 
 func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]interface{}, error) {
 	log.Info("gbbn")
@@ -197,9 +207,6 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 	return receiptObj, nil
 }
 
-func (service *PolygonEthService) ChainId(ctx context.Context) hexutil.Uint64 {
-	return hexutil.Uint64(service.cfg.Chainid)
-}
 
 func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash types.Hash) (map[string]interface{}, error) {
 	var transactionHash []byte
