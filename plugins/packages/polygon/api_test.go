@@ -39,11 +39,11 @@ var register sync.Once
 func connectToDatabase() (*sql.DB, error) {
 	sqlitePath := "testdata/testdata.sqlite"
 
-	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "mempool.sqlite")
-	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "blocks.sqlite")
-	txDb := filepath.Join(filepath.Dir(sqlitePath), "transactions.sqlite")
-	logsDb := filepath.Join(filepath.Dir(sqlitePath), "logs.sqlite")
-	borDb := filepath.Join(filepath.Dir(sqlitePath), "bor.sqlite")
+	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "../tx/mempool.sqlite")
+	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "../blocks/blocks.sqlite")
+	txDb := filepath.Join(filepath.Dir(sqlitePath), "../tx/transactions.sqlite")
+	logsDb := filepath.Join(filepath.Dir(sqlitePath), "../logs/logs.sqlite")
+	borDb := filepath.Join(filepath.Dir(sqlitePath), "../blocks/bor.sqlite")
 
 	register.Do(func() {
 		sql.Register("sqlite3_hooked",
