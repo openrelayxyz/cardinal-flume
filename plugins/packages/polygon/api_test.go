@@ -128,6 +128,21 @@ func roothashDecompress() ([]string, error) {
 	return hashes, nil
 }
 
+func txReceiptsDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("testdata/transaction_receipts.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var receipts []map[string]json.RawMessage
+	json.Unmarshal(raw, &receipts)
+	return receipts, nil
+}
+
 func blocksDecompress() ([]map[string]json.RawMessage, error) {
 	file, _ := ioutil.ReadFile("testdata/blocks.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
@@ -328,8 +343,12 @@ func TestEthAPI(t *testing.T) {
 			})
 		}
 		tx := api.NewTransactionAPI(db, 137, pl)
-		transactions := getTransactionsForTesting(blockObject)
-		txHashes := getTransactionHashes(blockObject)
+		transactions := getTransactionsForTesting([]map[string]json.RawMessage{blockObject[0]})
+		log.Info("tx list", "len", len(transactions))
+		receipts, _ := txReceiptsDecompress()
+		log.Info("receipts list", "len", len(receipts))
+		txHashes := getTransactionHashes([]map[string]json.RawMessage{blockObject[0]})
+		log.Info("hash list", "len", len(txHashes))
 		for i, hash := range txHashes {
 			t.Run(fmt.Sprintf("GetTransactionByHash %v", i), func(t *testing.T) {
 				actual, err := tx.GetTransactionByHash(context.Background(), hash)
@@ -342,20 +361,24 @@ func TestEthAPI(t *testing.T) {
 						t.Errorf("marshalling error gtbh on key: %v", k)
 					}
 					if !bytes.Equal(data, transactions[i][k]) {
-						t.Fatalf("error on transaction%v, key%v", hash, k)
+						t.Fatalf("error on transaction %v, key%v", hash, k)
 					}
 				}
 			})
-			// t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
-			// 	actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
+			// t.Run(fmt.Sprintf("GetTransactionReceipt %v", i), func(t *testing.T) {
+			// 	actual, err := tx.GetTransactionReceipt(context.Background(), hash)
+			// 	log.Info("thing", "receipts i", receipts[i], "index", i)
+			// 	if err != nil {
+			// 		t.Fatal(err.Error())
+			// 	}
+			// 	log.Info("hashes", "index", i, "hash", hash, "test", actual["transactionHash"], "control", plugins.BytesToHash(receipts[i]["transactionHash"]))
 			// 	for k, v := range actual {
 			// 		data, err := json.Marshal(v)
 			// 		if err != nil {
-			// 			t.Errorf(err.Error())
+			// 			t.Errorf("marshalling error gtr on key: %v", k)
 			// 		}
-			// 		if !bytes.Equal(data, receiptsMap[i][k]) {
-			// 			// t.Fatalf("receipts error %v %v %v %v", i, k, string(data), string(receiptsMap[i+7][k]))
-			// 			t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test"+string(data), "control"+string(receiptsMap[i][k]))
+			// 		if !bytes.Equal(data, receipts[i][k]) {
+			// 			t.Fatalf("error on receipts %v, key%v", hash, k)
 			// 		}
 			// 	}
 			// })
