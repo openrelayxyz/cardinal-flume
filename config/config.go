@@ -55,7 +55,7 @@ type Config struct {
 	Concurrency    int               `yaml:"concurrency"`
 	LogLevel       string            `yaml:"loggingLevel"`
 	Plugins        []string          `yaml:"plugins"`
-	PluginDir      string            `yaml:pluginPath`
+	PluginDir      string            `yaml:"pluginPath"`
 	Brokers        []broker          `yaml:"brokers"`
 	BrokerParams   []transports.BrokerParams
 	Statsd         *statsdOpts     `yaml:"statsd"`
