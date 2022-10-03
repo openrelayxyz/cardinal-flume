@@ -147,7 +147,7 @@ func ApplyParameters(query string, params ...interface{}) string {
 }
 
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
-	
+
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -184,8 +184,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 		case tx := <-txCh:
 			mempool_indexer(db, mempoolSlots, txCount, txDedup, tx)
 		case chainUpdate := <-csCh:
-			//UPDATELOOP:
 			var lastBatch *delivery.PendingBatch
+			UPDATELOOP:
 			for {
 				megaStatement := []string{}
 				for _, pb := range chainUpdate.Added() {
@@ -194,7 +194,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
 						if err != nil {
 							log.Error("Error computing updates", "err", err.Error())
-							continue
+							continue UPDATELOOP
 						}
 						megaStatement = append(megaStatement, s...)
 					}
@@ -218,45 +218,42 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								log.Error("partition error", "err", err.Error())
 								continue
 							}
-
 							megaStatement = append(megaStatement, ApplyParameters(
 								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
 						}
 					}
-
-					mut.Lock()
-					start := time.Now()
-					dbtx, err := db.BeginTx(context.Background(), nil)
-					if err != nil {
-						log.Error("Error creating a transaction", "err", err.Error())
-					}
-					if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
-						dbtx.Rollback()
-						stats := db.Stats()
-						log.Warn("Failed to insert logs", "err", err.Error())
-						log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
-						mut.Unlock()
-						continue
-					}
-					// log.Printf("Spent %v on %v inserts", time.Since(istart), len(statements))
-					// cstart := time.Now()
-					if err := dbtx.Commit(); err != nil {
-						stats := db.Stats()
-						log.Warn("Failed to insert logs", "err", err.Error())
-						log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
-						mut.Unlock()
-						continue
-					}
+				}
+				mut.Lock()
+				start := time.Now()
+				dbtx, err := db.BeginTx(context.Background(), nil)
+				if err != nil {
+					log.Error("Error creating a transaction", "err", err.Error())
+					continue
+				}
+				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
+					dbtx.Rollback()
+					stats := db.Stats()
+					log.Warn("Failed to insert logs", "err", err.Error())
+					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
 					mut.Unlock()
-					processed = true
-					heightGauge.Update(lastBatch.Number)
-					// completionFeed.Send(chainEvent.Block.Hash)
-					// log.Printf("Spent %v on commit", time.Since(cstart))
-					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) // TODO: Figure out a simple way to get age
+					continue
 				}
-				if processed {
-					break
+				// log.Printf("Spent %v on %v inserts", time.Since(istart), len(statements))
+				// cstart := time.Now()
+				if err := dbtx.Commit(); err != nil {
+					stats := db.Stats()
+					log.Warn("Failed to insert logs", "err", err.Error())
+					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
+					mut.Unlock()
+					continue
 				}
+				mut.Unlock()
+				processed = true
+				heightGauge.Update(lastBatch.Number)
+				// completionFeed.Send(chainEvent.Block.Hash)
+				// log.Printf("Spent %v on commit", time.Since(cstart))
+				log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) // TODO: Figure out a simple way to get age
+				break
 			}
 		}
 	}
