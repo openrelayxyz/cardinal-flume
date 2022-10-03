@@ -167,6 +167,26 @@ func main() {
 		}
 	}
 
+	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
+		_, ok := v.(func(*config.Config, *sql.DB) error)
+		return ok
+	})
+
+	for _, fni := range pluginReIndexers {
+		fn := fni.(func(*config.Config, *sql.DB) error)
+		if err := fn(cfg, logsdb); err != nil {
+			log.Error("Unable to load reindexer plugins", "fn", fn)
+		}
+		log.Error("reindexer", "called reindexer", "called reindexer")
+	}
+
+	log.Error("reindexers", "len reindexers", len(pluginReIndexers))
+
+	//look for re-indexer plugin, looks for indexers, will need to know websocket url, maybe pass in list of brokers, look for brokers in list, version that
+	//pipes sql commands and a version that runs said commands. This plugin will call cardinal function. Makes a requests over ws with the single block function. 
+	//the data is essentially json encoding of a pending batch, so unmarshall into pb. Import transportbathc from streams, unmarshl into tb and call toPendingBatch
+	// 
+
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
