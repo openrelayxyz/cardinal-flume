@@ -142,16 +142,16 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	consumer, _ := AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
-	indexes := []indexer.Indexer{}
+	indexes := &[]indexer.Indexer{}
 
 	if hasBlocks {
-		indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid))
+		*indexes = append(*indexes, indexer.NewBlockIndexer(cfg.Chainid))
 	}
 	if hasTx {
-		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+		*indexes = append(*indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
 	}
 	if hasLogs {
-		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
+		*indexes = append(*indexes, indexer.NewLogIndexer(cfg.Chainid))
 	}
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
@@ -163,18 +163,18 @@ func main() {
 		fn := fni.(func(*config.Config) indexer.Indexer)
 		idx := fn(cfg)
 		if idx != nil {
-			indexes = append(indexes, fn(cfg))
+			*indexes = append(*indexes, fn(cfg))
 		}
 	}
 
 	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
-		_, ok := v.(func(*config.Config, *sql.DB) error)
+		_, ok := v.(func(*config.Config, *sql.DB, *[]indexer.Indexer) error)
 		return ok
 	})
 
 	for _, fni := range pluginReIndexers {
-		fn := fni.(func(*config.Config, *sql.DB) error)
-		if err := fn(cfg, logsdb); err != nil {
+		fn := fni.(func(*config.Config, *sql.DB, *[]indexer.Indexer) error)
+		if err := fn(cfg, logsdb, indexes); err != nil {
 			log.Error("Unable to load reindexer plugins", "fn", fn)
 		}
 		log.Error("reindexer", "called reindexer", "called reindexer")
