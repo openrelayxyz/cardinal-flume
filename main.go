@@ -172,16 +172,19 @@ func main() {
 		return ok
 	})
 
+	var reIndexed bool = false
+
 	for _, fni := range pluginReIndexers {
 		fn := fni.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
+		reIndexed = true
 		if err := fn(cfg, logsdb, indexes); err != nil {
 			log.Error("Unable to load reindexer plugins", "fn", fn)
 		}
 	}
-	//look for re-indexer plugin, looks for indexers, will need to know websocket url, maybe pass in list of brokers, look for brokers in list, version that
-	//pipes sql commands and a version that runs said commands. This plugin will call cardinal function. Makes a requests over ws with the single block function. 
-	//the data is essentially json encoding of a pending batch, so unmarshall into pb. Import transportbathc from streams, unmarshl into tb and call toPendingBatch
-	// 
+
+	if reIndexed == true {
+		return 
+	}
 
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
 
