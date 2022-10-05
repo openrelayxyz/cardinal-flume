@@ -146,7 +146,7 @@ func ApplyParameters(query string, params ...interface{}) string {
 	return fmt.Sprintf(query, preparedParams...)
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers *[]Indexer) {
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
 
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
@@ -160,7 +160,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 		csConsumer.Start()
 		log.Info("Consumer started")
 	}
-	for _, idx := range *indexers {
+	for _, idx := range indexers {
 		log.Debug("got indexer", "indexer", idx)
 	}
 	processed := false
@@ -189,7 +189,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			for {
 				megaStatement := []string{}
 				for _, pb := range chainUpdate.Added() {
-					for _, indexer := range *indexers {
+					for _, indexer := range indexers {
 						s, err := indexer.Index(pb)
 						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
 						if err != nil {

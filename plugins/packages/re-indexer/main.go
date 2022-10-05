@@ -1,14 +1,22 @@
 package main
 
 import (
+	// "fmt"
 	"context"
 	"database/sql"
-	// "websocket" ???
 	"os"
 	"strings"
+	"net/http"
+	"time"
+	"encoding/json"
+	// "reflect"
 
+	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	// "github.com/openrelayxyz/cardinal-streams/delivery"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	// "github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/plugins"
@@ -18,39 +26,44 @@ func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Re-indexer loaded")
 }
 
-func ReIndexer(cfg *config.Config, db *sql.DB, indexers *[]indexer.Indexer) error {
+type message struct {
+	Id int          `json:"id"`
+	Method string   `json:"method"`
+	Params []string `json:"params"`
+}
 
-	pluginsPath := cfg.PluginDir
-	pl, err := plugins.NewPluginLoader(pluginsPath)
-	if err != nil {
-		log.Error("No PluginLoader initialized", "err", err.Error())
-	}
+type resultMessage struct {
+	Type string `json:"type"`
+	Batch *transports.TransportBatch `json:"batch,omitempty"`
+}
+
+type outerResult struct {
+	Result  *resultMessage `json:"result"`
+	JsonRPC string         `json:"jsonrpc"`
+	Id		int			   `json:"id"`
+}
+
+func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error {
+
+	var wsURL string
 
 	for _, broker := range cfg.BrokerParams {
 		if strings.HasPrefix(broker.URL, "ws://") || strings.HasPrefix(broker.URL, "wss://") {
-			websocket := broker.URL
-			log.Info("found websocket broker, reindexer", "broker", websocket) 
+			wsURL = broker.URL
+			log.Info("found websocket broker, reindexer", "broker", wsURL) 
 		}
 	}
-
-	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
-		_, ok := v.(func(*config.Config) indexer.Indexer)
-		return ok
-	})
 	
-	for _, fni := range pluginIndexers {
-		fn := fni.(func(*config.Config) indexer.Indexer)
-		idx := fn(cfg)
-		if idx != nil {
-			*indexers = append(*indexers, fn(cfg))
-		}
-	}
-
-	// conn, err := websocket.Dial(websocket)
-	// if err != nil {
-	// 	log.Error("websocket connection error", "err", err)
-	// }
-	// defer conn.Close()
+	dialer := &websocket.Dialer{
+		EnableCompression: true,
+		Proxy: http.ProxyFromEnvironment,
+		HandshakeTimeout: 45 * time.Second,
+	  }
+	
+	conn, _, err := dialer.Dial(wsURL, nil)
+      if err != nil {
+		log.Error("Websocket dial error, reindexer", "err", err.Error())
+	  }
 	
 	output, err := os.Create("output.txt")
     if err != nil {
@@ -67,16 +80,43 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers *[]indexer.Indexer) erro
 	defer rows.Close()
 	
 	for rows.Next() {
-		var number []byte
-		var tb transports.TransportBatch
+		var number uint64
 		rows.Scan(&number)
 
-		// message, _ := `{"id":0, "method":"cardinal_streamsBlock", "params": [%v]}`, number
-		// websocket.SendJSON(message)
-		// websocket.JSONResponse()(&tb)
+		nbr := hexutil.EncodeUint64(number)
+		
+		num := []string{}
 
-		for _, indexer := range *indexers {
-			statements, err := indexer.Index(pb)
+		num = append(num, nbr)
+
+		message := message{
+			Id: 1,
+			Method: "cardinal_streamsBlock",
+			Params: num,
+		}
+
+		msg, err := json.Marshal(message)
+		if err != nil {
+			log.Error("cannot json marshal message, reindexer, block", number, "err", err.Error())
+		}
+
+		conn.WriteMessage(websocket.TextMessage, msg)
+
+		_, resultBytes, err := conn.ReadMessage()
+		if err != nil {
+			log.Error("Error reading transport batch, reindexer, on block", number, "err", err.Error())
+		}
+
+		var or *outerResult
+
+		if err := json.Unmarshal(resultBytes, &or); err != nil {
+			log.Error("cannot unmarshal transportBytes, reindexer, on block", number, "err", err.Error())
+		}
+
+		tb := or.Result.Batch
+
+		for _, indexer := range indexers {
+			statements, err := indexer.Index(tb.ToPendingBatch())
 			if err != nil {
 				log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
 			}
@@ -89,10 +129,6 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers *[]indexer.Indexer) erro
 					}
 				}
 			}
-		}
-
-		if _, err := output.Write(number); err != nil {
-			log.Error("Error writing to output file, reindexer", "err", err)
 		}
 	}
 		
