@@ -64,7 +64,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 		log.Error("Websocket dial error, reindexer", "err", err.Error())
 	  }
 	
-	output, err := os.Create("output.txt")
+	output, err := os.Create("reindexer_statements.txt")
     if err != nil {
 		log.Error("Error opening output file, reindexer", "err", err)
     }
@@ -81,7 +81,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 	idx := 0
 		
-	rows, _ := db.QueryContext(context.Background(), "SELECT number + 1 FROM blocks WHERE number + 1 NOT IN (SELECT number FROM blocks);")
+	rows, _ := db.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE blocks.number + 1 NOT IN (SELECT blocks.number FROM blocks.blocks);")
 	defer rows.Close()
 
 	log.Info("rows type", "type", reflect.TypeOf(rows))
