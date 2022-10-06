@@ -48,8 +48,8 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 	for _, broker := range cfg.BrokerParams {
 		if strings.HasPrefix(broker.URL, "ws://") || strings.HasPrefix(broker.URL, "wss://") {
 			wsURL = broker.URL
-			break
 			log.Info("found websocket broker, reindexer", "broker", wsURL) 
+			break
 		}
 	}
 	
