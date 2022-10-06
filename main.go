@@ -167,6 +167,25 @@ func main() {
 		}
 	}
 
+	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
+		_, ok := v.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
+		return ok
+	})
+
+	var reIndexed bool = false
+
+	for _, fni := range pluginReIndexers {
+		fn := fni.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
+		reIndexed = true
+		if err := fn(cfg, logsdb, indexes); err != nil {
+			log.Error("Unable to load reindexer plugins", "fn", fn)
+		}
+	}
+
+	if reIndexed == true {
+		return 
+	}
+
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
