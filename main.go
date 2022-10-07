@@ -58,6 +58,15 @@ func main() {
 		log.Error(err.Error())
 	}
 
+	// flumeLight := cfg.Light-Server 
+	
+	if cfg.LightServer {
+		var earliestBlock uint64
+		logsdb.QueryRow("SELECT MIN(number) FROM blocks.blocks").Scan(&earliestBlock)
+		cfg.EarliestBlock = earliestBlock
+
+	}
+
 	logsdb.SetConnMaxLifetime(0)
 	logsdb.SetMaxIdleConns(32)
 	go func() {
@@ -189,11 +198,11 @@ func main() {
 		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
 	}
 	if hasTx && hasBlocks {
-		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
 		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl))
 	}
 	if hasTx && hasBlocks && hasLogs && hasMempool {
-		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg))
 		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl))
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})

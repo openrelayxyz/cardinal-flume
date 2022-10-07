@@ -11,19 +11,22 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/config"
 )
 
 type BlockAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
+	cfg		*config.Config
 }
 
-func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *BlockAPI {
+func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *BlockAPI {
 	return &BlockAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
+		cfg:     cfg,
 	}
 }
 
@@ -33,11 +36,14 @@ func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return hexutil.Uint64(blockNo), nil
 }
 
 func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (map[string]interface{}, error) {
+
+	if api.cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
 
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
@@ -76,6 +82,10 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 
 func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxs bool) (map[string]interface{}, error) {
 
+	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	pluginMethods := api.pl.Lookup("GetBlockByHash", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		return ok
@@ -104,6 +114,11 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 }
 
 func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber vm.BlockNumber) (hexutil.Uint64, error) {
+
+	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	var err error
 	var count hexutil.Uint64
 
@@ -122,6 +137,11 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 }
 
 func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHash types.Hash) (hexutil.Uint64, error) {
+
+	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	var count hexutil.Uint64
 	block, err := getBlocks(ctx, api.db, false, api.network, "hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
@@ -141,6 +161,11 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 }
 
 func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber vm.BlockNumber) (hexutil.Uint64, error) {
+
+	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	var uncles []byte
 	unclesList := []types.Hash{}
 
@@ -161,6 +186,11 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 }
 
 func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash types.Hash) (hexutil.Uint64, error) {
+
+	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	var uncles []byte
 	unclesList := []types.Hash{}
 

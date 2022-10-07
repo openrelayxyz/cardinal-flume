@@ -12,6 +12,7 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/config"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -21,6 +22,37 @@ import (
 	"os"
 	"sort"
 )
+
+
+func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	switch input.(type) {
+		case vm.BlockNumber:
+			if input < cfg.EarliestBlock {
+				present := false
+			}
+	case types.Hash:
+		var response int
+		db.QueryRow(fmt.Sprintf("SELECT 1 FROM blocks.blocks WHERE hash = %v;"), trimPrefix(input.Bytes())).Scan(&response)
+		if response == 0 {
+			present := false
+		}
+	}
+	return present
+}
+
+// tx present still need to check mempool 
+
+func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	var response int
+	db.QueryRow(fmt.Sprintf("SELECT 1 FROM transactions.transactions WHERE hash = %v;"), trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+	}
+	return present
+}
+
 
 func getLatestBlock(ctx context.Context, db *sql.DB) (int64, error) {
 	var result int64

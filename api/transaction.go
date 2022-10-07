@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
+	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/plugins"
 )
 
@@ -17,17 +18,24 @@ type TransactionAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
+	cfg		*config.Config
 }
 
-func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *TransactionAPI {
+func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *TransactionAPI {
 	return &TransactionAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
+		cfg:     cfg,
 	}
 }
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
+
+	if cfg.LightServer && txDataPresent(txHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	pluginMethods := api.pl.Lookup("GetTransactionByHash", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		return ok
@@ -61,6 +69,11 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 }
 
 func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
+
+	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+
 	var err error
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
 	if err != nil {
@@ -72,6 +85,11 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 }
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
+	
+	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
+	
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
@@ -91,6 +109,10 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 }
 
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
+
+	if cfg.LightServer && txDataPresent(txHash, api.cfg, api.db) {
+		log.Info("send to flume heavy")
+	}
 
 	pluginMethods := api.pl.Lookup("GetTransactionReceipt", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
