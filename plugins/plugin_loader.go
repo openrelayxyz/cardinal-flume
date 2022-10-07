@@ -12,7 +12,7 @@ import (
 
 type pluginDetails struct {
 	p    *plugin.Plugin
-	name string
+	Name string
 }
 
 type PluginLoader struct {
@@ -30,7 +30,7 @@ func (pl *PluginLoader) Lookup(name string, validate func(interface{}) bool) []i
 			if validate(v) {
 				results = append(results, v)
 			} else {
-				log.Warn("Plugin matches hook but not signature", "plugin", plugin.name, "hook", name)
+				log.Warn("Plugin matches hook but not signature", "plugin", plugin.Name, "hook", name)
 			}
 		}
 	}

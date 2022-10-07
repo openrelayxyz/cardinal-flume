@@ -1,10 +1,13 @@
 package main
 
 import (
+	"strings"
+	"path/filepath"
 	"context"
 	"database/sql"
 	"flag"
 	"fmt"
+	"golang.org/x/exp/slices"
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
@@ -42,6 +45,22 @@ func main() {
 	}
 
 	pl.Initialize(cfg)
+
+	var pluginNames []string
+	for _, plugin := range pl.Plugins {
+		name := strings.Split(filepath.Base(plugin.Name), ".")[0]
+		pluginNames = append(pluginNames, name)
+	}
+
+	for _, plugin := range cfg.Plugins {
+		if !slices.Contains(pluginNames, plugin) {
+			log.Error("required plugin not present", "plugin", plugin)
+			return
+		}
+	}
+
+	log.Debug("all required plugins loaded", "plugins", pluginNames)
+
 
 	sql.Register("sqlite3_hooked",
 		&sqlite3.SQLiteDriver{

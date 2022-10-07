@@ -11,6 +11,7 @@ require (
 	github.com/openrelayxyz/cardinal-streams v1.1.0-init-memory-leak-0
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
 	gopkg.in/yaml.v2 v2.4.0
 )
 
