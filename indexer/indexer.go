@@ -188,6 +188,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			UPDATELOOP:
 			for {
 				megaStatement := []string{}
+				megaParameters := []interface{}{}
 				for _, pb := range chainUpdate.Added() {
 					for _, indexer := range indexers {
 						s, err := indexer.Index(pb)
@@ -218,8 +219,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								log.Error("partition error", "err", err.Error())
 								continue
 							}
-							megaStatement = append(megaStatement, ApplyParameters(
-								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (%v, %v, %v)"), offset, partition, topic))
+							megaStatement = append(megaStatement, "INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)")
+							megaParameters = append(megaParameters, offset, partition, topic)
 						}
 					}
 				}
@@ -230,7 +231,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					log.Error("Error creating a transaction", "err", err.Error())
 					continue
 				}
-				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
+				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; "), megaParameters...); err != nil {
 					dbtx.Rollback()
 					stats := db.Stats()
 					log.Warn("Failed to execute statement", "err", err.Error(), "sql", strings.Join(megaStatement, " ; "))
