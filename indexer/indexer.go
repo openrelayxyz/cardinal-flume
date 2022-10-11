@@ -233,8 +233,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
 					dbtx.Rollback()
 					stats := db.Stats()
-					log.Warn("Failed to insert logs", "err", err.Error())
-					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
+					log.Warn("Failed to execute statement", "err", err.Error(), "sql", strings.Join(megaStatement, " ; "))
+					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
 				}
@@ -242,8 +242,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				// cstart := time.Now()
 				if err := dbtx.Commit(); err != nil {
 					stats := db.Stats()
-					log.Warn("Failed to insert logs", "err", err.Error())
-					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
+					log.Warn("Failed to commit", "err", err.Error())
+					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
 				}
