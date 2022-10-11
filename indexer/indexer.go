@@ -219,7 +219,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								continue
 							}
 							megaStatement = append(megaStatement, ApplyParameters(
-								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
+								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (%v, %v, %v)"), offset, partition, topic))
 						}
 					}
 				}
