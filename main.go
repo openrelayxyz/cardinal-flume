@@ -1,10 +1,13 @@
 package main
 
 import (
+	// "strings"
+	// "path/filepath"
 	"context"
 	"database/sql"
 	"flag"
 	"fmt"
+	// "golang.org/x/exp/slices"
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
@@ -35,11 +38,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	pluginsPath := cfg.PluginDir
-	pl, err := plugins.NewPluginLoader(pluginsPath)
+	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
-	}
+ 	}
 
 	pl.Initialize(cfg)
 
