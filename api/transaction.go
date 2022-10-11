@@ -32,7 +32,9 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
-	if cfg.LightServer && txDataPresent(txHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && txDataPresent(txHash, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 
@@ -70,7 +72,9 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 
 func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
 
-	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 
@@ -86,7 +90,9 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
 	
-	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 	
@@ -110,7 +116,9 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
-	if cfg.LightServer && txDataPresent(txHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && txDataPresent(txHash, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 

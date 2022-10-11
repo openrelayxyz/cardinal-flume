@@ -60,12 +60,12 @@ func main() {
 
 	// flumeLight := cfg.Light-Server 
 	
-	if cfg.LightServer {
-		var earliestBlock uint64
-		logsdb.QueryRow("SELECT MIN(number) FROM blocks.blocks").Scan(&earliestBlock)
-		cfg.EarliestBlock = earliestBlock
+	// if cfg.LightServer {
+	// 	var earliestBlock uint64
+	// 	logsdb.QueryRow("SELECT MIN(number) FROM blocks.blocks").Scan(&earliestBlock)
+	// 	cfg.EarliestBlock = earliestBlock
 
-	}
+	// }
 
 	logsdb.SetConnMaxLifetime(0)
 	logsdb.SetMaxIdleConns(32)
@@ -210,6 +210,7 @@ func main() {
 	<-consumer.Ready()
 	var minBlock int
 	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
+	cfg.EarliestBlock = uint64(minBlock)
 	if minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
 	}

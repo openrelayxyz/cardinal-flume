@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/config"
@@ -28,14 +29,14 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
 		case vm.BlockNumber:
-			if input < cfg.EarliestBlock {
-				present := false
+			if uint64(input.(vm.BlockNumber).Int64()) < cfg.EarliestBlock {
+				present = false
 			}
 	case types.Hash:
 		var response int
-		db.QueryRow(fmt.Sprintf("SELECT 1 FROM blocks.blocks WHERE hash = %v;"), trimPrefix(input.Bytes())).Scan(&response)
+		db.QueryRow(fmt.Sprintf("SELECT 1 FROM blocks.blocks WHERE hash = %v;"), trimPrefix((input.(types.Hash)).Bytes())).Scan(&response)
 		if response == 0 {
-			present := false
+			present = false
 		}
 	}
 	return present

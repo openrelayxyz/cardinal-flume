@@ -60,8 +60,9 @@ type Config struct {
 	BrokerParams   []transports.BrokerParams
 	Statsd         *statsdOpts       `yaml:"statsd"`
 	CloudWatch     *cloudwatchOpts   `yaml:"cloudwatch"`
-	LightServer   bool               `yaml:"flumeLight"`  //***flume light notes***
+	// LightServer   bool               `yaml:"flumeLight"`  //***flume light notes***
 	EarliestBlock  uint64								  //***flume light notes***
+	HeavyServer    string            `yaml:"heavyserver"`
 }
 
 func LoadConfig(fname string) (*Config, error) {

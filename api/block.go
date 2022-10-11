@@ -3,15 +3,23 @@ package api
 import (
 	"context"
 	"database/sql"
-
+	// "Reflect"
+	
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/heavy"
+)
+
+var (
+	hitMeter = metrics.NewMajorMeter("/flume/hit")
+	missMeter = metrics.NewMajorMeter("/flume/miss") 
 )
 
 type BlockAPI struct {
@@ -39,10 +47,27 @@ func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 	return hexutil.Uint64(blockNo), nil
 }
 
+var (
+	gbbnHitMeter = metrics.NewMinorMeter("/flume/gbbn/hit")
+	gbbnMissMeter = metrics.NewMinorMeter("/flume/gbbn/miss")
+)
+
 func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (map[string]interface{}, error) {
 
-	if api.cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
-		log.Info("send to flume heavy")
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockNumber, api.cfg, api.db) {
+		hitMeter.Mark(1)
+		gbbnHitMeter.Mark(1)
+
+	} else {
+		missMeter.Mark(1)
+		gbbnMissMeter.Mark(1)
+		log.Info("sent to flume heavy")
+		// params:= []interface{}{hexutil.Uint64(blockNumber), includeTxns}
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](api.cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(blockNumber), includeTxns)
+		if err != nil {
+			return nil, err
+		}
+		return *responseShell, nil 
 	}
 
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
@@ -80,10 +105,25 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 	return blockVal, nil
 }
 
-func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxs bool) (map[string]interface{}, error) {
+var (
+	gbbhHitMeter = metrics.NewMinorMeter("/flume/gbbh/hit")
+	gbbhMissMeter = metrics.NewMinorMeter("/flume/gbbh/miss")
+)
 
-	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
-		log.Info("send to flume heavy")
+func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (map[string]interface{}, error) {
+
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
+		missMeter.Mark(1)
+		gbbhMissMeter.Mark(1)
+		log.Info("sent to flume heavy")
+		// params:= []interface{}{hexutil.Uint64(blockNumber), includeTxns}
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](api.cfg.HeavyServer, "eth_getBlockByHash", blockHash, includeTxns)
+		if err != nil {
+			return nil, err
+		}
+		return *responseShell, nil 
 	}
 
 	pluginMethods := api.pl.Lookup("GetBlockByHash", func(v interface{}) bool {
@@ -91,7 +131,7 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 		return ok
 	})
 
-	blocks, err := getBlocks(ctx, api.db, includeTxs, api.network, "hash = ?", trimPrefix(blockHash.Bytes()))
+	blocks, err := getBlocks(ctx, api.db, includeTxns, api.network, "hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +155,9 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 
 func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber vm.BlockNumber) (hexutil.Uint64, error) {
 
-	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 
@@ -138,7 +180,9 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 
 func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHash types.Hash) (hexutil.Uint64, error) {
 
-	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Debug("gather metrics") 
+	} else {
 		log.Info("send to flume heavy")
 	}
 
@@ -162,7 +206,9 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 
 func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber vm.BlockNumber) (hexutil.Uint64, error) {
 
-	if cfg.LightServer && blockDataPresent(blockNumber, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockNumber, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 
@@ -187,7 +233,9 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 
 func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash types.Hash) (hexutil.Uint64, error) {
 
-	if cfg.LightServer && blockDataPresent(blockHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockHash, api.cfg, api.db) {
+		log.Debug("gather metrics")
+	} else {
 		log.Info("send to flume heavy")
 	}
 
