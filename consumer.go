@@ -2,6 +2,7 @@ package main
 
 import (
 	// "reflect"
+	"encoding/json"
 	"context"
 	"math/big"
 	"regexp"
@@ -10,21 +11,17 @@ import (
 	"fmt"
 
 	log "github.com/inconshreveable/log15"
-	// "github.com/openrelayxyz/cardinal-streams/transports"
 	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/heavy"
 )
-// AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
 func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
 	log.Info("this is reorg thresh", "thresh", reorgThreshold)
-	//
-	// chainid := int64(cfg.Chainid)
 	var err error
 	var tableName string
 	db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
@@ -33,7 +30,6 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 			return nil, err
 		}
 	}
-	// if cardinal offsets does not exist and we have a flume heavy server
 	startOffsets := []string{}
 	for _, broker := range brokerParams {
 		for _, topic := range broker.Topics {
@@ -67,33 +63,31 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
 
 		
-		resumptionBlock, err := heavy.CallHeavy[map[string]interface{}](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
+		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {
 			return nil, err
 		}
-		
-		// for k, _ := range *resumptionBlock {
-		
-		// 	log.Error("This is thee resumption block", "block", k)
-			
-		// }
 
-		var rb map[string]interface{} = *resumptionBlock
+		var rb map[string]json.RawMessage = *resumptionBlock
 
-		rr := rb["timestamp"].(string)
-		log.Error("this is rr", "rr", rr)
+		var rT hexutil.Uint64
+		var lH types.Hash
+		var lW hexutil.Bytes
 
-		rt, _ := hexutil.DecodeUint64(rb["timestamp"].(string))
-		resumptionTime = int64(rt)
-		// if err != nil {
-		// 	log.Error("Error decoding tim", "err", err)
-		// }
+		if err := json.Unmarshal(rb["totalDifficulty"], &lW); err != nil {
+			log.Warn("Json unmarshalling error, totoal difficulty", "err", err)
+		}
+		if err := json.Unmarshal(rb["hash"], &lH); err != nil {
+			log.Warn("Json unmarshalling error, hash", "err", err)
+		}
+		if err := json.Unmarshal(rb["timestamp"], &rT); err != nil {
+			log.Warn("Json unmarshalling error, timestamp", "err", err)
+		}
 
-		// log.Error("timestamp", "ts", reflect.TypeOf(rb["timestamp"].(string)), "tm", tm)
-
-
-		//go to heavy server to get last number, get that block - reorgthresh,  get hash weight number time, and then set resumption time from that
-		//block
+		lastWeight = lW
+		lastNumber = resumptionBlockNumber
+		lastHash = lH.Bytes()
+		resumptionTime = int64(rT) * 1000
 	}
 	log.Error("after loop", "rt", resumptionTime)
 	trackedPrefixes := []*regexp.Regexp{
@@ -114,5 +108,5 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 			rt = r
 		}
 	}
-	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, ctypes.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, trackedPrefixes, nil)
+	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, trackedPrefixes, nil)
 }
