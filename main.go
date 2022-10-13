@@ -21,6 +21,10 @@ import (
 	"os"
 	"sync"
 	"time"
+
+
+	// "github.com/openrelayxyz/cardinal-evm/vm"
+	// "github.com/openrelayxyz/flume/heavy"
 )
 
 func main() {
@@ -34,6 +38,13 @@ func main() {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
 	}
+
+	// highestBlock, _ := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+	// // if err != nil {
+	// // 	log.Error(err.Error())
+	// // }
+	// log.Error("successful call out", "number", *highestBlock)
+
 
 	pluginsPath := cfg.PluginDir
 	pl, err := plugins.NewPluginLoader(pluginsPath)
@@ -150,7 +161,8 @@ func main() {
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	consumer, _ := AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs) //pass in cfg.
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -209,13 +221,16 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
+	//if this > 0 then this is a light server
 	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
-	if minBlock > cfg.MinSafeBlock {
+	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
+		os.Exit(1) 
 	}
 	if !*exitWhenSynced {
-		if err := tm.Run(9999); err != nil {
+		if err := tm.Run(cfg.HealthcheckPort); err != nil {
+			log.Error(err.Error())
 			quit <- struct{}{}
 			logsdb.Close()
 			time.Sleep(time.Second)

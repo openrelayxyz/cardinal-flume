@@ -56,6 +56,8 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		)) 
 	}
 
+	log.Info("sb", "sb", statements)
+
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", pg.Chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
@@ -172,7 +174,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		db.Exec("UPDATE bor.migrations SET version = 1;")
 	}
 	if schemaVersion < 2 {
-		log.Info("Applying mempool v2 migration")
+		log.Info("Applying bor v2 migration")
 
 		var highestBlock uint64
 		db.QueryRow("SELECT MAX(number) FROM blocks.blocks;").Scan(&highestBlock)
@@ -247,7 +249,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 						log.Error("Failed to commit statements in loop, polygon plugin", "blockNumber", number, "err", err.Error())
 						return nil
 					}
-					log.Info("blocks migration in progress", "blockNumber", number)
+					log.Info("bor migration in progress", "blockNumber", number)
 					dbtx, err = db.BeginTx(context.Background(), nil)
 					if err != nil {
 						log.Error("Error creating a transaction in loop, polygon plugin", "err", err.Error())
@@ -267,7 +269,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	}
 
 	if schemaVersion < 3 {
-		log.Info("Applying mempool v3 migration")
+		log.Info("Applying bor v3 migration")
 		db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
 		
 		log.Info("bor snapshot table created")

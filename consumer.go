@@ -1,19 +1,30 @@
 package main
 
 import (
+	// "reflect"
 	"context"
-	"database/sql"
-	"fmt"
-	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-streams/transports"
-	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"math/big"
 	"regexp"
 	"strings"
-)
+	"database/sql"
+	"fmt"
 
-func AquireConsumer(db *sql.DB, brokerParams []transports.BrokerParams, reorgThreshold, chainid, resumptionTime int64) (streamsTransports.Consumer, error) {
+	log "github.com/inconshreveable/log15"
+	// "github.com/openrelayxyz/cardinal-streams/transports"
+	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/heavy"
+)
+// AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (streamsTransports.Consumer, error) {
+	brokerParams := cfg.BrokerParams
+	reorgThreshold := cfg.ReorgThreshold
+	log.Info("this is reorg thresh", "thresh", reorgThreshold)
+	//
+	// chainid := int64(cfg.Chainid)
 	var err error
 	var tableName string
 	db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
@@ -22,6 +33,7 @@ func AquireConsumer(db *sql.DB, brokerParams []transports.BrokerParams, reorgThr
 			return nil, err
 		}
 	}
+	// if cardinal offsets does not exist and we have a flume heavy server
 	startOffsets := []string{}
 	for _, broker := range brokerParams {
 		for _, topic := range broker.Topics {
@@ -43,7 +55,47 @@ func AquireConsumer(db *sql.DB, brokerParams []transports.BrokerParams, reorgThr
 	var lastHash, lastWeight []byte
 	var lastNumber int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight)
+	log.Error("this is last number", "number", lastNumber)
+	log.Error("before loop", "rt", resumptionTime)
+	log.Error("len of heavyserver", "len", len(cfg.HeavyServer))
+	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
+		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+		if err != nil {
+			return nil, err
+		}
+		
+		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
 
+		
+		resumptionBlock, err := heavy.CallHeavy[map[string]interface{}](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
+		if err != nil {
+			return nil, err
+		}
+		
+		// for k, _ := range *resumptionBlock {
+		
+		// 	log.Error("This is thee resumption block", "block", k)
+			
+		// }
+
+		var rb map[string]interface{} = *resumptionBlock
+
+		rr := rb["timestamp"].(string)
+		log.Error("this is rr", "rr", rr)
+
+		rt, _ := hexutil.DecodeUint64(rb["timestamp"].(string))
+		resumptionTime = int64(rt)
+		// if err != nil {
+		// 	log.Error("Error decoding tim", "err", err)
+		// }
+
+		// log.Error("timestamp", "ts", reflect.TypeOf(rb["timestamp"].(string)), "tm", tm)
+
+
+		//go to heavy server to get last number, get that block - reorgthresh,  get hash weight number time, and then set resumption time from that
+		//block
+	}
+	log.Error("after loop", "rt", resumptionTime)
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),

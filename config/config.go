@@ -38,6 +38,7 @@ type broker struct {
 type Config struct {
 	Port           int64             `yaml:"port"`
 	PprofPort      int               `yaml:"pprofPort"`
+	HealthcheckPort int64	         `yaml:"healthcheck"`
 	MinSafeBlock   int               `yaml:"minSafeBlock"`
 	Network        string            `yaml:"networkName"`
 	Chainid        uint64            `yaml:"chainid"`
@@ -147,6 +148,10 @@ func LoadConfig(fname string) (*Config, error) {
 
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6969
+	}
+
+	if cfg.HealthcheckPort == 0 {
+		cfg.HealthcheckPort = 9999
 	}
 
 	if cfg.MinSafeBlock == 0 {

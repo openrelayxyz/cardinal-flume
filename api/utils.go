@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	// "reflect"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
@@ -33,8 +34,13 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 				present = false
 			}
 	case types.Hash:
+		blockHash := input.(types.Hash)
+		// log.Error("blockhash type", "type", reflect.TypeOf(blockHash), "trimmed", blockHash[2:])
 		var response int
-		db.QueryRow(fmt.Sprintf("SELECT 1 FROM blocks.blocks WHERE hash = %v;"), trimPrefix((input.(types.Hash)).Bytes())).Scan(&response)
+		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+		// log.Warn("by hash", "hash", blockHash, "statement", statement, "response pre scan", response)
+		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
+		// log.Warn("block data hash response", "response", response)
 		if response == 0 {
 			present = false
 		}
@@ -47,7 +53,8 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	var response int
-	db.QueryRow(fmt.Sprintf("SELECT 1 FROM transactions.transactions WHERE hash = %v;"), trimPrefix(txHash.Bytes())).Scan(&response)
+	statement := "SELECT 1 FROM transactions.transactions WHERE hash = ?;"
+	db.QueryRow(statement, trimPrefix(txHash.Bytes())).Scan(&response)
 	if response == 0 {
 		present = false
 	}
