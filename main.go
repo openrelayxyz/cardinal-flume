@@ -204,16 +204,16 @@ func main() {
 	}
 
 	if hasLogs {
-		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks {
 		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
-		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks && hasLogs && hasMempool {
 		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg))
-		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 
