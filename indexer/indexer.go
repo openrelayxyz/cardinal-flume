@@ -188,6 +188,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			UPDATELOOP:
 			for {
 				megaStatement := []string{}
+				megaParameters := []interface{}{}
 				for _, pb := range chainUpdate.Added() {
 					for _, indexer := range indexers {
 						s, err := indexer.Index(pb)
@@ -218,8 +219,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 								log.Error("partition error", "err", err.Error())
 								continue
 							}
-							megaStatement = append(megaStatement, ApplyParameters(
-								("INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)"), offset, partition, topic))
+							megaStatement = append(megaStatement, "INSERT OR REPLACE INTO cardinal_offsets(offset, partition, topic) VALUES (?, ?, ?)")
+							megaParameters = append(megaParameters, offset, partition, topic)
 						}
 					}
 				}
@@ -230,11 +231,11 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					log.Error("Error creating a transaction", "err", err.Error())
 					continue
 				}
-				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; ")); err != nil {
+				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; "), megaParameters...); err != nil {
 					dbtx.Rollback()
 					stats := db.Stats()
-					log.Warn("Failed to insert logs", "err", err.Error())
-					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
+					log.Warn("Failed to execute statement", "err", err.Error(), "sql", strings.Join(megaStatement, " ; "))
+					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
 				}
@@ -242,8 +243,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				// cstart := time.Now()
 				if err := dbtx.Commit(); err != nil {
 					stats := db.Stats()
-					log.Warn("Failed to insert logs", "err", err.Error())
-					log.Info("SQLite Pool - Open:", stats.OpenConnections, "InUse:", stats.InUse, "Idle:", stats.Idle)
+					log.Warn("Failed to commit", "err", err.Error())
+					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
 				}
