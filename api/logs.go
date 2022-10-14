@@ -7,28 +7,42 @@ import (
 	"sort"
 	"strings"
 
-	// evm "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/config"
 )
 
 type LogsAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
+	cfg     *config.Config
 }
 
-func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *LogsAPI {
+func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *LogsAPI {
 	return &LogsAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
+		cfg:     cfg, 
 	}
 }
 
 func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("get logs sent to flume heavy", "query", crit)
+		logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
+		if err != nil {
+			return nil, err
+		}
+		return *logs, nil
+	}
+
+
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		// handleError(err.Error(), call.ID, 500)

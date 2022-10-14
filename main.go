@@ -21,10 +21,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-
-	// "github.com/openrelayxyz/cardinal-evm/vm"
-	// "github.com/openrelayxyz/flume/heavy"
 )
 
 func main() {
@@ -39,18 +35,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// highestBlock, _ := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
-	// // if err != nil {
-	// // 	log.Error(err.Error())
-	// // }
-	// log.Error("successful call out", "number", *highestBlock)
-
-
-	pluginsPath := cfg.PluginDir
-	pl, err := plugins.NewPluginLoader(pluginsPath)
+	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
-	}
+ 	}
 
 	pl.Initialize(cfg)
 
@@ -68,15 +56,6 @@ func main() {
 	if err != nil {
 		log.Error(err.Error())
 	}
-
-	// flumeLight := cfg.Light-Server 
-	
-	// if cfg.LightServer {
-	// 	var earliestBlock uint64
-	// 	logsdb.QueryRow("SELECT MIN(number) FROM blocks.blocks").Scan(&earliestBlock)
-	// 	cfg.EarliestBlock = earliestBlock
-
-	// }
 
 	logsdb.SetConnMaxLifetime(0)
 	logsdb.SetMaxIdleConns(32)

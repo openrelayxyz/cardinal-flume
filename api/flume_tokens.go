@@ -10,23 +10,36 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/config"
 )
 
 type FlumeTokensAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
+	cfg     *config.Config
 }
 
-func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *FlumeTokensAPI {
+func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *FlumeTokensAPI {
 	return &FlumeTokensAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
+		cfg:     cfg,
 	}
 }
 
 func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("get ERC20 by acccount sent to flume heavy", "address", addr)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20ByAccount", addr, offset)
+		if err != nil {
+			return nil, err
+		}
+		return *address, nil
+	}
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -60,6 +73,16 @@ func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Ad
 }
 
 func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("get ERC20 holders sent to flume heavy", "address", addr)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20Holders", addr, offset)
+		if err != nil {
+			return nil, err
+		}
+		return *address, nil
+	}
+
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

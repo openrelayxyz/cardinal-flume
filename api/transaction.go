@@ -206,17 +206,20 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 }
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
-	// nonce, err := getSenderNonce(ctx, api.db, addr)
-	// if err != nil {
-	// 	return 0, err
-	// }
 
-	// return nonce, nil
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Info("get tansaction count sent to flume heavy", "address", addr)
+		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
+		if err != nil {
+			return 0, err
+		}
+		return *count, nil 
+	}
 
-	log.Info("get tansaction count sent to flume heavy", "address", addr)
-	count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
+	nonce, err := getSenderNonce(ctx, api.db, addr)
 	if err != nil {
 		return 0, err
 	}
-	return *count, nil 
+
+	return nonce, nil
 }

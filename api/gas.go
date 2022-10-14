@@ -1,29 +1,32 @@
 package api
 
 import (
+	"context"
 	"database/sql"
+	"math/big"
+	"sort"
 
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	eh "github.com/openrelayxyz/flume/errhandle"
 	"github.com/openrelayxyz/flume/plugins"
-	"math/big"
-	"sort"
-
-	"context"
+	// "github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/config"
 )
 
 type GasAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
+	cfg     *config.Config
 }
 
-func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader) *GasAPI {
+func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *GasAPI {
 	return &GasAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
+		cfg:     cfg,
 	}
 }
 
