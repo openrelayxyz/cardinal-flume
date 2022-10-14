@@ -113,7 +113,7 @@ var (
 func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
-		log.Info("block by number sent to flume heavy", "hash", blockHash)
+		log.Info("block by hash sent to flume heavy", "hash", blockHash)
 		missMeter.Mark(1)
 		gbbhMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByHash", blockHash, includeTxns)
