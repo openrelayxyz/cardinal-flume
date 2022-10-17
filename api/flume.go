@@ -34,7 +34,8 @@ func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transactions by sender sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionsBySender sent to flume heavy by default")
+		missMeter.Mark(1)
 		tx, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionsBySender", address, offset)
 		if err != nil {
 			return nil, err
@@ -66,7 +67,8 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common
 func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transaction receipts by sender sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionReceiptsBySender sent to flume heavy by default")
+		missMeter.Mark(1)
 		rt, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsBySender", address, offset)
 		if err != nil {
 			return nil, err
@@ -93,7 +95,8 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx context.Context, address
 func (api *FlumeAPI) GetTransactionsByRecipient(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transaction by recipeint sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionsByRecipient sent to flume heavy by default")
+		missMeter.Mark(1)
 		tx, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionsByRecipient", address, offset)
 		if err != nil {
 			return nil, err
@@ -125,7 +128,8 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx context.Context, address com
 func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transaction receipts by recipient sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionReceiptsByRecipient sent to flume heavy by default")
+		missMeter.Mark(1)
 		tx, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsByRecipient", address, offset)
 		if err != nil {
 			return nil, err
@@ -151,7 +155,8 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx context.Context, addr
 func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transaction by participant sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionByParticipant sent to flume heavy by default")
+		missMeter.Mark(1)
 		tx, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionsByParticipant", address, offset)
 		if err != nil {
 			return nil, err
@@ -181,10 +186,13 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 	return &result, nil
 }
 
+
+
 func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get transaction receipts by participant sent to flume heavy", "address", address)
+		log.Debug("flume_getTransactionReceiptsByParticipant sent to flume heavy by default")
+		missMeter.Mark(1)
 		rt, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsByParticipant", address, offset)
 		if err != nil {
 			return nil, err
@@ -216,17 +224,18 @@ var (
 func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, blockHash types.Hash) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
-		log.Debug("transaction receipts by block hash sent to flume heavy", "hash", blockHash)
+		log.Debug("flume_getTransactionReceiptsByBlockHash sent to flume heavy")
+		missMeter.Mark(1)
 		missMeter.Mark(1)
 		gtrbhMissMeter.Mark(1)
-		rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionReceiptsByBlockHash", blockHash)
+		rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsByBlockHash", blockHash)
 		if err != nil {
 			return nil, err
 		}
 		return *rt, nil 
 	}
 
-	log.Debug("transaction receipts by block hash processed in light server", "hash", blockHash)
+	log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
 	hitMeter.Mark(1)
 	gtrbhHitMeter.Mark(1)
 
@@ -246,17 +255,17 @@ var (
 func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber hexutil.Uint64) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
-		log.Debug("transaction receipts by block number sent to flume heavy", "number", blockNumber)
+		log.Debug("flume_getTransactionReceiptsByBlockNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gtrbnMissMeter.Mark(1)
-		rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionReceiptsByBlockNumber", blockNumber)
+		rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsByBlockNumber", blockNumber)
 		if err != nil {
 			return nil, err
 		}
 		return *rt, nil 
 	}
 
-	log.Debug("transaction receipts by block number processed in light server", "number", blockNumber)
+	log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
 	hitMeter.Mark(1)
 	gtrbnHitMeter.Mark(1)
 

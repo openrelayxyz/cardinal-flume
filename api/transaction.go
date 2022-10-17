@@ -40,7 +40,7 @@ var (
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
-		log.Info("tansaction by hash sent to flume heavy", "hash", txHash)
+		log.Debug("eth_getTransactionByHash sent to flume heavy")
 		missMeter.Mark(1)
 		gtbhMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionByHash", txHash)
@@ -50,7 +50,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		return *responseShell, nil 
 	}
 
-	log.Error("transaction by hash light server light server", "hash", txHash)
+	log.Debug("eth_getTransactionByHash servered from flume light")
 	hitMeter.Mark(1)
 	gtbhHitMeter.Mark(1)
 
@@ -94,7 +94,7 @@ var (
 func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
-		log.Info("transaction by blockhash / index sent to flume heavy", "hash", blockHash)
+		log.Debug("eth_getTransactionByBlockHashAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbhiMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionByBlockHashAndIndex", blockHash, index)
@@ -104,7 +104,7 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 		return *responseShell, nil 
 	}
 
-	log.Error("transaction by  blockhash / index light server", "hash", blockHash)
+	log.Debug("eth_getTransactionByBlockHashAndIndex servered from flume light")
 	hitMeter.Mark(1)
 	gtbhiHitMeter.Mark(1)
 
@@ -126,7 +126,7 @@ var (
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
 	
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
-		log.Info("transaction by blockNumber / index sent to flume heavy", "number", blockNumber)
+		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbniMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionByBlockNumberAndIndex", blockNumber, index)
@@ -136,7 +136,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		return *responseShell, nil 
 	}
 
-	log.Error("transaction by  blockNumber / index light server", "number", blockNumber)
+	log.Debug("eth_getTransactionByBlockNumberAndIndex served from flume light")
 	hitMeter.Mark(1)
 	gtbniHitMeter.Mark(1)
 	
@@ -166,7 +166,7 @@ var (
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
-		log.Debug("get tansaction receipt sent to flume heavy", "hash", txHash)
+		log.Debug("eth_getTransactionReceipt sent to flume heavy")
 		missMeter.Mark(1)
 		gtrcMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionReceipt", txHash)
@@ -176,7 +176,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 		return *responseShell, nil 
 	}
 
-	log.Debug("get transaction receipt light server", "hash", txHash)
+	log.Debug("eth_getTransactionReceipt served from flume light")
 	hitMeter.Mark(1)
 	gtrcHitMeter.Mark(1)
 
@@ -208,7 +208,8 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Info("get tansaction count sent to flume heavy", "address", addr)
+		log.Info("eth_getTransactionCount sent to flume heavy by default")
+		missMeter.Mark(1)
 		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
 		if err != nil {
 			return 0, err

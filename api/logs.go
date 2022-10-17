@@ -76,7 +76,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	}
 
 	if goHeavy && len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get logs sent to flume heavy")
+		log.Debug("eth_getLogs sent to flume heavy")
 		missMeter.Mark(1)
 		glgMissMeter.Mark(1)
 		logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
@@ -86,7 +86,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		return *logs, nil 
 	}
 
-	log.Debug("get logs light server")
+	log.Debug("eth_getLogs served from flume light")
 	hitMeter.Mark(1)
 	glgHitMeter.Mark(1)
 

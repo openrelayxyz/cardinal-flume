@@ -33,7 +33,8 @@ func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get ERC20 by acccount sent to flume heavy", "address", addr)
+		log.Debug("flume_getERC20ByAccount sent to flume heavy by default")
+		missMeter.Mark(1)
 		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20ByAccount", addr, offset)
 		if err != nil {
 			return nil, err
@@ -75,7 +76,8 @@ func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Ad
 func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get ERC20 holders sent to flume heavy", "address", addr)
+		log.Debug("flume_getERC20Holders sent to flume heavy by default")
+		missMeter.Mark(1)
 		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20Holders", addr, offset)
 		if err != nil {
 			return nil, err

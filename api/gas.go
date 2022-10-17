@@ -91,8 +91,33 @@ func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
 	return new(big.Int).Sub(baseFee, baseFeeDelta), nil
 }
 
+var (
+	gpHitMeter = metrics.NewMinorMeter("/flume/gp/hit")
+	gpMissMeter = metrics.NewMinorMeter("/flume/gp/miss")
+)
+
 func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
-	var err error
+	// we need to do a light / heavy check here as the underlying gasTip method relies on current block
+	latestBlock, err := getLatestBlock(ctx, api.db)
+	if err != nil {
+		return "", err
+	}
+	earliestRequiredBlock := latestBlock - 20
+	if  earliestRequiredBlock < int64(api.cfg.EarliestBlock){
+		log.Debug("eth_gasPrince sent to flume heavy")
+		missMeter.Mark(1)
+		gpMissMeter.Mark(1)
+		price, err := heavy.CallHeavy[string](ctx, api.cfg.HeavyServer, "eth_gasPrice")
+		if err != nil {
+			return "", err
+		}
+		return *price, nil 
+	}
+
+	log.Debug("eth_gasPrice served from flume light")
+	hitMeter.Mark(1)
+	gpHitMeter.Mark(1)
+
 	tip, err := api.gasTip(ctx)
 	if err != nil {
 		return "", err
@@ -107,7 +132,34 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 	return result, nil
 }
 
+var (
+	mpfgHitMeter = metrics.NewMinorMeter("/flume/mpfg/hit")
+	mpfgMissMeter = metrics.NewMinorMeter("/flume/mpfg/miss")
+)
+
 func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err error) {
+	// we need to do a light / heavy check here as the underlying gasTip method relies on current block
+	latestBlock, err := getLatestBlock(ctx, api.db)
+	if err != nil {
+		return "", err
+	}
+	earliestRequiredBlock := latestBlock - 20
+
+	if  earliestRequiredBlock < int64(api.cfg.EarliestBlock){
+		log.Debug("eth_MaxPriorityFeePerGas sent to flume heavy")
+		missMeter.Mark(1)
+		mpfgMissMeter.Mark(1)
+		price, err := heavy.CallHeavy[string](ctx, api.cfg.HeavyServer, "eth_maxPriorityFeePerGas")
+		if err != nil {
+			return "", err
+		}
+		return *price, nil 
+	}
+
+	log.Debug("eth_maxPriorityFeePerGas served from flume light")
+	hitMeter.Mark(1)
+	mpfgHitMeter.Mark(1)
+
 	defer eh.HandleErr(&err)
 	return hexutil.EncodeBig(eh.CheckAndAssign(api.gasTip(ctx))), nil
 }
@@ -137,7 +189,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 	earliestBlockInCall := (int64(lastBlock) - int64(blockCount) + 1)
 
 	if earliestBlockInCall < int64(api.cfg.EarliestBlock) {
-		log.Debug("fee history sent to flume heavy")
+		log.Debug("eth_feeHistory sent to flume heavy")
 		missMeter.Mark(1)
 		gfhMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, vm.BlockNumber(earliestBlockInCall), rewardPercentiles)
@@ -147,7 +199,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		return *responseShell, nil
 	}
 
-	log.Debug("fee history light server")
+	log.Debug("eth_feeHistory served from flume light")
 	hitMeter.Mark(1)
 	gfhHitMeter.Mark(1)
 

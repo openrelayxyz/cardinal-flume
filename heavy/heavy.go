@@ -12,6 +12,16 @@ import (
 	"time"
 )
 
+type MockError struct {
+	err string
+	Method string
+	Params []interface{}
+}
+
+func (me *MockError) Error() string {
+	return me.err
+}
+
 var client = &http.Client{Transport:&http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
@@ -26,7 +36,15 @@ var client = &http.Client{Transport:&http.Transport{
 }}
 
 
-func CallHeavy[T any](ctx context.Context, backendURL string, method string, params... interface{}) (*T, *rpc.RPCError) {
+func CallHeavy[T any](ctx context.Context, backendURL string, method string, params... interface{}) (*T, error) {
+
+	if backendURL == "mock" {
+		return nil, &MockError{
+			err: "mock response",
+			Method: method,
+			Params: params,
+		}
+	}
 
 	log.Debug("call heavy arg params", "params", params)
 
