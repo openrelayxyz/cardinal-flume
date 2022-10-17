@@ -166,7 +166,7 @@ var (
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
-		log.Info("get tansaction receipt sent to flume heavy", "hash", txHash)
+		log.Debug("get tansaction receipt sent to flume heavy", "hash", txHash)
 		missMeter.Mark(1)
 		gtrcMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getTransactionReceipt", txHash)
@@ -176,7 +176,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 		return *responseShell, nil 
 	}
 
-	log.Error("get transaction receipt light server", "hash", txHash)
+	log.Debug("get transaction receipt light server", "hash", txHash)
 	hitMeter.Mark(1)
 	gtrcHitMeter.Mark(1)
 

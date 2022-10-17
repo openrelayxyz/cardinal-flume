@@ -141,7 +141,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs) //pass in cfg.
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs) 
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -222,6 +222,7 @@ func main() {
 	//if this > 0 then this is a light server
 	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
+	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
 		os.Exit(1) 

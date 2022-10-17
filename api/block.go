@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"database/sql"
-	// "reflect"
 	
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
@@ -40,6 +39,11 @@ func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 
 func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 
+	if len(api.cfg.HeavyServer) == 0 {
+		log.Debug("eth_blockNumber default served from flume light")
+		hitMeter.Mark(1)
+	}
+
 	blockNo, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		return 0, err
@@ -54,9 +58,8 @@ var (
 
 func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (map[string]interface{}, error) {
 
-	// if len(api.cfg.HeavyServer) > 0 && blockDataPresent(blockNumber, api.cfg, api.db) {
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
-		log.Debug("block by number sent to flume heavy", "number", blockNumber)
+		log.Debug("eth_blockByNumber sent to flume heavy", "number", blockNumber)
 		missMeter.Mark(1)
 		gbbnMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(blockNumber), includeTxns)
@@ -66,10 +69,11 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 		return *responseShell, nil 
 	}
 
-	log.Error("block by number light server light server", "number", blockNumber)
+	log.Debug("eth_getBlockByNumber served from flume light", "number", blockNumber)
 	hitMeter.Mark(1)
 	gbbnHitMeter.Mark(1)
 
+	
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		return ok
@@ -113,7 +117,7 @@ var (
 func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
-		log.Debug("block by hash sent to flume heavy", "hash", blockHash)
+		log.Debug("eth_getBlockByHash sent to flume heavy", "hash", blockHash)
 		missMeter.Mark(1)
 		gbbhMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByHash", blockHash, includeTxns)
@@ -123,7 +127,7 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 		return *responseShell, nil 
 	}
 
-	log.Debug("block by hash processed in light server", "hash", blockHash)
+	log.Debug("eth_getBlockByHash served from light", "hash", blockHash)
 	hitMeter.Mark(1)
 	gbbhHitMeter.Mark(1)
 

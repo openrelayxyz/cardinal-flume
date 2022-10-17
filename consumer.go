@@ -21,7 +21,6 @@ import (
 func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
-	log.Info("this is reorg thresh", "thresh", reorgThreshold)
 	var err error
 	var tableName string
 	db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
@@ -51,16 +50,16 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 	var lastHash, lastWeight []byte
 	var lastNumber int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight)
-	log.Error("this is last number", "number", lastNumber)
-	log.Error("before loop", "rt", resumptionTime)
-	log.Error("len of heavyserver", "len", len(cfg.HeavyServer))
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
 		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			return nil, err
 		}
+		log.Debug("current block aquired from heavy", "block", highestBlock.Int64())
 		
 		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
+
+		log.Debug("light server initialized from block", "number", resumptionBlockNumber)
 
 		
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
@@ -89,7 +88,6 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 		lastHash = lH.Bytes()
 		resumptionTime = int64(rT) * 1000
 	}
-	log.Error("after loop", "rt", resumptionTime)
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),

@@ -35,12 +35,9 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 			}
 	case types.Hash:
 		blockHash := input.(types.Hash)
-		// log.Error("blockhash type", "type", reflect.TypeOf(blockHash), "trimmed", blockHash[2:])
 		var response int
 		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
-		// log.Warn("by hash", "hash", blockHash, "statement", statement, "response pre scan", response)
 		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
-		// log.Warn("block data hash response", "response", response)
 		if response == 0 {
 			present = false
 		}

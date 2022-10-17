@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/heavy"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 )
 
 type LogsAPI struct {
@@ -31,17 +32,12 @@ func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *confi
 	}
 }
 
+var (
+	glgHitMeter = metrics.NewMinorMeter("/flume/glg/hit")
+	glgMissMeter = metrics.NewMinorMeter("/flume/glg/miss")
+)
+
 func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
-
-	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("get logs sent to flume heavy", "query", crit)
-		logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
-		if err != nil {
-			return nil, err
-		}
-		return *logs, nil
-	}
-
 
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
@@ -52,10 +48,12 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	whereClause := []string{}
 	indexClause := ""
 	params := []interface{}{}
+	var goHeavy bool
 	if crit.BlockHash != nil {
 		var num int64
 		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", crit.BlockHash.Bytes()).Scan(&num)
 		whereClause = append(whereClause, "blockHash = ? AND block = ?")
+		goHeavy = (num == 0)
 		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
 	} else {
 		var fromBlock, toBlock int64
@@ -64,6 +62,8 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		} else {
 			fromBlock = crit.FromBlock.Int64()
 		}
+		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
+
 		whereClause = append(whereClause, "block >= ?")
 		params = append(params, fromBlock)
 		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
@@ -74,6 +74,22 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		whereClause = append(whereClause, "block <= ?")
 		params = append(params, toBlock)
 	}
+
+	if goHeavy && len(api.cfg.HeavyServer) > 0 {
+		log.Debug("get logs sent to flume heavy")
+		missMeter.Mark(1)
+		glgMissMeter.Mark(1)
+		logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
+		if err != nil {
+			return nil, err
+		}
+		return *logs, nil 
+	}
+
+	log.Debug("get logs light server")
+	hitMeter.Mark(1)
+	glgHitMeter.Mark(1)
+
 	addressClause := []string{}
 	for _, address := range crit.Addresses {
 		addressClause = append(addressClause, "address = ?")
