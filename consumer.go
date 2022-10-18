@@ -23,9 +23,9 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 	reorgThreshold := cfg.ReorgThreshold
 	var err error
 	var tableName string
-	db.QueryRowContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
+	db.QueryRowContext(context.Background(), "SELECT name FROM blocks.sqlite_master WHERE type='table' and name='cardinal_offsets';").Scan(&tableName)
 	if tableName != "cardinal_offsets" {
-		if _, err = db.Exec("CREATE TABLE cardinal_offsets (partition INT, offset BIGINT, topic STRING, PRIMARY KEY (topic, partition));"); err != nil {
+		if _, err = db.Exec("CREATE TABLE blocks.cardinal_offsets (partition INT, offset BIGINT, topic STRING, PRIMARY KEY (topic, partition));"); err != nil {
 			return nil, err
 		}
 	}
@@ -56,12 +56,12 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 			return nil, err
 		}
 		log.Debug("current block aquired from heavy", "block", highestBlock.Int64())
-		
+
 		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
 
 		log.Debug("light server initialized from block", "number", resumptionBlockNumber)
 
-		
+
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {
 			return nil, err
