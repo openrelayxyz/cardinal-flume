@@ -12,6 +12,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/config"
 	_ "net/http/pprof"
 	// "reflect"
 )
@@ -119,7 +120,11 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
+	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
 	f := NewFlumeAPI(db, 1, pl)
 
 	blockObject, _ := blocksDecompress()

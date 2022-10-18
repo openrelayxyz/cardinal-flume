@@ -5,14 +5,15 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
 	"encoding/json"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/config"
 	_ "net/http/pprof"
 )
 
@@ -84,7 +85,11 @@ func TestTransactionAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
+	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
 	tx := NewTransactionAPI(db, 1, pl)
 	blockObject, _ := blocksDecompress()
 	receiptsMap, _ := receiptsDecompress()
