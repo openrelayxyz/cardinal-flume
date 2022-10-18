@@ -6,73 +6,95 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"sync"
+	"github.com/mattn/go-sqlite3"
+	"io"
+	"os"
+	"io/ioutil"
+	"compress/gzip"
+	"database/sql"
+	"encoding/json"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/migrations"
 	"github.com/openrelayxyz/flume/plugins"
-
-	"compress/gzip"
-	"database/sql"
-	"encoding/json"
-	log "github.com/inconshreveable/log15"
-	"github.com/mattn/go-sqlite3"
-	"io"
-	"io/ioutil"
+	"github.com/openrelayxyz/flume/config"
 	_ "net/http/pprof"
-	"path/filepath"
-	"sync"
 )
 
 var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
-	sqlitePath := "../testdata.sqlite"
 
-	mempoolDb := filepath.Join(filepath.Dir(sqlitePath), "mempool.sqlite")
-	blocksDb := filepath.Join(filepath.Dir(sqlitePath), "blocks.sqlite")
-	txDb := filepath.Join(filepath.Dir(sqlitePath), "transactions.sqlite")
-	logsDb := filepath.Join(filepath.Dir(sqlitePath), "logs.sqlite")
+	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	if err != nil {
+		log.Error("Error parsing config", "err", err.Error())
+		os.Exit(1)
+	}
 
 	register.Do(func() {
-		sql.Register("sqlite3_hooked",
-			&sqlite3.SQLiteDriver{
-				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'mempool'; PRAGMA mempool.journal_mode = WAL ; PRAGMA mempool.synchronous = OFF ;", mempoolDb), nil)
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'blocks'; PRAGMA block.journal_mode = WAL ; PRAGMA block.synchronous = OFF ;", blocksDb), nil)
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'transactions'; PRAGMA transactions.journal_mode = WAL ; PRAGMA transactions.synchronous = OFF ;", txDb), nil)
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS 'logs'; PRAGMA logs.journal_mode = WAL ; PRAGMA logs.synchronous = OFF ;", logsDb), nil)
-					return nil
-				},
-			})
+	sql.Register("sqlite3_hooked",
+		&sqlite3.SQLiteDriver{
+			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+				for name, path := range cfg.Databases {
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
+				}
+				return nil
+			},
+		})
 	})
-
-	logsdb, err := sql.Open("sqlite3_hooked", fmt.Sprintf("file:%v?_sync=0&_journal_mode=WAL&_foreign_keys=off", sqlitePath))
-
-	chainid := uint64(1)
-
-	if err := migrations.MigrateBlocks(logsdb, chainid); err != nil {
-		return nil, err
-	}
-	if err := migrations.MigrateTransactions(logsdb, chainid); err != nil {
-		return nil, err
-	}
-	if err := migrations.MigrateLogs(logsdb, chainid); err != nil {
-		return nil, err
-	}
-	if err := migrations.MigrateMempool(logsdb, chainid); err != nil {
-		return nil, err
-	}
-
+		
+	logsdb, err := sql.Open("sqlite3_hooked", (":memory:?_sync=0&_journal_mode=WAL&_foreign_keys=off"))
 	if err != nil {
-		return nil, err
+		log.Error(err.Error())
 	}
+
+	_, hasLogs := cfg.Databases["logs"]
+	if hasLogs {
+		log.Info("has logs", "logs", cfg.Databases["logs"])
+	}
+	_, hasBlocks := cfg.Databases["blocks"]
+	if hasBlocks {
+		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
+	}
+	_, hasTx := cfg.Databases["transactions"]
+	if hasTx {
+		log.Info("has transactions", "transactions", cfg.Databases["transactions"])
+	}
+	_, hasMempool := cfg.Databases["mempool"]
+	if hasMempool {
+		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
+	}
+
+	if hasBlocks {
+		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasTx {
+		if err := migrations.MigrateTransactions(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasLogs {
+		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+	if hasMempool {
+		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
+			log.Error(err.Error())
+		}
+	}
+
 	return logsdb, nil
 }
 
 func blocksDecompress() ([]map[string]json.RawMessage, error) {
-	file, _ := ioutil.ReadFile("new_data.json.gz")
+	file, _ := ioutil.ReadFile("../testing-resources/block_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -87,7 +109,7 @@ func blocksDecompress() ([]map[string]json.RawMessage, error) {
 }
 
 func receiptsDecompress() ([]map[string]json.RawMessage, error) {
-	file, _ := ioutil.ReadFile("new_receipts.json.gz")
+	file, _ := ioutil.ReadFile("../testing-resources/receipt_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -127,7 +149,11 @@ func TestBlockNumber(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
+	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
 	test, err := b.BlockNumber(context.Background())
@@ -145,7 +171,11 @@ func TestBlockAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
+	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl)
 	blockObject, _ := blocksDecompress()
 	blockNumbers := getBlockNumbers(blockObject)

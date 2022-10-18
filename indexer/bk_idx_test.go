@@ -43,7 +43,7 @@ func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 }
 
 func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
-	file, _ := ioutil.ReadFile("flume-test-data.json.gz")
+	file, _ := ioutil.ReadFile("../testing-resources/indexer_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 func TestBlockIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../blocks.sqlite"
+	test_dbs["control"] = "../testing-resources/blocks.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {

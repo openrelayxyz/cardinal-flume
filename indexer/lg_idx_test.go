@@ -11,7 +11,7 @@ import (
 func TestLogIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../logs.sqlite"
+	test_dbs["control"] = "../testing-resources/logs.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
