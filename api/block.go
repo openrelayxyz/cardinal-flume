@@ -60,7 +60,7 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 		log.Debug("eth_blockByNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gbbnMissMeter.Mark(1)
-		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(blockNumber), includeTxns)
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByNumber", blockNumber, includeTxns)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		log.Debug("eth_getBlockTransactionCountByNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gtcbnMissMeter.Mark(1)
-		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getBlockTransactionCountByNumber", hexutil.Uint64(blockNumber))
+		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getBlockTransactionCountByNumber", blockNumber)
 		if err != nil {
 			return 0, err
 		}
@@ -246,7 +246,7 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 		log.Debug("eth_getetUncleCountByBlockNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gucbnMissMeter.Mark(1)
-		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getUncleCountByBlockNumber", hexutil.Uint64(blockNumber))
+		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getUncleCountByBlockNumber", blockNumber)
 		if err != nil {
 			return 0, err
 		}

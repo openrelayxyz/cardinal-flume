@@ -18,6 +18,30 @@ import (
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/heavy"
 )
+
+var trackedPrefixes = []*regexp.Regexp {
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/u"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/t/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/r/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/l/"),
+}
+
+
+func deliverConsumer (brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte) (streamsTransports.Consumer, error) {	// brokerParams := cfg.BrokerParams
+	rt := []byte(resumption)
+	if resumptionTime > 0 {
+		r, err := streamsTransports.ResumptionForTimestamp(brokerParams, resumptionTime)
+		if err != nil {
+			log.Warn("Could not load resumption from timestamp:", "error", err.Error())
+		} else {
+			rt = r
+		}
+	}
+	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, trackedPrefixes, nil)
+}
+
 func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
@@ -53,14 +77,17 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
 		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
-			return nil, err
+			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
+			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight)
+			if err != nil {
+				log.Error("Error constructing consumer from stand alone light instance", "err", err.Error())
+				return nil, err
+			}
+			return consumer, nil
 		}
-		log.Debug("current block aquired from heavy", "block", highestBlock.Int64())
+		log.Debug("Current block aquired from heavy", "block", highestBlock.Int64())
 
 		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
-
-		log.Debug("light server initialized from block", "number", resumptionBlockNumber)
-
 
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {
@@ -87,24 +114,20 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 		lastNumber = resumptionBlockNumber
 		lastHash = lH.Bytes()
 		resumptionTime = int64(rT) * 1000
-	}
-	trackedPrefixes := []*regexp.Regexp{
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/u"),
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/t/"),
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/r/"),
-		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/l/"),
-	}
-	log.Info("Resuming to block", "number", lastNumber)
-	rt := []byte(resumption)
-	if resumptionTime > 0 {
-		r, err := streamsTransports.ResumptionForTimestamp(brokerParams, resumptionTime)
+
+		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight)
 		if err != nil {
-			log.Warn("Could not load resumption from timestamp:", "error", err.Error())
-		} else {
-			rt = r
+			log.Error("Error constructing consumer from heavy connected flume light instance", "err", err.Error())
+			return nil, err
 		}
+		log.Info("Flume light service initiated, beginning from block:", "number", lastNumber)
+		return consumer, nil
 	}
-	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, trackedPrefixes, nil)
+	consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight)
+	if err != nil {
+		log.Error("Error constructing consumer from flume heavy instance", "err", err.Error())
+		return nil, err
+	}
+	log.Info("Flume heavey service initiated, Resuming to block", "number", lastNumber)
+	return consumer, nil
 }

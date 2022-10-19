@@ -56,8 +56,6 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		)) 
 	}
 
-	log.Info("sb", "sb", statements)
-
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", pg.Chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
@@ -66,7 +64,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	author, err := getBlockAuthor(header)
 	if err != nil {
-		log.Info("getBlockAuthor error", "err", err.Error())
+		log.Error("getBlockAuthor error", "err", err.Error())
 	}
 
 	stmt := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", author, pb.Number)
