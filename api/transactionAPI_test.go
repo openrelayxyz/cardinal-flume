@@ -85,12 +85,12 @@ func TestTransactionAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	tx := NewTransactionAPI(db, 1, pl)
+	tx := NewTransactionAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
 	receiptsMap, _ := receiptsDecompress()
 	transactionLists := getTransactionsListsForTesting(blockObject)

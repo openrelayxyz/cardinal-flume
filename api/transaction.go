@@ -208,7 +208,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Info("eth_getTransactionCount sent to flume heavy by default")
+		log.Debug("eth_getTransactionCount sent to flume heavy by default")
 		missMeter.Mark(1)
 		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
 		if err != nil {

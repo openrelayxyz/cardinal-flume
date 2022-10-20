@@ -37,12 +37,12 @@ func TestERCMethods(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	ft := NewFlumeTokensAPI(db, 1, pl)
+	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
 
 	data, _ := tokenDataDecompress()
 

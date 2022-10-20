@@ -43,12 +43,12 @@ func TestGasAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	g := NewGasAPI(db, 1, pl)
+	g := NewGasAPI(db, 1, pl, cfg)
 
 	price := "0x2a51edbe67"
 	fee := "0x9502f900"

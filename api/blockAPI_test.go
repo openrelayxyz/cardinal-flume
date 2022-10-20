@@ -29,7 +29,7 @@ var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
 
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		log.Error("Error parsing config", "err", err.Error())
 		os.Exit(1)
@@ -149,12 +149,12 @@ func TestBlockNumber(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	b := NewBlockAPI(db, 1, pl)
+	b := NewBlockAPI(db, 1, pl, cfg)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
 	test, err := b.BlockNumber(context.Background())
 	if err != nil {
@@ -171,12 +171,12 @@ func TestBlockAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	b := NewBlockAPI(db, 1, pl)
+	b := NewBlockAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
 	blockNumbers := getBlockNumbers(blockObject)
 	for i, block := range blockNumbers {

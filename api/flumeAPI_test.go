@@ -120,12 +120,12 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	f := NewFlumeAPI(db, 1, pl)
+	f := NewFlumeAPI(db, 1, pl, cfg)
 
 	blockObject, _ := blocksDecompress()
 	receiptObject, _ := receiptsDecompress()
@@ -158,7 +158,7 @@ func TestFlumeAPI(t *testing.T) {
 	}
 	for i, number := range bkNumbers {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber%v", i), func(t *testing.T) {
-			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), hexutil.Uint64(number))
+			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
 			for j := range actual {
 				for k, v := range actual[j] {
 					data, err := json.Marshal(v)

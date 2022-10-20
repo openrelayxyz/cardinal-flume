@@ -32,28 +32,35 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 		case vm.BlockNumber:
 			if uint64(input.(vm.BlockNumber).Int64()) < cfg.EarliestBlock {
 				present = false
+				return present
 			}
-	case types.Hash:
-		blockHash := input.(types.Hash)
-		var response int
-		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
-		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
-		if response == 0 {
-			present = false
-		}
+		case types.Hash:
+			blockHash := input.(types.Hash)
+			var response int
+			statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+			db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
+			if response == 0 {
+				present = false
+				return present
+			}
 	}
 	return present
 }
 
-// tx present still need to check mempool 
-
 func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	var response int
-	statement := "SELECT 1 FROM transactions.transactions WHERE hash = ?;"
-	db.QueryRow(statement, trimPrefix(txHash.Bytes())).Scan(&response)
+	txStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
+	db.QueryRow(txStatement, trimPrefix(txHash.Bytes())).Scan(&response)
 	if response == 0 {
 		present = false
+		return present
+	}
+	mpStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
+	db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+		return present
 	}
 	return present
 }

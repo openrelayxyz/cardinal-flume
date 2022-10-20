@@ -1,0 +1,14 @@
+networkName: mainnet
+brokers:
+ - url: null://
+loggingLevel: info
+databases:
+  blocks: ../testing-resources/blocks.sqlite
+  transactions: ../testing-resources/transactions.sqlite
+  logs: ../testing-resources/logs.sqlite
+  mempool: ../testing-resources/mempool.sqlite
+  bor: ../testing-resources/bor.sqlite
+pluginPath: ../testing-resources/
+plugins:
+  []
+heavyserver:

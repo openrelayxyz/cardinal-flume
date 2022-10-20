@@ -22,12 +22,12 @@ func TestLogsAPI(t *testing.T) {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	l := NewLogsAPI(db, 1, pl)
+	l := NewLogsAPI(db, 1, pl, cfg)
 
 	t.Run(fmt.Sprintf("Testing GetLogs BlockHash"), func(t *testing.T) {
 		hashes := []types.Hash{}
