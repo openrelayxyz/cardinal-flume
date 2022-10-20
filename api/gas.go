@@ -10,10 +10,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	eh "github.com/openrelayxyz/flume/errhandle"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/heavy"
 	"github.com/openrelayxyz/flume/config"
+	eh "github.com/openrelayxyz/flume/errhandle"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type GasAPI struct {
@@ -92,7 +92,7 @@ func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
 }
 
 var (
-	gpHitMeter = metrics.NewMinorMeter("/flume/gp/hit")
+	gpHitMeter  = metrics.NewMinorMeter("/flume/gp/hit")
 	gpMissMeter = metrics.NewMinorMeter("/flume/gp/miss")
 )
 
@@ -103,7 +103,7 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 		return "", err
 	}
 	earliestRequiredBlock := latestBlock - 20
-	if  earliestRequiredBlock < int64(api.cfg.EarliestBlock){
+	if earliestRequiredBlock < int64(api.cfg.EarliestBlock) {
 		log.Debug("eth_gasPrince sent to flume heavy")
 		missMeter.Mark(1)
 		gpMissMeter.Mark(1)
@@ -111,7 +111,7 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return *price, nil 
+		return *price, nil
 	}
 
 	log.Debug("eth_gasPrice served from flume light")
@@ -133,7 +133,7 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 }
 
 var (
-	mpfgHitMeter = metrics.NewMinorMeter("/flume/mpfg/hit")
+	mpfgHitMeter  = metrics.NewMinorMeter("/flume/mpfg/hit")
 	mpfgMissMeter = metrics.NewMinorMeter("/flume/mpfg/miss")
 )
 
@@ -145,7 +145,7 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 	}
 	earliestRequiredBlock := latestBlock - 20
 
-	if  earliestRequiredBlock < int64(api.cfg.EarliestBlock){
+	if earliestRequiredBlock < int64(api.cfg.EarliestBlock) {
 		log.Debug("eth_MaxPriorityFeePerGas sent to flume heavy")
 		missMeter.Mark(1)
 		mpfgMissMeter.Mark(1)
@@ -153,7 +153,7 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 		if err != nil {
 			return "", err
 		}
-		return *price, nil 
+		return *price, nil
 	}
 
 	log.Debug("eth_maxPriorityFeePerGas served from flume light")
@@ -165,7 +165,7 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 }
 
 var (
-	gfhHitMeter = metrics.NewMinorMeter("/flume/gfh/hit")
+	gfhHitMeter  = metrics.NewMinorMeter("/flume/gfh/hit")
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 

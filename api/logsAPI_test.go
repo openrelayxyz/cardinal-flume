@@ -1,18 +1,18 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
-	"context"
-	"fmt"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 func TestLogsAPI(t *testing.T) {

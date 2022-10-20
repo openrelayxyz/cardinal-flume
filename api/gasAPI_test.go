@@ -2,17 +2,17 @@ package api
 
 import (
 	"bytes"
-	"context"
-	"fmt"
-	"testing"
-	"io"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
 )
 

@@ -5,14 +5,14 @@ import (
 	"testing"
 
 	// log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 func TestCallHeavy(t *testing.T) {
@@ -51,7 +51,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[1].(bool) != true {
 		t.Fatal("GetBlockByNumber did not return expected parameter bool, heavy test", "err", err.Error())
 	}
-		
+
 	_, err = b.GetBlockByHash(context.Background(), testHash, true)
 	if err == nil {
 		t.Fatal("GetBlockByHash did not return expected error, heavy test", "err", err.Error())
@@ -64,7 +64,7 @@ func TestCallHeavy(t *testing.T) {
 	}
 	if err.(*heavy.MockError).Params[1].(bool) != true {
 		t.Fatal("GetBlockByHash did not return expected parameter bool, heavy test", "err", err.Error())
-	}	
+	}
 
 	_, err = b.GetBlockTransactionCountByNumber(context.Background(), testBlockNumber)
 	if err == nil {
@@ -98,7 +98,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
 		t.Fatal("GetUncleCountByBlockNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
-	
+
 	_, err = b.GetUncleCountByBlockHash(context.Background(), testHash)
 	if err == nil {
 		t.Fatal("GetUncleCountByBlockHash did not return expected error, heavy test", "err", err.Error())

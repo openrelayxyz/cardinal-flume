@@ -3,16 +3,16 @@ package api
 import (
 	"context"
 	"database/sql"
-	
+
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/heavy"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type FlumeAPI struct {
@@ -20,7 +20,6 @@ type FlumeAPI struct {
 	network uint64
 	pl      *plugins.PluginLoader
 	cfg     *config.Config
-
 }
 
 func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *FlumeAPI {
@@ -76,7 +75,7 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx context.Context, address
 		}
 		return *rt, nil
 	}
-	
+
 	if offset == nil {
 		offset = new(int)
 	}
@@ -164,7 +163,7 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 		}
 		return *tx, nil
 	}
-	
+
 	if offset == nil {
 		offset = new(int)
 	}
@@ -187,8 +186,6 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 	return &result, nil
 }
 
-
-
 func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -200,7 +197,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, ad
 		}
 		return *rt, nil
 	}
-	
+
 	if offset == nil {
 		offset = new(int)
 	}
@@ -218,7 +215,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, ad
 }
 
 var (
-	gtrbhHitMeter = metrics.NewMinorMeter("/flume/gtrbh/hit")
+	gtrbhHitMeter  = metrics.NewMinorMeter("/flume/gtrbh/hit")
 	gtrbhMissMeter = metrics.NewMinorMeter("/flume/gtrbh/miss")
 )
 
@@ -233,7 +230,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 		if err != nil {
 			return nil, err
 		}
-		return *rt, nil 
+		return *rt, nil
 	}
 
 	log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
@@ -249,7 +246,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 }
 
 var (
-	gtrbnHitMeter = metrics.NewMinorMeter("/flume/gtrbn/hit")
+	gtrbnHitMeter  = metrics.NewMinorMeter("/flume/gtrbn/hit")
 	gtrbnMissMeter = metrics.NewMinorMeter("/flume/gtrbn/miss")
 )
 
@@ -263,7 +260,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		if err != nil {
 			return nil, err
 		}
-		return *rt, nil 
+		return *rt, nil
 	}
 
 	log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
@@ -285,4 +282,3 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 	}
 	return receipts, nil
 }
-

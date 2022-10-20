@@ -38,7 +38,7 @@ func main() {
 	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
- 	}
+	}
 
 	pl.Initialize(cfg)
 
@@ -141,7 +141,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs) 
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -183,7 +183,7 @@ func main() {
 	}
 
 	if reIndexed == true {
-		return 
+		return
 	}
 
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
@@ -225,7 +225,7 @@ func main() {
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
-		os.Exit(1) 
+		os.Exit(1)
 	}
 	if !*exitWhenSynced {
 		if err := tm.Run(cfg.HealthcheckPort); err != nil {

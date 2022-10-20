@@ -12,15 +12,15 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 
 	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type TransactionAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
-	cfg		*config.Config
+	cfg     *config.Config
 }
 
 func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *TransactionAPI {
@@ -33,7 +33,7 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 }
 
 var (
-	gtbhHitMeter = metrics.NewMinorMeter("/flume/gtbh/hit")
+	gtbhHitMeter  = metrics.NewMinorMeter("/flume/gtbh/hit")
 	gtbhMissMeter = metrics.NewMinorMeter("/flume/gtbh/miss")
 )
 
@@ -47,7 +47,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getTransactionByHash servered from flume light")
@@ -70,7 +70,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	if err != nil {
 		return nil, err
 	}
-	
+
 	result := returnSingleTransaction(txs)
 
 	for _, fni := range pluginMethods {
@@ -87,7 +87,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 }
 
 var (
-	gtbhiHitMeter = metrics.NewMinorMeter("/flume/gtbhi/hit")
+	gtbhiHitMeter  = metrics.NewMinorMeter("/flume/gtbhi/hit")
 	gtbhiMissMeter = metrics.NewMinorMeter("/flume/gtbhi/miss")
 )
 
@@ -101,7 +101,7 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getTransactionByBlockHashAndIndex servered from flume light")
@@ -119,12 +119,12 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 }
 
 var (
-	gtbniHitMeter = metrics.NewMinorMeter("/flume/gtbni/hit")
+	gtbniHitMeter  = metrics.NewMinorMeter("/flume/gtbni/hit")
 	gtbniMissMeter = metrics.NewMinorMeter("/flume/gtbni/miss")
 )
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
-	
+
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
 		missMeter.Mark(1)
@@ -133,13 +133,13 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getTransactionByBlockNumberAndIndex served from flume light")
 	hitMeter.Mark(1)
 	gtbniHitMeter.Mark(1)
-	
+
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
@@ -159,7 +159,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 }
 
 var (
-	gtrcHitMeter = metrics.NewMinorMeter("/flume/gtrc/hit")
+	gtrcHitMeter  = metrics.NewMinorMeter("/flume/gtrc/hit")
 	gtrcMissMeter = metrics.NewMinorMeter("/flume/gtrc/miss")
 )
 
@@ -173,7 +173,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getTransactionReceipt served from flume light")
@@ -214,7 +214,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		if err != nil {
 			return 0, err
 		}
-		return *count, nil 
+		return *count, nil
 	}
 
 	nonce, err := getSenderNonce(ctx, api.db, addr)

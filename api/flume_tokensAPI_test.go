@@ -2,18 +2,18 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
-	"testing"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
-	"compress/gzip"
-	"encoding/json"
+	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 func tokenDataDecompress() ([][]common.Address, error) {

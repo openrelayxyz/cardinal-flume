@@ -10,10 +10,10 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type LogsAPI struct {
@@ -28,12 +28,12 @@ func NewLogsAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *confi
 		db:      db,
 		network: network,
 		pl:      pl,
-		cfg:     cfg, 
+		cfg:     cfg,
 	}
 }
 
 var (
-	glgHitMeter = metrics.NewMinorMeter("/flume/glg/hit")
+	glgHitMeter  = metrics.NewMinorMeter("/flume/glg/hit")
 	glgMissMeter = metrics.NewMinorMeter("/flume/glg/miss")
 )
 
@@ -83,7 +83,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		if err != nil {
 			return nil, err
 		}
-		return *logs, nil 
+		return *logs, nil
 	}
 
 	log.Debug("eth_getLogs served from flume light")

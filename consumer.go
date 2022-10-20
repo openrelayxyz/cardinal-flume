@@ -2,24 +2,24 @@ package main
 
 import (
 	// "reflect"
-	"encoding/json"
 	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"regexp"
 	"strings"
-	"database/sql"
-	"fmt"
 
 	log "github.com/inconshreveable/log15"
-	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/heavy"
 )
 
-var trackedPrefixes = []*regexp.Regexp {
+var trackedPrefixes = []*regexp.Regexp{
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/u"),
@@ -28,8 +28,7 @@ var trackedPrefixes = []*regexp.Regexp {
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/l/"),
 }
 
-
-func deliverConsumer (brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte) (streamsTransports.Consumer, error) {	// brokerParams := cfg.BrokerParams
+func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte) (streamsTransports.Consumer, error) { // brokerParams := cfg.BrokerParams
 	rt := []byte(resumption)
 	if resumptionTime > 0 {
 		r, err := streamsTransports.ResumptionForTimestamp(brokerParams, resumptionTime)
@@ -87,7 +86,7 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 		}
 		log.Debug("Current block aquired from heavy", "block", highestBlock.Int64())
 
-		resumptionBlockNumber  := highestBlock.Int64() - reorgThreshold
+		resumptionBlockNumber := highestBlock.Int64() - reorgThreshold
 
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {

@@ -9,9 +9,9 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/heavy"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 type FlumeTokensAPI struct {
@@ -84,7 +84,6 @@ func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Addr
 		}
 		return *address, nil
 	}
-
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

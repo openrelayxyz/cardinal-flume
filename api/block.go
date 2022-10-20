@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
-	
+
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -11,21 +11,21 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 var (
-	hitMeter = metrics.NewMajorMeter("/flume/hit")
-	missMeter = metrics.NewMajorMeter("/flume/miss") 
+	hitMeter  = metrics.NewMajorMeter("/flume/hit")
+	missMeter = metrics.NewMajorMeter("/flume/miss")
 )
 
 type BlockAPI struct {
 	db      *sql.DB
 	network uint64
 	pl      *plugins.PluginLoader
-	cfg		*config.Config
+	cfg     *config.Config
 }
 
 func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *BlockAPI {
@@ -40,7 +40,7 @@ func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 
 	log.Debug("eth_blockNumber served from flume light by default")
-	hitMeter.Mark(1)	
+	hitMeter.Mark(1)
 
 	blockNo, err := getLatestBlock(ctx, api.db)
 	if err != nil {
@@ -50,7 +50,7 @@ func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 }
 
 var (
-	gbbnHitMeter = metrics.NewMinorMeter("/flume/gbbn/hit")
+	gbbnHitMeter  = metrics.NewMinorMeter("/flume/gbbn/hit")
 	gbbnMissMeter = metrics.NewMinorMeter("/flume/gbbn/miss")
 )
 
@@ -64,14 +64,13 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getBlockByNumber served from flume light")
 	hitMeter.Mark(1)
 	gbbnHitMeter.Mark(1)
 
-	
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		return ok
@@ -108,7 +107,7 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 }
 
 var (
-	gbbhHitMeter = metrics.NewMinorMeter("/flume/gbbh/hit")
+	gbbhHitMeter  = metrics.NewMinorMeter("/flume/gbbh/hit")
 	gbbhMissMeter = metrics.NewMinorMeter("/flume/gbbh/miss")
 )
 
@@ -122,7 +121,7 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil 
+		return *responseShell, nil
 	}
 
 	log.Debug("eth_getBlockByHash served from flume light")
@@ -157,7 +156,7 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 }
 
 var (
-	gtcbnHitMeter = metrics.NewMinorMeter("/flume/gtcbn/hit")
+	gtcbnHitMeter  = metrics.NewMinorMeter("/flume/gtcbn/hit")
 	gtcbnMissMeter = metrics.NewMinorMeter("/flume/gtcbn/miss")
 )
 
@@ -171,7 +170,7 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		if err != nil {
 			return 0, err
 		}
-		return *count, nil 
+		return *count, nil
 	}
 
 	log.Debug("eth_getBlockTransactionCountByNumber served from flume light")
@@ -196,7 +195,7 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 }
 
 var (
-	gtcbhHitMeter = metrics.NewMinorMeter("/flume/gtcbh/hit")
+	gtcbhHitMeter  = metrics.NewMinorMeter("/flume/gtcbh/hit")
 	gtcbhMissMeter = metrics.NewMinorMeter("/flume/gtcbh/miss")
 )
 
@@ -210,7 +209,7 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 		if err != nil {
 			return 0, err
 		}
-		return *count, nil 
+		return *count, nil
 	}
 
 	log.Debug("eth_getBlockTransactionCountByHash served from flume light")
@@ -236,7 +235,7 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 }
 
 var (
-	gucbnHitMeter = metrics.NewMinorMeter("/flume/gucbn/hit")
+	gucbnHitMeter  = metrics.NewMinorMeter("/flume/gucbn/hit")
 	gucbnMissMeter = metrics.NewMinorMeter("/flume/gucbn/miss")
 )
 
@@ -250,7 +249,7 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 		if err != nil {
 			return 0, err
 		}
-		return *count, nil 
+		return *count, nil
 	}
 
 	log.Debug("eth_getetUncleCountByBlockNumber served from flume light")
@@ -277,7 +276,7 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 }
 
 var (
-	gucbhHitMeter = metrics.NewMinorMeter("/flume/gucbh/hit")
+	gucbhHitMeter  = metrics.NewMinorMeter("/flume/gucbh/hit")
 	gucbhMissMeter = metrics.NewMinorMeter("/flume/gucbh/miss")
 )
 
@@ -291,7 +290,7 @@ func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash typ
 		if err != nil {
 			return 0, err
 		}
-		return *count, nil 
+		return *count, nil
 	}
 
 	log.Debug("eth_getUncleCountByBlockHash served from flume light")
