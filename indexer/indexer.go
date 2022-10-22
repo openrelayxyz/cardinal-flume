@@ -185,7 +185,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			mempool_indexer(db, mempoolSlots, txCount, txDedup, tx)
 		case chainUpdate := <-csCh:
 			var lastBatch *delivery.PendingBatch
-			UPDATELOOP:
+		UPDATELOOP:
 			for {
 				megaStatement := []string{}
 				megaParameters := []interface{}{}

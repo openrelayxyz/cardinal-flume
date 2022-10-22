@@ -2,18 +2,18 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
-	"testing"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
-	"compress/gzip"
-	"encoding/json"
+	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/plugins"
 )
 
 func tokenDataDecompress() ([][]common.Address, error) {
@@ -37,12 +37,12 @@ func TestERCMethods(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	ft := NewFlumeTokensAPI(db, 1, pl)
+	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
 
 	data, _ := tokenDataDecompress()
 

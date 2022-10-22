@@ -2,17 +2,17 @@ package api
 
 import (
 	"bytes"
-	"context"
-	"fmt"
-	"testing"
-	"io"
 	"compress/gzip"
+	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/flume/plugins"
 	_ "net/http/pprof"
 )
 
@@ -43,12 +43,12 @@ func TestGasAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	g := NewGasAPI(db, 1, pl)
+	g := NewGasAPI(db, 1, pl, cfg)
 
 	price := "0x2a51edbe67"
 	fee := "0x9502f900"

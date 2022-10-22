@@ -12,3 +12,4 @@ pluginPath: ../testing-resources/
 plugins:
   []
 heavyserver:
+  "mock"

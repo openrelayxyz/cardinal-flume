@@ -6,12 +6,15 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
+	// "reflect"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/config"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -21,6 +24,45 @@ import (
 	"os"
 	"sort"
 )
+
+func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	switch input.(type) {
+	case vm.BlockNumber:
+		if uint64(input.(vm.BlockNumber).Int64()) < cfg.EarliestBlock {
+			present = false
+			return present
+		}
+	case types.Hash:
+		blockHash := input.(types.Hash)
+		var response int
+		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
+		if response == 0 {
+			present = false
+			return present
+		}
+	}
+	return present
+}
+
+func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	var response int
+	txStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
+	db.QueryRow(txStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+		return present
+	}
+	mpStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
+	db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+		return present
+	}
+	return present
+}
 
 func getLatestBlock(ctx context.Context, db *sql.DB) (int64, error) {
 	var result int64
@@ -226,14 +268,14 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		var bn [8]byte
 		binary.BigEndian.PutUint64(bn[:], uint64(nonce))
 		fields := map[string]interface{}{
-			"difficulty": hexutil.Uint64(difficulty),
-			"extraData":  hexutil.Bytes(extra),
-			"gasLimit":   hexutil.Uint64(gasLimit),
-			"gasUsed":    hexutil.Uint64(gasUsed),
-			"hash":       bytesToHash(hash),
-			"logsBloom":  hexutil.Bytes(logsBloom),
-			"miner":      bytesToAddress(coinbase),
-			"mixHash":    bytesToHash(mixDigest),
+			"difficulty":       hexutil.Uint64(difficulty),
+			"extraData":        hexutil.Bytes(extra),
+			"gasLimit":         hexutil.Uint64(gasLimit),
+			"gasUsed":          hexutil.Uint64(gasUsed),
+			"hash":             bytesToHash(hash),
+			"logsBloom":        hexutil.Bytes(logsBloom),
+			"miner":            bytesToAddress(coinbase),
+			"mixHash":          bytesToHash(mixDigest),
 			"nonce":            hexutil.Bytes(bn[:]),
 			"number":           hexutil.Uint64(number),
 			"parentHash":       bytesToHash(parentHash),
@@ -779,7 +821,7 @@ func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, l
 		fields := map[string]interface{}{
 			"blockHash":         bytesToHash(blockHash),
 			"blockNumber":       hexutil.Uint64(blockNumber),
-			"timestamp":            uintToHexBig(time),
+			"timestamp":         uintToHexBig(time),
 			"transactionHash":   bytesToHash(txHash),
 			"transactionIndex":  hexutil.Uint64(txIndex),
 			"from":              bytesToAddress(from),

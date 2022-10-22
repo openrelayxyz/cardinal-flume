@@ -2,26 +2,26 @@ package api
 
 import (
 	"bytes"
-	"context"
-	"fmt"
-	"reflect"
-	"testing"
-	"sync"
-	"github.com/mattn/go-sqlite3"
-	"io"
-	"os"
-	"io/ioutil"
 	"compress/gzip"
+	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"github.com/mattn/go-sqlite3"
+	"io"
+	"io/ioutil"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/migrations"
 	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/config"
 	_ "net/http/pprof"
 )
 
@@ -29,24 +29,24 @@ var register sync.Once
 
 func connectToDatabase() (*sql.DB, error) {
 
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		log.Error("Error parsing config", "err", err.Error())
 		os.Exit(1)
 	}
 
 	register.Do(func() {
-	sql.Register("sqlite3_hooked",
-		&sqlite3.SQLiteDriver{
-			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				for name, path := range cfg.Databases {
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
-				}
-				return nil
-			},
-		})
+		sql.Register("sqlite3_hooked",
+			&sqlite3.SQLiteDriver{
+				ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+					for name, path := range cfg.Databases {
+						conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
+					}
+					return nil
+				},
+			})
 	})
-		
+
 	logsdb, err := sql.Open("sqlite3_hooked", (":memory:?_sync=0&_journal_mode=WAL&_foreign_keys=off"))
 	if err != nil {
 		log.Error(err.Error())
@@ -149,12 +149,12 @@ func TestBlockNumber(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	b := NewBlockAPI(db, 1, pl)
+	b := NewBlockAPI(db, 1, pl, cfg)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
 	test, err := b.BlockNumber(context.Background())
 	if err != nil {
@@ -171,12 +171,12 @@ func TestBlockAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/test_config.yml")
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config", "err", err.Error())
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
-	b := NewBlockAPI(db, 1, pl)
+	b := NewBlockAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
 	blockNumbers := getBlockNumbers(blockObject)
 	for i, block := range blockNumbers {

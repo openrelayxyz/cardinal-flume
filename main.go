@@ -1,13 +1,10 @@
 package main
 
 import (
-	// "strings"
-	// "path/filepath"
 	"context"
 	"database/sql"
 	"flag"
 	"fmt"
-	// "golang.org/x/exp/slices"
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
@@ -41,7 +38,7 @@ func main() {
 	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
- 	}
+	}
 
 	pl.Initialize(cfg)
 
@@ -143,7 +140,8 @@ func main() {
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	consumer, _ := AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -185,7 +183,7 @@ func main() {
 	}
 
 	if reIndexed == true {
-		return 
+		return
 	}
 
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
@@ -206,27 +204,32 @@ func main() {
 	}
 
 	if hasLogs {
-		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks {
-		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks && hasLogs && hasMempool {
-		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 
 	<-consumer.Ready()
 	var minBlock int
+	//if this > 0 then this is a light server
 	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
-	if minBlock > cfg.MinSafeBlock {
+	cfg.EarliestBlock = uint64(minBlock)
+	log.Debug("earliest block config", "number", cfg.EarliestBlock)
+	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
+		os.Exit(1)
 	}
 	if !*exitWhenSynced {
-		if err := tm.Run(9999); err != nil {
+		if err := tm.Run(cfg.HealthcheckPort); err != nil {
+			log.Error(err.Error())
 			quit <- struct{}{}
 			logsdb.Close()
 			time.Sleep(time.Second)

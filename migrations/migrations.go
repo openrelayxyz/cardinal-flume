@@ -65,7 +65,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		db.Exec(`UPDATE blocks.migrations SET version = 1;`)
 
-	} 
+	}
 	if schemaVersion < 2 {
 		log.Info("Applying blocks v2 migration")
 
@@ -137,8 +137,8 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		}
 		db.Exec(`UPDATE transactions.migrations SET version = 1;`)
 
-	} 
-	
+	}
+
 	if schemaVersion < 2 {
 		log.Info("Applying transactions v2 migration")
 
