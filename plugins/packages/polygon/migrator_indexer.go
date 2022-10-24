@@ -143,7 +143,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 
 		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
-			return nil
+			return err
 		}
 
 		db.Exec(`CREATE TABLE bor.bor_logs (
@@ -163,11 +163,11 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			
 		if _, err := db.Exec(`CREATE INDEX bor.logsTxHash ON bor_logs(transactionHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
-			return nil
+			return err
 		}
 		if _, err := db.Exec(`CREATE INDEX bor.logsBkHash ON bor_logs(blockHash)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
-			return nil
+			return err
 		}
 		db.Exec("UPDATE bor.migrations SET version = 1;")
 	}
@@ -192,7 +192,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			err := rows.Scan(&parentHash, &uncleHash, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &number, &gasLimit, &gasUsed, &time, &extra, &mixDigest, &nonce, &baseFee)
 			if err != nil {
 				log.Info("scan error", "err", err.Error())
-				return nil
+				return err
 			}
 			
 
@@ -239,26 +239,26 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			if _, err := dbtx.Exec(statement); err != nil {
 				dbtx.Rollback()
 				log.Warn("Failed to insert statement polygong migration v2", "err", err.Error())
-				return nil
+				return err
 			}
 			if number <= terminus {
 				if number%500 == 0 { 
 					if err := dbtx.Commit(); err != nil {
 						log.Error("Failed to commit statements in loop, polygon plugin", "blockNumber", number, "err", err.Error())
-						return nil
+						return err
 					}
 					log.Info("blocks migration in progress", "blockNumber", number)
 					dbtx, err = db.BeginTx(context.Background(), nil)
 					if err != nil {
 						log.Error("Error creating a transaction in loop, polygon plugin", "err", err.Error())
-						return nil
+						return err
 					}
 				} 
 			}
 			if number == highestBlock {
 				if err := dbtx.Commit(); err != nil {
 					log.Error("Failed to insert statements at terminus, polygon plugin", "blockNumber", number, "err", err.Error())
-					return nil
+					return err
 				}
 				log.Info("polygon migration v2 finished on block", "blockNumber", number)
 			}
@@ -274,7 +274,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 
 		if _, err := db.Exec(`CREATE INDEX bor.bkHash ON bor_snapshots(blockHash);`); err != nil {
 			log.Error("Migrate bor CREATE INDEX bkHash error", "err", err.Error())
-			return nil
+			return err
 		}
 		db.Exec("UPDATE bor.migrations SET version = 3;")
 		log.Info("bor migrations done")

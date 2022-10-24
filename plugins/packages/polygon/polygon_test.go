@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 	"sync"
-
+	"os"
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
@@ -112,6 +112,21 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 	return pbSlice, nil
 }
 
+func blocksDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("testdata/poly_blocks.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var blocksObject []map[string]json.RawMessage
+	json.Unmarshal(raw, &blocksObject)
+	return blocksObject, nil
+}
+
 func TestPolygon(t *testing.T) {
 	cfg, err := config.LoadConfig("test-resources/test_config.yml")
 	if err != nil {
@@ -135,13 +150,11 @@ func TestPolygon(t *testing.T) {
 	polyIndexer := Indexer(cfg)
 
 	for _, pendingBatch := range batches {           
-		// for _, indexer := range indexers {
-			s, err := polyIndexer.Index(pendingBatch)
-				if err != nil {
-					t.Fatal("Error creating statements polygon test", "err", err.Error())
-				}
-				megaStatement = append(megaStatement, s...)
-		// }
+		s, err := polyIndexer.Index(pendingBatch)
+			if err != nil {
+				t.Fatal("Error creating statements polygon test", "err", err.Error())
+			}
+		megaStatement = append(megaStatement, s...)
 	}
 
 	log.Info("Megastatement created successfully")
@@ -161,17 +174,94 @@ func TestPolygon(t *testing.T) {
 		// mut.Unlock()
 	}
 
+	// if err := os.Remove("test-resources/br.sqlite"); err != nil {
+    //     t.Fatal("Error removing bor database polygon test")
+    // }
+	// if err := os.Remove("test-resources/*.sqlite-wal"); err != nil {
+    //     t.Fatal("Error removing bor database polygon test")
+    // }
+	// if err := os.Remove("test-resources/*.sqlite-shm"); err != nil {
+    //     t.Fatal("Error removing bor database polygon test")
+    // }
+}
+
+func TestEthAPI(t *testing.T) {
+	cfg, err := config.LoadConfig("test-resources/test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config polygon test", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
+	if err != nil {
+		t.Fatal("Error connecting to databases polygon test", "err", err.Error())
+	}
+	defer db.Close()
+	pl, _ := plugins.NewPluginLoader(cfg)
 	
-
-
-	// pl, _ := plugins.NewPluginLoader(cfg)
-	// b := NewBlockAPI(db, 1, pl)
-	// expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
-	// test, err := b.BlockNumber(context.Background())
+	eth := NewEthAPI(db, cfg)
+	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.AddHTTPServer(cfg.Port)
+	// pluginsPath := cfg.PluginDir
+	// pl, err := plugins.NewPluginLoader(pluginsPath)
 	// if err != nil {
-	// 	t.Fatalf(err.Error())
+	// 	log.Error("No PluginLoader initialized", "err", err.Error())
 	// }
-	// if test != hexutil.Uint64(expectedResult) {
-	// 	t.Fatalf("BlockNumber() result not accurate")
+	// pl.Initialize(cfg)
+	// pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
+	// 	_, ok := v.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+	// 	return ok
+	// })
+
+	// for _, api := range pluginAPIs {
+	// 	fn := api.(func(*rpcTransports.TransportManager, *sql.DB, *config.Config) error)
+	// 	if err := fn(tm, db, cfg); err != nil {
+	// 		log.Error("Unable to load api plugins", "fn", fn)
+	// 	}
 	// }
+	b := api.NewBlockAPI(db, 137, pl)
+	bObject, _ := blocksDecompress()
+	blockObject, _ := getBlockSubset(bObject)
+	blockNumbers := getBlockNumbers(blockObject)
+	log.Info("numbers", "len", len(blockNumbers))
+	for i, block := range blockNumbers {
+		log.Info("blocks by number", "number", block)
+		t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
+			actual, err := b.GetBlockByNumber(context.Background(), block, true)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			for k, v := range actual {
+				if k == "transactions" {
+					txs := v.([]map[string]interface{})
+					var blockTxs []map[string]json.RawMessage
+					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
+					// log.Info("txns", "len", len(blockTxs))
+					for j, item := range txs {
+						for key, value := range item {
+							d, err := json.Marshal(value)
+							if err != nil {
+								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
+							}
+							if !bytes.Equal(d, blockTxs[j][key]) {
+								t.Fatalf("didnt work")
+							}
+
+						}
+					}
+				} else {
+					data, err := json.Marshal(v)
+					if err != nil {
+						t.Errorf("nope %v", k)
+					}
+					if !bytes.Equal(data, blockObject[i][k]) {
+						var generic interface{}
+						json.Unmarshal(blockObject[i][k], &generic)
+						log.Info("values", "data", v, "test", generic)
+						log.Info("pre marshal type", "type", reflect.TypeOf(v))
+
+						t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
+					}
+				}
+			}
+		})
+	}
 }
