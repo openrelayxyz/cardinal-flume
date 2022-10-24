@@ -25,6 +25,7 @@ import (
 
 func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
+	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -141,7 +142,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {

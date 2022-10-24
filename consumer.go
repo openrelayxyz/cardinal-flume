@@ -41,7 +41,7 @@ func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption s
 	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, trackedPrefixes, nil)
 }
 
-func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (streamsTransports.Consumer, error) {
+func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
 	var err error
@@ -71,8 +71,8 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 	}
 	resumption := strings.Join(startOffsets, ";")
 	var lastHash, lastWeight []byte
-	var lastNumber int64
-	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight)
+	var lastNumber, timestamp int64
+	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
 		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
@@ -121,6 +121,9 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64) (strea
 		}
 		log.Info("Flume light service initiated, beginning from block:", "number", lastNumber)
 		return consumer, nil
+	}
+	if resumptionTime < 0 && timestamp > 0 && useBlockTime {
+		resumptionTime = timestamp * 1000
 	}
 	consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight)
 	if err != nil {
