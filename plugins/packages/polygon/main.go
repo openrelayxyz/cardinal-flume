@@ -7,12 +7,14 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-types/metrics"
+
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/plugins"
@@ -94,3 +96,44 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 
 	return signer, nil
 }
+
+func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	switch input.(type) {
+	case BlockNumber:
+		if uint64(input.(BlockNumber).Int64()) < cfg.EarliestBlock {
+			present = false
+			return present
+		}
+	case types.Hash:
+		blockHash := input.(types.Hash)
+		var response int
+		statement := "SELECT 1 FROM bor.bor_logs WHERE blockHash = ?;"
+		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
+		if response == 0 {
+			present = false
+			return present
+		}
+	}
+	return present
+}
+
+func borTxDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	var response int
+	txStatement := "SELECT 1 FROM bor.bor_logs WHERE transactionHash = ?;"
+	db.QueryRow(txStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+		return present
+	}
+	mpStatement := "SELECT 1 FROM mempool.transactions WHERE hash = ?;"
+	db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+	if response == 0 {
+		present = false
+		return present
+	}
+	return present
+}
+
+

@@ -11,6 +11,11 @@ import (
 	"github.com/openrelayxyz/flume/config"
 )
 
+var (
+	hitMeter  = metrics.NewMajorMeter("/flume/hit")
+	missMeter = metrics.NewMajorMeter("/flume/miss")
+)
+
 type PolygonEthService struct {
 	db *sql.DB
 	cfg *config.Config
@@ -192,11 +197,32 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 	return receiptObj, nil
 }
 
-func (service *PolygonEthService) ChainId(ctx context.Context) hexutil.Uint64 {
-	return hexutil.Uint64(service.cfg.Chainid)
-}
+// func (service *PolygonEthService) ChainId(ctx context.Context) hexutil.Uint64 {
+// 	return hexutil.Uint64(service.cfg.Chainid)
+// }
+
+var (
+	gborbrHitMeter  = metrics.NewMinorMeter("/flume/gborbr/hit")
+	gborbrMissMeter = metrics.NewMinorMeter("/flume/gborbr/miss")
+)
 
 func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash types.Hash) (map[string]interface{}, error) {
+	
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNumber, service.cfg, service.db) {
+		log.Debug("eth_getBorBlockReceipt sent to flume heavy")
+		missMeter.Mark(1)
+		gborbrMissMeter.Mark(1)
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, service.cfg.HeavyServer, "eth_getBorBlockReceipt", blockHash)
+		if err != nil {
+			return nil, err
+		}
+		return *responseShell, nil
+	}	
+	
+	log.Debug("eth_getBorBlockReceipt served from flume light")
+	hitMeter.Mark(1)
+	gborbrHitMeter.Mark(1)
+
 	var transactionHash []byte
 	var blockNumber, txIndex uint64
 
@@ -243,6 +269,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 }
 
 func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]map[string]interface{}, error) {
+	
 	errResponse := make(map[string]interface{})
 	receipts := []map[string]interface{}{}
 
@@ -255,6 +282,22 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 
 	switch {
 		case numOk:
+
+			if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(number, service.cfg, service.db) {
+				log.Debug("eth_getTransactionReceiptByBlock sent to flume heavy")
+				missMeter.Mark(1)
+				gborbrMissMeter.Mark(1)
+				responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, service.cfg.HeavyServer, "eth_getBorBlockReceipt", blockHash)
+				if err != nil {
+					return nil, err
+				}
+				return *responseShell, nil
+			}
+
+			log.Debug("eth_getBorBlockReceipt served from flume light")
+			hitMeter.Mark(1)
+			gborbrHitMeter.Mark(1)
+
 			column = number
 			whereClause = "block = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE block = ?;"
@@ -282,10 +325,12 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 		return nil, err
 	}
 
-	// borReceipt, err := GetTransactionReceipt(service.db, plugins.BytesToHash(borTxHashBytes))
-	//
-	//
-	// receipts = append(receipts, borReceipt)
+	var nilMap map[string]interface{}
+
+	borReceipt, err := GetTransactionReceipt(nilMap, plugins.BytesToHash(borTxHashBytes), service.db)
+	
+	
+	receipts = append(receipts, borReceipt)
 
 	// This is left here for exploring / debugging purposes
 	// if len(receipts) > 0 {
