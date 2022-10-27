@@ -7,6 +7,7 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
 type DecimalOrHex uint64
@@ -130,8 +131,8 @@ type rpcTransaction struct {
 
 type FilterQuery struct {
 	BlockHash *types.Hash      // used by eth_getLogs, return logs only from block with this hash
-	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
-	ToBlock   *big.Int         // end of the range, nil means latest block
+	FromBlock *vm.BlockNumber         // beginning of the queried range, nil means genesis block
+	ToBlock   *vm.BlockNumber         // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
 
 	// The Topic list restricts matches to particular event topics. Each event has a list
