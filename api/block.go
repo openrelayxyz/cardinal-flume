@@ -141,7 +141,7 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 	if len(blocks) > 0 {
 		blockVal = blocks[0]
 	}
-
+	
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
