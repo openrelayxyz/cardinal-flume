@@ -64,7 +64,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 		log.Error("Websocket dial error, reindexer", "err", err.Error())
 	  }
 	
-	output, err := os.Create("reindexer_statements.txt")
+	output, err := os.Create("reindexerV2_statements.txt")
     if err != nil {
 		log.Error("Error opening output file, reindexer", "err", err)
     }
@@ -79,16 +79,23 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 	var lastBlock uint64
 
-	idx := 0
-		
-	rows, _ := db.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE blocks.number + 1 NOT IN (SELECT blocks.number FROM blocks.blocks);")
-	defer rows.Close()
-
-	log.Info("rows type", "type", reflect.TypeOf(rows))
 	
-	for rows.Next() {
-		var number uint64
-		rows.Scan(&number)
+	if err := db.QueryRowContext(ctx, "SELECT max(block) FROM bor.bor_receipts;").Scan(&firstBlock); err != nil {
+		log.Error("Error getting first block from bor")
+	}
+	
+	if err := db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&lastBlock); err != nil {
+		log.Error("Error getting last block from blocks")
+	}
+	
+	idx := 0
+
+	numbers := []uint64
+	for i := firsBlock; i <= lastBlock; i+= 64 {
+		numbers = append(numbers, i)
+	}
+	
+	for _, number := range numbers {
 		idx += 1
 
 		lastBlock = number
@@ -129,15 +136,13 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 		tb := or.Result.Batch
 
-		for _, indexer := range indexers {
-			statements, err := indexer.Index(tb.ToPendingBatch())
-			if err != nil {
-				log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
-			}
-			for _, statement := range statements {
-				if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
-					log.Error("Error writing to output file, reindexer", "err", err)
-				}
+		statements, err := indexers[len(indexers) - 1].Index(tb.ToPendingBatch())
+		if err != nil {
+			log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
+		}
+		for _, statement := range statements {
+			if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
+				log.Error("Error writing to output file, reindexer", "err", err)
 			}
 		}
 	}

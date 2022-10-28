@@ -47,7 +47,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	snapshotBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/bs", pg.Chainid, pb.Hash.Bytes())]
 
 	if len(snapshotBytes) > 0 {
-		log.Error("found bor snapshot on block", "block", pb.Number)
+		log.Debug("found bor snapshot on block", "block", pb.Number)
 		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_snapshots(block, blockHash, snapshot) VALUES (%v, %v, %v)",
 			pb.Number, 
