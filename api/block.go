@@ -93,11 +93,6 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 		blockVal = blocks[0]
 	}
 
-	//polygon nodes return miner as the zero address 
-	if api.cfg.Chainid == 137 {
-		blockVal["miner"] = "0x0000000000000000000000000000000000000000"
-	}
-
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
 		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
@@ -145,11 +140,6 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 	var blockVal map[string]interface{}
 	if len(blocks) > 0 {
 		blockVal = blocks[0]
-	}
-
-	//polygon nodes return miner as the zero address 
-	if api.cfg.Chainid == 137 {
-		blockVal["miner"] = "0x0000000000000000000000000000000000000000"
 	}
 	
 	for _, fni := range pluginMethods {
