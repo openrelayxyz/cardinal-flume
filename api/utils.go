@@ -226,7 +226,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 	for _, key := range keys {
 		for _, item := range results {
 			for k, v := range item {
-				if k == key || v == nil {
+				if k == key && v == nil {
 					delete(item, k)
 				}
 			}
