@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"context"
 	"database/sql"
 	"os"
 	"strings"
 	"net/http"
 	"time"
 	"encoding/json"
-	"reflect"
 
 	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
@@ -48,27 +46,27 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 	for _, broker := range cfg.BrokerParams {
 		if strings.HasPrefix(broker.URL, "ws://") || strings.HasPrefix(broker.URL, "wss://") {
 			wsURL = broker.URL
-			log.Info("found websocket broker, reindexer", "broker", wsURL) 
+			log.Info("found websocket broker, reindexer", "broker", wsURL)
 			break
 		}
 	}
-	
+
 	dialer := &websocket.Dialer{
 		EnableCompression: true,
 		Proxy: http.ProxyFromEnvironment,
 		HandshakeTimeout: 45 * time.Second,
 	  }
-	
+
 	conn, _, err := dialer.Dial(wsURL, nil)
       if err != nil {
 		log.Error("Websocket dial error, reindexer", "err", err.Error())
 	  }
-	
+
 	output, err := os.Create("reindexerV2_statements.txt")
     if err != nil {
 		log.Error("Error opening output file, reindexer", "err", err)
     }
-	
+
 	defer func() {
 		if err := output.Close(); err != nil {
 			log.Error("Error closing output file, reindexer", "err", err)
@@ -79,33 +77,33 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 	var lastBlock uint64
 
-	
-	if err := db.QueryRowContext(ctx, "SELECT max(block) FROM bor.bor_receipts;").Scan(&firstBlock); err != nil {
+
+	if err := db.QueryRow("SELECT max(block) FROM bor.bor_receipts;").Scan(&firstBlock); err != nil {
 		log.Error("Error getting first block from bor")
 	}
-	
-	if err := db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&lastBlock); err != nil {
+
+	if err := db.QueryRow("SELECT max(number) FROM blocks.blocks;").Scan(&lastBlock); err != nil {
 		log.Error("Error getting last block from blocks")
 	}
-	
+
 	idx := 0
 
-	numbers := []uint64
-	for i := firsBlock; i <= lastBlock; i+= 64 {
+	numbers := []uint64{}
+	for i := firstBlock; i <= lastBlock; i+= 64 {
 		numbers = append(numbers, i)
 	}
-	
+
 	for _, number := range numbers {
 		idx += 1
 
 		lastBlock = number
-		
+
 		if idx == 1 {
 			firstBlock = number
 		}
 
 		nbr := hexutil.EncodeUint64(number)
-		
+
 		num := []string{}
 
 		num = append(num, nbr)
@@ -138,7 +136,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 		statements, err := indexers[len(indexers) - 1].Index(tb.ToPendingBatch())
 		if err != nil {
-			log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
+			log.Error("Error generating statement reindexer", "indexer", indexers[len(indexers) - 1], "block", number, "err", err.Error())
 		}
 		for _, statement := range statements {
 			if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
@@ -148,8 +146,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 	}
 
 	log.Info(fmt.Sprintf("reindexing complete on blocks %v - %v", firstBlock, lastBlock))
-		
+
 	return nil
 
 }
-
