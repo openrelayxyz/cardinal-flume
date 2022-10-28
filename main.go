@@ -142,7 +142,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
