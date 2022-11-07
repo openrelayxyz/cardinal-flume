@@ -80,7 +80,7 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 	idx := 0
 		
-	rows, _ := db.QueryContext(context.Background(), "SELECT number FROM blocks WHERE number % 1024 = 0 AND number NOT IN (SELECT block FROM bor_snapshots);")
+	rows, _ := db.QueryContext(context.Background(), "SELECT number FROM blocks WHERE number % 1024 = 0 AND number > 0 AND number NOT IN (SELECT block FROM bor_snapshots);")
 	defer rows.Close()
 
 	for rows.Next() {
