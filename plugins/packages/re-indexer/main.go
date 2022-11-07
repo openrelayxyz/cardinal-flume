@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 	"encoding/json"
-	"reflect"
 
 	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
@@ -81,11 +80,20 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 	idx := 0
 		
-	rows, _ := db.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE blocks.number + 1 NOT IN (SELECT blocks.number FROM blocks.blocks);")
+	rows, _ := db.QueryContext(context.Background(), "SELECT number FROM blocks WHERE number % 1024 = 0 AND number NOT IN (SELECT block FROM bor_snapshots);")
 	defer rows.Close()
 
-	log.Info("rows type", "type", reflect.TypeOf(rows))
-	
+	var blocks []uint64
+
+	rows.Scan(&blocks)
+
+	for i, number := range blocks[:(len(blocks) - 1)] {
+		if number + 1 != blocks[i+1] {
+			log.Info("gaps found", "begining at", number +1, "ending at", blocks[i+1])
+		}
+	}
+
+
 	for rows.Next() {
 		var number uint64
 		rows.Scan(&number)
