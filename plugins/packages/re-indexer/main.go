@@ -126,18 +126,19 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 		tb := or.Result.Batch
 
-		for _, indexer := range indexers {
-			statements, err := indexer.Index(tb.ToPendingBatch())
-			if err != nil {
-				log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
-			}
-			for _, statement := range statements {
-				if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
-					log.Error("Error writing to output file, reindexer", "err", err)
-				}
+		statements, err := indexers[len(indexers) - 1].Index(tb.ToPendingBatch())
+		if err != nil {
+			log.Error("Error generating statement reindexer", "block", number, "err", err.Error())
+		}
+		for _, statement := range statements {
+			if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
+				log.Error("Error writing to output file, reindexer", "err", err)
 			}
 		}
-	}
+		}
+		if err := rows.Err(); err != nil {
+			log.Error("There was a rows error", "err", err.Error())
+		}
 
 	log.Info(fmt.Sprintf("reindexing complete on blocks %v - %v", firstBlock, lastBlock))
 		
