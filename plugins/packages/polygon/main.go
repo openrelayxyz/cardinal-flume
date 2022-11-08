@@ -90,7 +90,7 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 
 	pubkey, err := crypto.Ecrecover(sealHash(header).Bytes(), signature)
 	if err != nil {
-		log.Info("pubkey error", "err", err.Error())
+		log.Error("pubkey error", "err", err.Error())
 	}
 
 	var signer common.Address
@@ -143,5 +143,3 @@ func borTxDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
 	}
 	return present
 }
-
-

@@ -9,8 +9,10 @@ import (
 	
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/flume/heavy"
 )
 
 type Snapshot struct {
@@ -241,6 +243,11 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 
 }
 
+var (
+	bgssHitMeter  = metrics.NewMinorMeter("/flume/polygon/bgss/hit")
+	bgssMissMeter = metrics.NewMinorMeter("/flume/polygon/bgss/miss")
+)
+
 func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) (*Snapshot, error) {
 	
 	bkNumber, bkHash, err := plugins.DeriveBlockNumberOrHash(service.db, blockNrOrHash)
@@ -250,6 +257,24 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	blockNumber := *bkNumber
 	blockHash := *bkHash
+
+	offset := blockNumber % 1024
+	requiredSnapshot := blockNumber - offset
+
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(plugins.BlockNumber(requiredSnapshot), service.cfg, service.db) {
+		log.Debug("eth_getSnapshot sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgssMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockNumber)
+		if err != nil {
+			return nil, err
+		}
+		return *response, nil
+	}
+
+	log.Debug("bor_getSnapshot served from flume light")
+	polygonHitMeter.Mark(1)
+	bgssHitMeter.Mark(1)
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 

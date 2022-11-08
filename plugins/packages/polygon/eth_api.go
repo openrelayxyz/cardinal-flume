@@ -13,11 +13,6 @@ import (
 	"github.com/openrelayxyz/flume/heavy"
 )
 
-// var (
-// 	hitMeter  = metrics.NewMajorMeter("/flume/hit")
-// 	missMeter = metrics.NewMajorMeter("/flume/miss")
-// )
-
 type PolygonEthService struct {
 	db *sql.DB
 	cfg *config.Config
@@ -302,7 +297,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 				return *responseShell, nil
 			}
 
-			log.Debug("eth_getBorBlockReceipt served from flume light")
+			log.Debug("eth_getTransactionReceiptByBlock served from flume light")
 			polygonHitMeter.Mark(1)
 			gtrbbHitMeter.Mark(1)
 
@@ -310,6 +305,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 			whereClause = "block = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE block = ?;"
 		case hshOk:
+
 			if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(hash, service.cfg, service.db) {
 				log.Debug("eth_getTransactionReceiptByBlock sent to flume heavy")
 				polygonMissMeter.Mark(1)
