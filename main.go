@@ -25,6 +25,7 @@ import (
 
 func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
+	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -141,7 +142,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -228,6 +229,12 @@ func main() {
 		os.Exit(1)
 	}
 	if !*exitWhenSynced {
+		if cfg.Statsd != nil {
+			publishers.StatsD(cfg.Statsd.Port, cfg.Statsd.Address, time.Duration(cfg.Statsd.Interval), cfg.Statsd.Prefix, cfg.Statsd.Minor)
+		}
+		if cfg.CloudWatch != nil {
+			publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
+		}
 		if err := tm.Run(cfg.HealthcheckPort); err != nil {
 			log.Error(err.Error())
 			quit <- struct{}{}
@@ -235,12 +242,6 @@ func main() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-	}
-	if cfg.Statsd != nil {
-		publishers.StatsD(cfg.Statsd.Port, cfg.Statsd.Address, time.Duration(cfg.Statsd.Interval), cfg.Statsd.Prefix, cfg.Statsd.Minor)
-	}
-	if cfg.CloudWatch != nil {
-		publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
 	}
 	quit <- struct{}{}
 	logsdb.Close()

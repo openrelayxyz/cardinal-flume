@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
-	// "reflect"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
@@ -182,30 +181,13 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			return nil, err
 		}
 		var accessList *evm.AccessList
-		var chainID, gasFeeCap, gasTipCap *hexutil.Big
-		switch txType {
-		case evm.AccessListTxType:
-			accessList = &evm.AccessList{}
-			rlp.DecodeBytes(accessListRLP, accessList)
-			chainID = uintToHexBig(chainid)
-		case evm.DynamicFeeTxType:
-			accessList = &evm.AccessList{}
-			rlp.DecodeBytes(accessListRLP, accessList)
-			chainID = uintToHexBig(chainid)
-			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
-			gasTipCap = bytesToHexBig(gasTipCapBytes)
-		case evm.LegacyTxType:
-			chainID = nil
-		}
 
-		results = append(results, map[string]interface{}{
+		item := map[string]interface{}{
 			"blockHash":            &blockHash,
 			"blockNumber":          uintToHexBig(blockNumber),
 			"from":                 bytesToAddress(from),
 			"gas":                  hexutil.Uint64(gasLimit),
 			"gasPrice":             uintToHexBig(gasPrice),
-			"maxFeePerGas":         gasFeeCap,
-			"maxPriorityFeePerGas": gasTipCap,
 			"hash":                 bytesToHash(txHash),
 			"input":                hexutil.Bytes(inputBytes),
 			"nonce":                hexutil.Uint64(nonce),
@@ -216,22 +198,28 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			"r":                    bytesToHexBig(r),
 			"s":                    bytesToHexBig(s),
 			"type":                 hexutil.Uint64(txType),
-			"chainID":              chainID,
-			"accessList":           accessList,
-		})
+		}
+
+		switch txType {
+		case evm.AccessListTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainID"] = uintToHexBig(chainid)
+		case evm.DynamicFeeTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainID"] = uintToHexBig(chainid)
+			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		}
+
+		results = append(results, item)
+
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
-	}
-	keys := []string{"chainID", "accessList", "maxFeePerGas", "maxPriorityFeePerGas"}
-	for _, key := range keys {
-		for _, item := range results {
-			for k, v := range item {
-				if k == key || v == nil {
-					delete(item, k)
-				}
-			}
-		}
 	}
 
 	return results, nil

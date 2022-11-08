@@ -1,12 +1,16 @@
 package api
 
 import (
+	"errors"
 	"math/big"
+	"encoding/json"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
 type DecimalOrHex uint64
@@ -130,7 +134,7 @@ type rpcTransaction struct {
 
 type FilterQuery struct {
 	BlockHash *types.Hash      // used by eth_getLogs, return logs only from block with this hash
-	FromBlock *big.Int         // beginning of the queried range, nil means genesis block
+	FromBlock *big.Int        // beginning of the queried range, nil means genesis block
 	ToBlock   *big.Int         // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
 
@@ -146,4 +150,128 @@ type FilterQuery struct {
 	// {{A}, {B}}         matches topic A in first position AND B in second position
 	// {{A, B}, {C, D}}   matches topic (A OR B) in first position AND (C OR D) in second position
 	Topics [][]types.Hash
+}
+
+// UnmarshalJSON sets *args fields with given data.
+func (args *FilterQuery) UnmarshalJSON(data []byte) error {
+	type input struct {
+		BlockHash *types.Hash     `json:"blockHash"`
+		FromBlock *vm.BlockNumber `json:"fromBlock"`
+		ToBlock   *vm.BlockNumber `json:"toBlock"`
+		Addresses interface{}      `json:"address"`
+		Topics    []interface{}    `json:"topics"`
+	}
+
+	var raw input
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	if raw.BlockHash != nil {
+		if raw.FromBlock != nil || raw.ToBlock != nil {
+			// BlockHash is mutually exclusive with FromBlock/ToBlock criteria
+			return errors.New("cannot specify both BlockHash and FromBlock/ToBlock, choose one or the other")
+		}
+		args.BlockHash = raw.BlockHash
+	} else {
+		if raw.FromBlock != nil {
+			args.FromBlock = big.NewInt(raw.FromBlock.Int64())
+		}
+
+		if raw.ToBlock != nil {
+			args.ToBlock = big.NewInt(raw.ToBlock.Int64())
+		}
+	}
+
+	args.Addresses = []common.Address{}
+
+	if raw.Addresses != nil {
+		// raw.Address can contain a single address or an array of addresses
+		switch rawAddr := raw.Addresses.(type) {
+		case []interface{}:
+			for i, addr := range rawAddr {
+				if strAddr, ok := addr.(string); ok {
+					addr, err := decodeAddress(strAddr)
+					if err != nil {
+						log.Error("invalid address at index %d: %v", i, err)
+						return errors.New("invalid address") 
+					}
+					args.Addresses = append(args.Addresses, addr)
+				} else {
+					log.Error("non-string address at index %d", i)
+					return errors.New("non-string address") 
+				}
+			}
+		case string:
+			addr, err := decodeAddress(rawAddr)
+			if err != nil {
+				log.Error("invalid address: %v", err)
+				return errors.New("invalid address") 
+			}
+			args.Addresses = []common.Address{addr}
+		default:
+			return errors.New("invalid addresses in query")
+		}
+	}
+
+	// topics is an array consisting of strings and/or arrays of strings.
+	// JSON null values are converted to common.Hash{} and ignored by the filter manager.
+	if len(raw.Topics) > 0 {
+		args.Topics = make([][]types.Hash, len(raw.Topics))
+		for i, t := range raw.Topics {
+			switch topic := t.(type) {
+			case nil:
+				// ignore topic when matching logs
+
+			case string:
+				// match specific topic
+				top, err := decodeTopic(topic)
+				if err != nil {
+					return err
+				}
+				args.Topics[i] = []types.Hash{top}
+
+			case []interface{}:
+				// or case e.g. [null, "topic0", "topic1"]
+				for _, rawTopic := range topic {
+					if rawTopic == nil {
+						// null component, match all
+						args.Topics[i] = nil
+						break
+					}
+					if topic, ok := rawTopic.(string); ok {
+						parsed, err := decodeTopic(topic)
+						if err != nil {
+							return err
+						}
+						args.Topics[i] = append(args.Topics[i], parsed)
+					} else {
+						return errors.New("invalid topic(s)")
+					}
+				}
+			default:
+				return errors.New("invalid topic(s)")
+			}
+		}
+	}
+
+	return nil
+}
+
+func decodeAddress(s string) (common.Address, error) {
+	b, err := hexutil.Decode(s)
+	if err == nil && len(b) != common.AddressLength {
+		log.Error("hex has invalid length %d after decoding; expected %d for address", len(b), common.AddressLength)
+		err = errors.New("hex has invalid length, for address") 
+	}
+	return bytesToAddress(b), err
+}
+
+func decodeTopic(s string) (types.Hash, error) {
+	b, err := hexutil.Decode(s)
+	if err == nil && len(b) != types.HashLength {
+		log.Error("hex has invalid length %d after decoding; expected %d for topic", len(b), types.HashLength)
+		err = errors.New("hex has invalid length, for topic") 
+	}
+	return bytesToHash(b), err
 }

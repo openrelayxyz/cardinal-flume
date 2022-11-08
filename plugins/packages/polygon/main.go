@@ -6,20 +6,24 @@ import (
 	"io"
 
 	"golang.org/x/crypto/sha3"
-
-	log "github.com/inconshreveable/log15"
+	"regexp"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-types/metrics"
-
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/flume/config"
 	"github.com/openrelayxyz/flume/indexer"
 	"github.com/openrelayxyz/flume/plugins"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 )
+
+var TrackedPrefixes = []*regexp.Regexp{
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/br/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/bl/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/bs"),
+}
 
 func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon plugin loaded")
@@ -40,8 +44,8 @@ func RegisterAPI(tm *rpcTransports.TransportManager, db *sql.DB, cfg *config.Con
 		cfg: cfg,
 	})
 	log.Info("PolygonBorService registered")
-	return nil	
-} 
+	return nil
+}
 
 func sealHash(header *evm.Header) (hash types.Hash) {
 	hasher := sha3.NewLegacyKeccak256()

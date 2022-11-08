@@ -41,7 +41,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
-		// handleError(err.Error(), call.ID, 500)
+		log.Error("Error retrieving latest block, call.ID, 500", "err", err.Error())
 		return nil, err
 	}
 
