@@ -13,7 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/openrelayxyz/flume/txfeed"
+	"github.com/openrelayxyz/cardinal-flume/txfeed"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"

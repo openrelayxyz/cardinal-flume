@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
 )
 
