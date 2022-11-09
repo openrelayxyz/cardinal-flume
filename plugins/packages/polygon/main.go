@@ -116,7 +116,7 @@ func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool
 	case types.Hash:
 		blockHash := input.(types.Hash)
 		var response int
-		statement := "SELECT 1 FROM bor.bor_logs WHERE blockHash = ?;"
+		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
 		db.QueryRow(statement, plugins.TrimPrefix(blockHash.Bytes())).Scan(&response)
 		if response == 0 {
 			present = false
@@ -126,20 +126,15 @@ func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool
 	return present
 }
 
-func borTxDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
-	present := true
-	var response int
-	txStatement := "SELECT 1 FROM bor.bor_logs WHERE transactionHash = ?;"
-	db.QueryRow(txStatement, plugins.TrimPrefix(txHash.Bytes())).Scan(&response)
-	if response == 0 {
-		present = false
-		return present
-	}
-	mpStatement := "SELECT 1 FROM mempool.transactions WHERE hash = ?;"
-	db.QueryRow(mpStatement, plugins.TrimPrefix(txHash.Bytes())).Scan(&response)
-	if response == 0 {
-		present = false
-		return present
-	}
-	return present
+func snapshotHashPresent(hash types.Hash, cfg *config.Config, db *sql.DB) plugins.BlockNumber {
+
+	var currentBlock uint64 
+
+	db.QueryRow("SELECT number FROM blocks.blocks WHERE hash = ?;", plugins.TrimPrefix(hash.Bytes())).Scan(&currentBlock)
+
+	offset := currentBlock % 1024
+	requiredSnapshot := currentBlock - offset
+
+	return plugins.BlockNumber(requiredSnapshot)
+
 }

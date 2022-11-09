@@ -10,6 +10,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/flume/plugins"
 	"github.com/openrelayxyz/flume/heavy"
@@ -249,32 +250,75 @@ var (
 )
 
 func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) (*Snapshot, error) {
-	
-	bkNumber, bkHash, err := plugins.DeriveBlockNumberOrHash(service.db, blockNrOrHash)
-	if err != nil{
-		log.Error("Error deriving block or hash argument, GetSnapshot", "err", err)
-	}
 
-	blockNumber := *bkNumber
-	blockHash := *bkHash
+	number, numOk := blockNrOrHash.Number()
+	blockHash, hshOk := blockNrOrHash.Hash()
 
-	offset := blockNumber % 1024
-	requiredSnapshot := blockNumber - offset
+	blockNumber := uint64(number)
 
-	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(plugins.BlockNumber(requiredSnapshot), service.cfg, service.db) {
-		log.Debug("eth_getSnapshot sent to flume heavy")
-		polygonMissMeter.Mark(1)
-		bgssMissMeter.Mark(1)
-		response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockNumber)
-		if err != nil {
-			return nil, err
+	switch {
+	case numOk:
+
+		log.Debug("snapshot number case")
+
+		
+		offset := blockNumber % 1024
+
+		log.Debug("snapshot offset", "offset", offset)
+
+		requiredSnapshot := blockNumber - offset
+
+		log.Debug("required snapshot", "snapshot", requiredSnapshot)
+		
+		if len(service.cfg.HeavyServer) > 0 {
+			log.Debug("heavy server present", "data present",  borBlockDataPresent(requiredSnapshot, service.cfg, service.db))
 		}
-		return *response, nil
-	}
 
-	log.Debug("bor_getSnapshot served from flume light")
-	polygonHitMeter.Mark(1)
-	bgssHitMeter.Mark(1)
+		if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(requiredSnapshot, service.cfg, service.db) {
+
+			log.Debug("snapsot heavy case")
+
+			log.Debug("bor_getSnapshot sent to flume heavy")
+			polygonMissMeter.Mark(1)
+			bgssMissMeter.Mark(1)
+			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
+			if err != nil {
+				return nil, err
+			}
+			return *response, nil
+		}
+
+		if len(service.cfg.HeavyServer) > 0 {
+			log.Debug("bor_getSnapshot served from flume light")
+			polygonHitMeter.Mark(1)
+			bgssHitMeter.Mark(1)
+		}
+
+	case hshOk:
+
+		requiredSnapshot := snapshotHashPresent(blockHash, service.cfg, service.db)
+
+		if len(service.cfg.HeavyServer) > 0 && borBlockDataPresent(plugins.BlockNumber(requiredSnapshot), service.cfg, service.db) {
+			log.Debug("bor_getSnapshot sent to flume heavy")
+			polygonMissMeter.Mark(1)
+			bgssMissMeter.Mark(1)
+			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
+			if err != nil {
+				return nil, err
+			}
+			return *response, nil
+		}
+
+		if len(service.cfg.HeavyServer) > 0 {
+			log.Debug("bor_getSnapshot served from flume light")
+			polygonHitMeter.Mark(1)
+			bgssHitMeter.Mark(1)
+		}
+
+	default:
+		log.Error("Error deriving input, getSnapshot")
+		return nil, nil
+}
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 

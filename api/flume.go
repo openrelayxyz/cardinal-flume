@@ -233,9 +233,11 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 		return *rt, nil
 	}
 
-	log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
-	hitMeter.Mark(1)
-	gtrbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
+		hitMeter.Mark(1)
+		gtrbhHitMeter.Mark(1)
+	}
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
@@ -263,9 +265,12 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		return *rt, nil
 	}
 
-	log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
-	hitMeter.Mark(1)
-	gtrbnHitMeter.Mark(1)
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
+		hitMeter.Mark(1)
+		gtrbnHitMeter.Mark(1)
+	}
 
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)

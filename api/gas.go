@@ -114,9 +114,11 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 		return *price, nil
 	}
 
-	log.Debug("eth_gasPrice served from flume light")
-	hitMeter.Mark(1)
-	gpHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_gasPrice served from flume light")
+		hitMeter.Mark(1)
+		gpHitMeter.Mark(1)
+	}
 
 	tip, err := api.gasTip(ctx)
 	if err != nil {
@@ -156,9 +158,11 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 		return *price, nil
 	}
 
-	log.Debug("eth_maxPriorityFeePerGas served from flume light")
-	hitMeter.Mark(1)
-	mpfgHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_maxPriorityFeePerGas served from flume light")
+		hitMeter.Mark(1)
+		mpfgHitMeter.Mark(1)
+	}
 
 	defer eh.HandleErr(&err)
 	return hexutil.EncodeBig(eh.CheckAndAssign(api.gasTip(ctx))), nil
@@ -199,9 +203,11 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		return *responseShell, nil
 	}
 
-	log.Debug("eth_feeHistory served from flume light")
-	hitMeter.Mark(1)
-	gfhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_feeHistory served from flume light")
+		hitMeter.Mark(1)
+		gfhHitMeter.Mark(1)
+	}
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 
