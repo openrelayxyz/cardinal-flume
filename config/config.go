@@ -64,6 +64,7 @@ type Config struct {
 	// LightServer   bool               `yaml:"flumeLight"`  //***flume light notes***
 	EarliestBlock uint64 //***flume light notes***
 	HeavyServer   string `yaml:"heavyserver"`
+	ExtraConfig     map[string]map[string]string `yaml:extra`
 }
 
 func LoadConfig(fname string) (*Config, error) {
