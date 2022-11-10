@@ -3,14 +3,16 @@ package api
 import (
 	"context"
 	"fmt"
-	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/plugins"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 func TestLogsAPI(t *testing.T) {
@@ -20,8 +22,12 @@ func TestLogsAPI(t *testing.T) {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
-	l := NewLogsAPI(db, 1, pl)
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
+	l := NewLogsAPI(db, 1, pl, cfg)
 
 	t.Run(fmt.Sprintf("Testing GetLogs BlockHash"), func(t *testing.T) {
 		hashes := []types.Hash{}

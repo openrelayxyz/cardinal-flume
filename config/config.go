@@ -36,30 +36,34 @@ type broker struct {
 }
 
 type Config struct {
-	Port           int64             `yaml:"port"`
-	PprofPort      int               `yaml:"pprofPort"`
-	MinSafeBlock   int               `yaml:"minSafeBlock"`
-	Network        string            `yaml:"networkName"`
-	Chainid        uint64            `yaml:"chainid"`
-	HomesteadBlock uint64            `yaml:"homesteadBlock"`
-	Eip155Block    uint64            `yaml:"eip155Block"`
-	TxTopic        string            `yaml:"mempoolTopic"`
-	KafkaRollback  int64             `yaml:"kafkaRollback"`
-	ReorgThreshold int64             `yaml:"reorgThreshold"`
-	Databases      map[string]string `yaml:"databases"`
-	MempoolDb      string            `yaml:"mempoolDB"`
-	BlocksDb       string            `yaml:"blocksDB"`
-	TxDb           string            `yaml:"transactionsDB"`
-	LogsDb         string            `yaml:"logsDB"`
-	MempoolSlots   int               `yaml:"mempoolSize"`
-	Concurrency    int               `yaml:"concurrency"`
-	LogLevel       string            `yaml:"loggingLevel"`
-	Plugins        []string          `yaml:"plugins"`
-	PluginDir      string            `yaml:pluginPath`
-	Brokers        []broker          `yaml:"brokers"`
-	BrokerParams   []transports.BrokerParams
-	Statsd         *statsdOpts     `yaml:"statsd"`
-	CloudWatch     *cloudwatchOpts `yaml:"cloudwatch"`
+	Port            int64             `yaml:"port"`
+	PprofPort       int               `yaml:"pprofPort"`
+	HealthcheckPort int64             `yaml:"healthcheck"`
+	MinSafeBlock    int               `yaml:"minSafeBlock"`
+	Network         string            `yaml:"networkName"`
+	Chainid         uint64            `yaml:"chainid"`
+	HomesteadBlock  uint64            `yaml:"homesteadBlock"`
+	Eip155Block     uint64            `yaml:"eip155Block"`
+	TxTopic         string            `yaml:"mempoolTopic"`
+	KafkaRollback   int64             `yaml:"kafkaRollback"`
+	ReorgThreshold  int64             `yaml:"reorgThreshold"`
+	Databases       map[string]string `yaml:"databases"`
+	MempoolDb       string            `yaml:"mempoolDB"`
+	BlocksDb        string            `yaml:"blocksDB"`
+	TxDb            string            `yaml:"transactionsDB"`
+	LogsDb          string            `yaml:"logsDB"`
+	MempoolSlots    int               `yaml:"mempoolSize"`
+	Concurrency     int               `yaml:"concurrency"`
+	LogLevel        string            `yaml:"loggingLevel"`
+	Plugins         []string          `yaml:"plugins"`
+	PluginDir       string            `yaml:"pluginPath"`
+	Brokers         []broker          `yaml:"brokers"`
+	BrokerParams    []transports.BrokerParams
+	Statsd          *statsdOpts     `yaml:"statsd"`
+	CloudWatch      *cloudwatchOpts `yaml:"cloudwatch"`
+	// LightServer   bool               `yaml:"flumeLight"`  //***flume light notes***
+	EarliestBlock uint64 //***flume light notes***
+	HeavyServer   string `yaml:"heavyserver"`
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -144,6 +148,10 @@ func LoadConfig(fname string) (*Config, error) {
 
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6969
+	}
+
+	if cfg.HealthcheckPort == 0 {
+		cfg.HealthcheckPort = 9999
 	}
 
 	if cfg.MinSafeBlock == 0 {

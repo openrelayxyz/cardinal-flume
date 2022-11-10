@@ -1,18 +1,18 @@
 package plugins
 
 import (
-	"io/ioutil"
+	// "io/ioutil"
 	"path"
 	"plugin"
-	"strings"
+	// "strings"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/config"
 )
 
 type pluginDetails struct {
 	p    *plugin.Plugin
-	name string
+	Name string
 }
 
 type PluginLoader struct {
@@ -30,7 +30,7 @@ func (pl *PluginLoader) Lookup(name string, validate func(interface{}) bool) []i
 			if validate(v) {
 				results = append(results, v)
 			} else {
-				log.Warn("Plugin matches hook but not signature", "plugin", plugin.name, "hook", name)
+				log.Warn("Plugin matches hook but not signature", "plugin", plugin.Name, "hook", name)
 			}
 		}
 	}
@@ -38,30 +38,26 @@ func (pl *PluginLoader) Lookup(name string, validate func(interface{}) bool) []i
 	return results
 }
 
-func NewPluginLoader(target string) (*PluginLoader, error) {
+func NewPluginLoader(cfg *config.Config) (*PluginLoader, error) {
 	pl := &PluginLoader{
 		Plugins:     []pluginDetails{},
 		LookupCache: make(map[string][]interface{}),
 	}
-	files, err := ioutil.ReadDir(target)
-	if err != nil {
-		log.Warn("Could not load plugins directory. Skipping.", "path", target)
-		return pl, nil
-	}
-	for _, file := range files {
-		fpath := path.Join(target, file.Name())
-		if !strings.HasSuffix(file.Name(), ".so") {
-			log.Debug("File inplugin directory is not '.so' file. Skipping.", "file", fpath)
-			continue
-		}
+
+	pluginDirectory := cfg.PluginDir
+
+	for _, name := range cfg.Plugins {
+		file := name + ".so"
+		fpath := path.Join(pluginDirectory, file)
 		plug, err := plugin.Open(fpath)
 		if err != nil {
-			log.Warn("File in plugin directory could not be loaded: %v", "file", fpath, "error", err.Error())
-			continue
+			log.Error("File in plugin directory could not be loaded: %v", "file", fpath, "error", err.Error())
+			panic(err)
 		}
 
 		pl.Plugins = append(pl.Plugins, pluginDetails{plug, fpath})
 	}
+	log.Info("all required plugins loaded", "plugins", cfg.Plugins)
 	return pl, nil
 }
 

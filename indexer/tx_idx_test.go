@@ -30,8 +30,8 @@ func decompress(data []byte) ([]byte, error) {
 func TestTransactionIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../transactions.sqlite"
-	test_dbs["transactions"] = "../test.sqlite"
+	test_dbs["control"] = "../testing-resources/transactions.sqlite"
+	test_dbs["transactions"] = "../testing-resources/test.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
@@ -85,11 +85,10 @@ func TestTransactionIndexer(t *testing.T) {
 	// megaStatement := strings.Join(statements, ";")
 	// _, err = controlDB.Exec(megaStatement)
 	// if err != nil {t.Fatalf(err.Error())}
-
 	for i, statement := range statements {
 		_, err := controlDB.Exec(statement)
 		if err != nil {
-			t.Fatalf("error: %v, statement: %v, index: %v, previous %v", err.Error(), statement, i, statements[i-1])
+			t.Fatalf("error: %v, statement: %v, index: %v", err.Error(), statement, i)
 		}
 	}
 

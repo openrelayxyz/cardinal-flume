@@ -2,21 +2,22 @@ package api
 
 import (
 	"bytes"
-	"context"
-	"fmt"
-	"testing"
-
 	"compress/gzip"
+	"context"
 	"encoding/json"
-	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/plugins"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"testing"
+
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
 )
 
 func feeDataDecompress() (map[string]json.RawMessage, error) {
-	file, _ := ioutil.ReadFile("fee_data.json.gz")
+	file, _ := ioutil.ReadFile("../testing-resources/fee_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -42,8 +43,12 @@ func TestGasAPI(t *testing.T) {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	pl, _ := plugins.NewPluginLoader("")
-	g := NewGasAPI(db, 1, pl)
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config", "err", err.Error())
+	}
+	pl, _ := plugins.NewPluginLoader(cfg)
+	g := NewGasAPI(db, 1, pl, cfg)
 
 	price := "0x2a51edbe67"
 	fee := "0x9502f900"

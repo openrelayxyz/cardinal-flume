@@ -17,7 +17,7 @@ jobs:
   #         command: go test ./replica
   build_push:
     docker: # run the steps with Docker
-      - image: cimg/go:1.18 # ...with this image as the primary container
+      - image: cimg/go:1.18.6 # ...with this image as the primary container
       # this is where all `steps` will run
     steps:
       - checkout
@@ -34,8 +34,10 @@ jobs:
           command: |
             export GOPATH=$HOME/go
             export GOARCH=amd64
-            go build -o flumeserver-amd64
-            CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flumeserver-arm64
+            go build -o flume-amd64
+            CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flume-arm64
+            go build -buildmode=plugin -o ./polygon-amd64.so plugins/packages/polygon/*.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./polygon-arm64.so plugins/packages/polygon/*.go
       # - run:
       #     name: build image
       #     command: |
@@ -47,14 +49,15 @@ jobs:
           aws-region: AWS_REGION
       - run:
           name: push to s3
-          command: aws s3 cp ./flumeserver-amd64 s3://ethercattle-binaries/flume/$CIRCLE_TAG/flumeserver-amd64 --acl=public-read
-      - run:
-          name: push to s3 arm
-          command: aws s3 cp ./flumeserver-arm64 s3://ethercattle-binaries/flume/$CIRCLE_TAG/flumeserver-arm64 --acl=public-read
+          command: |
+            aws s3 cp ./flume-amd64 s3://ethercattle-binaries/flume/$CIRCLE_TAG/flume-amd64 --acl=public-read
+            aws s3 cp ./flume-arm64 s3://ethercattle-binaries/flume/$CIRCLE_TAG/flume-arm64 --acl=public-read
+            aws s3 cp ./polygon-amd64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/polygon-amd64.so --acl=public-read
+            aws s3 cp ./polygon-arm64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/polygon-arm64.so --acl=public-read
       - run:
           name: Message Slack
           command: |
-              ./slack-post.sh -w $SlackWebhook -m "*flume*:\nTag: $CIRCLE_TAG"
+              ./.circleci/slack-post.sh -w $SlackWebhook -m "*flume*:\nTag: $CIRCLE_TAG"
 
 
 workflows:

@@ -10,12 +10,12 @@ import (
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
-	"github.com/openrelayxyz/flume/api"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/migrations"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/txfeed"
+	"github.com/openrelayxyz/cardinal-flume/api"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/migrations"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/txfeed"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -25,6 +25,7 @@ import (
 
 func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
+	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -35,8 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pluginsPath := cfg.PluginDir
-	pl, err := plugins.NewPluginLoader(pluginsPath)
+	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
 	}
@@ -141,7 +141,8 @@ func main() {
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	consumer, _ := AquireConsumer(logsdb, cfg.BrokerParams, cfg.ReorgThreshold, int64(cfg.Chainid), *resumptionTimestampMs)
+	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
+	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -167,6 +168,25 @@ func main() {
 		}
 	}
 
+	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
+		_, ok := v.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
+		return ok
+	})
+
+	var reIndexed bool = false
+
+	for _, fni := range pluginReIndexers {
+		fn := fni.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
+		reIndexed = true
+		if err := fn(cfg, logsdb, indexes); err != nil {
+			log.Error("Unable to load reindexer plugins", "fn", fn)
+		}
+	}
+
+	if reIndexed == true {
+		return
+	}
+
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
@@ -185,38 +205,43 @@ func main() {
 	}
 
 	if hasLogs {
-		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks {
-		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks && hasLogs && hasMempool {
-		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl))
-		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl))
+		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 
 	<-consumer.Ready()
 	var minBlock int
+	//if this > 0 then this is a light server
 	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
-	if minBlock > cfg.MinSafeBlock {
+	cfg.EarliestBlock = uint64(minBlock)
+	log.Debug("earliest block config", "number", cfg.EarliestBlock)
+	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
+		os.Exit(1)
 	}
 	if !*exitWhenSynced {
-		if err := tm.Run(9999); err != nil {
+		if cfg.Statsd != nil {
+			publishers.StatsD(cfg.Statsd.Port, cfg.Statsd.Address, time.Duration(cfg.Statsd.Interval), cfg.Statsd.Prefix, cfg.Statsd.Minor)
+		}
+		if cfg.CloudWatch != nil {
+			publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
+		}
+		if err := tm.Run(cfg.HealthcheckPort); err != nil {
+			log.Error(err.Error())
 			quit <- struct{}{}
 			logsdb.Close()
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-	}
-	if cfg.Statsd != nil {
-		publishers.StatsD(cfg.Statsd.Port, cfg.Statsd.Address, time.Duration(cfg.Statsd.Interval), cfg.Statsd.Prefix, cfg.Statsd.Minor)
-	}
-	if cfg.CloudWatch != nil {
-		publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
 	}
 	quit <- struct{}{}
 	logsdb.Close()

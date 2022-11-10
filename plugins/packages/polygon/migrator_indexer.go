@@ -17,8 +17,8 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 
@@ -64,7 +64,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	author, err := getBlockAuthor(header)
 	if err != nil {
-		log.Info("getBlockAuthor error", "err", err.Error())
+		log.Error("getBlockAuthor error", "err", err.Error())
 	}
 
 	stmt := indexer.ApplyParameters("UPDATE blocks.blocks SET coinbase = %v WHERE number = %v", author, pb.Number)
@@ -172,7 +172,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 		db.Exec("UPDATE bor.migrations SET version = 1;")
 	}
 	if schemaVersion < 2 {
-		log.Info("Applying mempool v2 migration")
+		log.Info("Applying bor v2 migration")
 
 		var highestBlock uint64
 		db.QueryRow("SELECT MAX(number) FROM blocks.blocks;").Scan(&highestBlock)
@@ -247,7 +247,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 						log.Error("Failed to commit statements in loop, polygon plugin", "blockNumber", number, "err", err.Error())
 						return nil
 					}
-					log.Info("blocks migration in progress", "blockNumber", number)
+					log.Info("bor migration in progress", "blockNumber", number)
 					dbtx, err = db.BeginTx(context.Background(), nil)
 					if err != nil {
 						log.Error("Error creating a transaction in loop, polygon plugin", "err", err.Error())
@@ -267,7 +267,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	}
 
 	if schemaVersion < 3 {
-		log.Info("Applying mempool v3 migration")
+		log.Info("Applying bor v3 migration")
 		db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
 		
 		log.Info("bor snapshot table created")
