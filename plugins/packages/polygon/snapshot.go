@@ -260,7 +260,9 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		case numOk:
 			blockNumber = uint64(number)
 
-			service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&blockHash)
+			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&blockHash); err != nil {
+				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber)
+			}
 
 			offset := blockNumber % 1024
 			
@@ -299,7 +301,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			}
 
 			if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
-				return nil, err
+				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash)
+				return nil, nil
 			}
 			
 			if len(service.cfg.HeavyServer) > 0 {
