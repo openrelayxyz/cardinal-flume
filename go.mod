@@ -1,4 +1,4 @@
-module github.com/openrelayxyz/flume
+module github.com/openrelayxyz/cardinal-flume
 
 go 1.18
 

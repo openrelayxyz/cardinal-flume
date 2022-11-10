@@ -7,8 +7,8 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
 )
 
 type PolygonEthService struct {
