@@ -125,23 +125,3 @@ func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool
 	}
 	return present
 }
-
-func snapshotHashPresent(hash types.Hash, cfg *config.Config, db *sql.DB) (uint64, uint64) {
-
-	var currentBlock int
-
-	// statement := "SELECT number FROM blocks WHERE hash = ?;"
-	statement := "SELECT 1 from blocks where hash = X'36f57951f2da817a6fbc8a32d43c084ebe3a0e7d27fd5595c17dd719808fecf4';"
-
-	
-	
-	db.QueryRow(statement).Scan(&currentBlock)
-
-	log.Error("inside the function", "currentBlock", currentBlock, "hash", hash)
-
-	offset := currentBlock % 1024
-	requiredSnapshot := currentBlock - offset
-
-	return uint64(requiredSnapshot), uint64(currentBlock)
-
-}
