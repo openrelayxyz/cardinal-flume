@@ -232,7 +232,7 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 		var signer common.Address
 		err := rows.Scan(&signer)
 		if err != nil {
-			log.Info("getRecents scan error", "err", err.Error())
+			log.Error("getRecents scan error", "err", err.Error())
 			return nil, err
 		}
 		recents[index] = signer
@@ -254,71 +254,64 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	number, numOk := blockNrOrHash.Number()
 	blockHash, hshOk := blockNrOrHash.Hash()
 
-	blockNumber := uint64(number)
+	var blockNumber uint64 
 
 	switch {
-	case numOk:
+		case numOk:
+			blockNumber = uint64(number)
 
-		log.Debug("snapshot number case")
+			service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&blockHash)
 
-		
-		offset := blockNumber % 1024
+			offset := blockNumber % 1024
+			
+			requiredSnapshot := blockNumber - offset
 
-		log.Debug("snapshot offset", "offset", offset)
+			if len(service.cfg.HeavyServer) > 0 && requiredSnapshot < service.cfg.EarliestBlock {
+				log.Debug("bor_getSnapshot sent to flume heavy")
+				polygonMissMeter.Mark(1)
+				bgssMissMeter.Mark(1)
+				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
+				if err != nil {
+					return nil, err
+				}
+				return *response, nil
+			}
 
-		requiredSnapshot := blockNumber - offset
+			if len(service.cfg.HeavyServer) > 0 {
+				log.Debug("bor_getSnapshot served from flume light")
+				polygonHitMeter.Mark(1)
+				bgssHitMeter.Mark(1)
+			}
 
-		log.Debug("required snapshot", "snapshot", requiredSnapshot)
-		
-		if len(service.cfg.HeavyServer) > 0 {
-			log.Debug("heavy server present", "data present",  borBlockDataPresent(requiredSnapshot, service.cfg, service.db))
-		}
+		case hshOk:
+			var present int
+			service.db.QueryRow("SELECT 1 FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&present)
+			
+			if len(service.cfg.HeavyServer) > 0 && present == 0 {
+				log.Debug("bor_getSnapshot sent to flume heavy")
+				polygonMissMeter.Mark(1)
+				bgssMissMeter.Mark(1)
+				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
+				if err != nil {
+					return nil, err
+				}
+				return *response, nil
+			}
 
-		if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(requiredSnapshot, service.cfg, service.db) {
-
-			log.Debug("snapsot heavy case")
-
-			log.Debug("bor_getSnapshot sent to flume heavy")
-			polygonMissMeter.Mark(1)
-			bgssMissMeter.Mark(1)
-			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
-			if err != nil {
+			if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
 				return nil, err
 			}
-			return *response, nil
-		}
-
-		if len(service.cfg.HeavyServer) > 0 {
-			log.Debug("bor_getSnapshot served from flume light")
-			polygonHitMeter.Mark(1)
-			bgssHitMeter.Mark(1)
-		}
-
-	case hshOk:
-
-		requiredSnapshot := snapshotHashPresent(blockHash, service.cfg, service.db)
-
-		if len(service.cfg.HeavyServer) > 0 && borBlockDataPresent(plugins.BlockNumber(requiredSnapshot), service.cfg, service.db) {
-			log.Debug("bor_getSnapshot sent to flume heavy")
-			polygonMissMeter.Mark(1)
-			bgssMissMeter.Mark(1)
-			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
-			if err != nil {
-				return nil, err
+			
+			if len(service.cfg.HeavyServer) > 0 {
+				log.Debug("bor_getSnapshot served from flume light")
+				polygonHitMeter.Mark(1)
+				bgssHitMeter.Mark(1)
 			}
-			return *response, nil
-		}
 
-		if len(service.cfg.HeavyServer) > 0 {
-			log.Debug("bor_getSnapshot served from flume light")
-			polygonHitMeter.Mark(1)
-			bgssHitMeter.Mark(1)
-		}
-
-	default:
-		log.Error("Error deriving input, getSnapshot")
-		return nil, nil
-}
+		default:
+			log.Error("Error deriving input, getSnapshot")
+			return nil, nil
+	}
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 
