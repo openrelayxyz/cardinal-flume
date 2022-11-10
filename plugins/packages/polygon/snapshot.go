@@ -274,6 +274,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				bgssMissMeter.Mark(1)
 				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
 				if err != nil {
+					log.Error("Error calling to heavy server, getSnapshot()", "blockNumber", blockNumber)
 					return nil, err
 				}
 				return *response, nil
@@ -295,7 +296,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				bgssMissMeter.Mark(1)
 				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
 				if err != nil {
-					return nil, err
+					log.Error("Error calling to heavy server, getSnapshot()", "blockHash", blockHash)
+					return nil, nil
 				}
 				return *response, nil
 			}
@@ -349,7 +351,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			snap, err = service.getKeyFrame(origin, int64(degree))
 			if err != nil {
 				log.Error("GetSnapshot keyframe case error")
-				return nil, err
+				return nil, nil
 			}
 
 			snap.Number = blockNumber
@@ -379,7 +381,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		snap, err = service.getKeyFrame(origin, int64(degree))
 		if err != nil {
 			log.Error("GetSnapshot non-keyframe case error")
-			return nil, err
+			return nil, nil
 		}
 
 		snap.Number = blockNumber
@@ -392,7 +394,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		var err error
 		err = errors.New("invalid input")
 		log.Error("Cannot generate snapshot", "err", err)
-		return nil, err
+		return nil, nil
 
 	}
 
