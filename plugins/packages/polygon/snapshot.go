@@ -230,13 +230,13 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 	index := initialBlock
 	
 	for rows.Next() {
-		var signer common.Address
+		var signer []byte
 		err := rows.Scan(&signer)
 		if err != nil {
 			log.Error("getRecents scan error", "err", err.Error())
 			return nil, err
 		}
-		recents[index] = signer
+		recents[index] = plugins.BytesToAddress(signer)
 
 		index += 1
 	}
