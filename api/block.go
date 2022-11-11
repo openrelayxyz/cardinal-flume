@@ -37,6 +37,14 @@ func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 	}
 }
 
+func (api *BlockAPI) ChainId(ctx context.Context) hexutil.Uint64 {
+
+	log.Debug("eth_chainId served from flume light by default")
+	hitMeter.Mark(1)
+
+	return hexutil.Uint64(api.cfg.Chainid)
+}
+
 func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 
 	log.Debug("eth_blockNumber served from flume light by default")
@@ -54,22 +62,25 @@ var (
 	gbbnMissMeter = metrics.NewMinorMeter("/flume/gbbn/miss")
 )
 
-func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (map[string]interface{}, error) {
+func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockNumber, includeTxns bool) (*map[string]interface{}, error) {
+
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_blockByNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gbbnMissMeter.Mark(1)
-		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByNumber", blockNumber, includeTxns)
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(blockNumber), includeTxns)
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getBlockByNumber served from flume light")
-	hitMeter.Mark(1)
-	gbbnHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getBlockByNumber served from flume light")
+		hitMeter.Mark(1)
+		gbbnHitMeter.Mark(1)
+	}
 
 	pluginMethods := api.pl.Lookup("GetBlockByNumber", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
@@ -91,19 +102,23 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber vm.BlockN
 	var blockVal map[string]interface{}
 	if len(blocks) > 0 {
 		blockVal = blocks[0]
-	}
+	
 
-	for _, fni := range pluginMethods {
-		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
-		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
-			return pluginBlockVal, nil
-		} else {
-			log.Warn("Error evoking GetBlockByNumber in plugin", "err", err.Error())
-			return nil, err
+		for _, fni := range pluginMethods {
+			fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
+			if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
+				return &pluginBlockVal, nil
+			} else {
+				log.Warn("Error evoking GetBlockByNumber in plugin", "err", err.Error())
+				return nil, err
+			}
 		}
 	}
 
-	return blockVal, nil
+	if blockVal == nil {
+		return nil, nil
+	}
+	return &blockVal, nil
 }
 
 var (
@@ -111,7 +126,7 @@ var (
 	gbbhMissMeter = metrics.NewMinorMeter("/flume/gbbh/miss")
 )
 
-func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (map[string]interface{}, error) {
+func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
 		log.Debug("eth_getBlockByHash sent to flume heavy")
@@ -121,12 +136,14 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getBlockByHash served from flume light")
-	hitMeter.Mark(1)
-	gbbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getBlockByHash served from flume light")
+		hitMeter.Mark(1)
+		gbbhHitMeter.Mark(1)
+	}
 
 	pluginMethods := api.pl.Lookup("GetBlockByHash", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
@@ -140,19 +157,24 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 	var blockVal map[string]interface{}
 	if len(blocks) > 0 {
 		blockVal = blocks[0]
-	}
 	
-	for _, fni := range pluginMethods {
-		fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
-		if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
-			return pluginBlockVal, nil
-		} else {
-			log.Warn("Error evoking GetBlockByHash in plugin", "err", err.Error())
-			return nil, err
+		for _, fni := range pluginMethods {
+			fn := fni.(func(map[string]interface{}, *sql.DB) (map[string]interface{}, error))
+			if pluginBlockVal, err := fn(blockVal, api.db); err == nil {
+				return &pluginBlockVal, nil
+			} else {
+				log.Warn("Error evoking GetBlockByHash in plugin", "err", err.Error())
+				return nil, err
+			}
 		}
+
 	}
 
-	return blockVal, nil
+	if blockVal == nil {
+		return nil, nil
+	}
+
+	return &blockVal, nil
 }
 
 var (
@@ -173,9 +195,11 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		return *count, nil
 	}
 
-	log.Debug("eth_getBlockTransactionCountByNumber served from flume light")
-	hitMeter.Mark(1)
-	gtcbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getBlockTransactionCountByNumber served from flume light")
+		hitMeter.Mark(1)
+		gtcbhHitMeter.Mark(1)
+	}
 
 	var err error
 	var count hexutil.Uint64
@@ -187,6 +211,7 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		}
 		blockNumber = vm.BlockNumber(latestBlock)
 	}
+
 	count, err = txCount(ctx, api.db, "block = ?", blockNumber)
 	if err != nil {
 		return 0, err
@@ -212,9 +237,11 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 		return *count, nil
 	}
 
-	log.Debug("eth_getBlockTransactionCountByHash served from flume light")
-	hitMeter.Mark(1)
-	gtcbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getBlockTransactionCountByHash served from flume light")
+		hitMeter.Mark(1)
+		gtcbhHitMeter.Mark(1)
+	}
 
 	var count hexutil.Uint64
 	block, err := getBlocks(ctx, api.db, false, api.network, "hash = ?", trimPrefix(blockHash.Bytes()))
@@ -252,9 +279,11 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 		return *count, nil
 	}
 
-	log.Debug("eth_getetUncleCountByBlockNumber served from flume light")
-	hitMeter.Mark(1)
-	gucbnHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getetUncleCountByBlockNumber served from flume light")
+		hitMeter.Mark(1)
+		gucbnHitMeter.Mark(1)
+	}
 
 	var uncles []byte
 	unclesList := []types.Hash{}
@@ -293,9 +322,11 @@ func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash typ
 		return *count, nil
 	}
 
-	log.Debug("eth_getUncleCountByBlockHash served from flume light")
-	hitMeter.Mark(1)
-	gucbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getUncleCountByBlockHash served from flume light")
+		hitMeter.Mark(1)
+		gucbhHitMeter.Mark(1)
+	}
 
 	var uncles []byte
 	unclesList := []types.Hash{}

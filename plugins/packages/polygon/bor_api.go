@@ -13,9 +13,11 @@ import (
 	log "github.com/inconshreveable/log15"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	// "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"golang.org/x/crypto/sha3"
@@ -27,15 +29,28 @@ type PolygonBorService struct {
 	cfg *config.Config
 }
 
-func NewBorAPI(db *sql.DB, cfg *config.Config) *PolygonBorService {
-	return &PolygonBorService{
-		db:  db,
-		cfg: cfg,
-	}
-}
+var (
+	bgaHitMeter  = metrics.NewMinorMeter("/flume/polygon/bga/hit")
+	bgaMissMeter = metrics.NewMinorMeter("/flume/polygon/bga/miss")
+)
 
 
 func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber plugins.BlockNumber) (*common.Address, error) {
+
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNumber, service.cfg, service.db) {
+		log.Debug("bor_getAuthor sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgaMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[*common.Address](ctx, service.cfg.HeavyServer, "bor_getAuthor", blockNumber)
+		if err != nil {
+			return nil, err
+		}
+		return *response, nil
+	}
+
+	log.Debug("bor_getAuthor served from flume light")
+	polygonHitMeter.Mark(1)
+	bgaHitMeter.Mark(1)
 	
 	var signerBytes []byte
 	err := service.db.QueryRowContext(ctx, "SELECT coinbase FROM blocks.blocks where number = ?;", hexutil.Uint64(blockNumber)).Scan(&signerBytes)
@@ -133,7 +148,27 @@ func appendBytes32(data ...[]byte) []byte {
 	return result
 }
 
+var (
+	bgrhHitMeter  = metrics.NewMinorMeter("/flume/polygon/bgrh/hit")
+	bgrhMissMeter = metrics.NewMinorMeter("/flume/polygon/bgrh/miss")
+)
+
 func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64, end uint64) (string, error) {
+
+	if len(service.cfg.HeavyServer) > 0 && start < service.cfg.EarliestBlock {
+		log.Debug("bor_getRootHash sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgrhMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[string](ctx, service.cfg.HeavyServer, "bor_getRootHash", start, end)
+		if err != nil {
+			return "", err
+		}
+		return *response, nil
+	}
+
+	log.Debug("bor_getRootHash served from flume light")
+	polygonHitMeter.Mark(1)
+	bgrhHitMeter.Mark(1)
 	
 	length := end - start + 1
 	
@@ -152,7 +187,6 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 		return "", &InvalidStartEndBlockError{Start: start, End: end, CurrentHeader: currentNumber}
 	}
 
-	// var blockHeaders []*evm.Header
 	blockHeaders := make([]*evm.Header, 0, end-start+1)
 
 	rows, _ := service.db.QueryContext(context.Background(), "SELECT number, txRoot, receiptRoot, `time` FROM blocks.blocks WHERE number >= ? AND number <= ? ;", start, end)
@@ -201,7 +235,6 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 	}
 
 	root := hex.EncodeToString(tree.Root().Hash)
-	// api.rootHashCache.Add(key, root)
 
 	return root, nil
 
