@@ -10,10 +10,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/openrelayxyz/flume/config"
-	eh "github.com/openrelayxyz/flume/errhandle"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	eh "github.com/openrelayxyz/cardinal-flume/errhandle"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type GasAPI struct {

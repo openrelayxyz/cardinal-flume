@@ -13,7 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/config"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -205,12 +205,12 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			item["accessList"] = accessList
-			item["chainID"] = uintToHexBig(chainid)
+			item["chainId"] = uintToHexBig(chainid)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			item["accessList"] = accessList
-			item["chainID"] = uintToHexBig(chainid)
+			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
 		}
