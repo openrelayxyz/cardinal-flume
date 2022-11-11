@@ -55,13 +55,13 @@ func (service *PolygonBorService) fetchSnapshot(ctx context.Context, blockNumber
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
 	err != nil {
-		log.Error("sql snapshot fetch error Snapshot()", "err", err)
+		log.Error("sql snapshot fetch error Snapshot()", "err", err.Error())
 		return nil, err
 	}
 
 	ssb, err := plugins.Decompress(snapshotBytes)
 	if err != nil {
-		log.Error("sql snapshot decompress error Snapshot()", "err", err)
+		log.Error("sql snapshot decompress error Snapshot()", "err", err.Error())
 		return nil, err
 	}
 
@@ -78,13 +78,13 @@ func (service *PolygonBorService) getPreviousSnapshot(blockNumber uint64) (*Snap
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block < ? ORDER BY block DESC LIMIT 1;", blockNumber).Scan(&lastSnapBlock);
 	err != nil {
-		log.Error("sql previous snapshot fetch error", "err", err)
+		log.Error("sql previous snapshot fetch error", "err", err.Error())
 		return nil, err
 	}
 
 	snap, err := service.fetchSnapshot(context.Background(), lastSnapBlock)
 	if err != nil {
-		log.Error("error fetching previous snapshot", "number", snap.Number)
+		log.Error("error fetching previous snapshot", "number", snap.Number, "err", err.Error())
 		return nil, err
 	}
 
@@ -96,7 +96,7 @@ func (service *PolygonBorService) getSubsequentSnapshot(blockNumber uint64) (*Sn
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT block FROM bor_snapshots WHERE block > ? ORDER BY block ASC LIMIT 1;", blockNumber).Scan(&nextSnapBlock);
 	err != nil {
-		log.Error("sql subsequent snapshot fetch error", "err", err)
+		log.Error("sql subsequent snapshot fetch error", "err", err.Error())
 		return nil, err
 	}
 
@@ -161,8 +161,9 @@ func (service *PolygonBorService) getVals(number uint64) ([]*Validator, error) {
 
 func parseValidators(validatorsBytes []byte) ([]*Validator, error) {
 	if len(validatorsBytes)%40 != 0 {
-		log.Error("Invalid validator bytes")
-		return nil, errors.New("Invalid validators bytes")
+		err := errors.New("Invalid validators bytes")
+		log.Error("Invalid validator bytes", "err", err.Error())
+		return nil, err
 	}
 
 	result := make([]*Validator, len(validatorsBytes)/40)
@@ -261,7 +262,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			blockNumber = uint64(number)
 
 			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&blockHash); err != nil {
-				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber)
+				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err.Error())
+				return nil, nil
 			}
 
 			offset := blockNumber % 1024
@@ -274,8 +276,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				bgssMissMeter.Mark(1)
 				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
 				if err != nil {
-					log.Error("Error calling to heavy server, getSnapshot()", "blockNumber", blockNumber)
-					return nil, err
+					log.Error("Error calling to heavy server, getSnapshot()", "blockNumber", blockNumber, "err", err.Error())
+					return nil, nil
 				}
 				return *response, nil
 			}
@@ -296,14 +298,14 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				bgssMissMeter.Mark(1)
 				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
 				if err != nil {
-					log.Error("Error calling to heavy server, getSnapshot()", "blockHash", blockHash)
+					log.Error("Error calling to heavy server, getSnapshot()", "blockHash", blockHash, "err", err.Error())
 					return nil, nil
 				}
 				return *response, nil
 			}
 
 			if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
-				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash)
+				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash, "err", err.Error())
 				return nil, nil
 			}
 			
@@ -350,7 +352,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 			snap, err = service.getKeyFrame(origin, int64(degree))
 			if err != nil {
-				log.Error("GetSnapshot keyframe case error")
+				log.Error("GetSnapshot keyframe case error", "err", err.Error())
 				return nil, nil
 			}
 
@@ -380,7 +382,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		origin := previousKeyframe - (64 * (degree -1))
 		snap, err = service.getKeyFrame(origin, int64(degree))
 		if err != nil {
-			log.Error("GetSnapshot non-keyframe case error")
+			log.Error("GetSnapshot non-keyframe case error", "err", err.Error())
 			return nil, nil
 		}
 
@@ -392,8 +394,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	default:
 		var err error
-		err = errors.New("invalid input")
-		log.Error("Cannot generate snapshot", "err", err)
+		err = errors.New("invalid input get_Snapshot")
+		log.Error("Cannot generate snapshot", "err", err.Error())
 		return nil, nil
 
 	}
