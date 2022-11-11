@@ -23,7 +23,12 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 
 	db.QueryRowContext(context.Background(), "SELECT hash, transactionIndex FROM bor.bor_receipts WHERE block = ?;", uint64(blockVal["number"].(hexutil.Uint64))).Scan(&txHash, &txIndex)
 
+	
 	if txHash != nil {
+
+		// number:= blockVal["number"].(hexutil.Uint64)
+		// log.Error("block by number polygon", "number", number)
+
 		switch blockVal["transactions"].(type) {
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
@@ -70,6 +75,9 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 
 	if txHash != nil {
 
+		number := blockVal["number"]
+		log.Error("block by Hash polygon", "number", number)
+
 		switch blockVal["transactions"].(type) {
 
 		case []types.Hash:
@@ -111,6 +119,9 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {
 
 	if txObj == nil {
+
+		// number := blockVal["number"]
+		// log.Error("transaction by hash polygon", "number", number)
 
 		var blockHash []byte
 		var blockNumber, txIndex  uint64
