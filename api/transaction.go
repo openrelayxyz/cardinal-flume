@@ -37,7 +37,7 @@ var (
 	gtbhMissMeter = metrics.NewMinorMeter("/flume/gtbh/miss")
 )
 
-func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
 		log.Debug("eth_getTransactionByHash sent to flume heavy")
@@ -47,12 +47,14 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getTransactionByHash servered from flume light")
-	hitMeter.Mark(1)
-	gtbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getTransactionByHash servered from flume light")
+		hitMeter.Mark(1)
+		gtbhHitMeter.Mark(1)
+	}
 
 	pluginMethods := api.pl.Lookup("GetTransactionByHash", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
@@ -76,14 +78,14 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		if pluginResult, err := fn(result, txHash, api.db); err == nil {
-			return pluginResult, nil
+			return &pluginResult, nil
 		} else {
 			log.Warn("Error evoking GetTransactionByhash in plugin", "err", err.Error())
 			return nil, err
 		}
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 var (
@@ -91,7 +93,7 @@ var (
 	gtbhiMissMeter = metrics.NewMinorMeter("/flume/gtbhi/miss")
 )
 
-func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
 		log.Debug("eth_getTransactionByBlockHashAndIndex sent to flume heavy")
@@ -101,12 +103,14 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getTransactionByBlockHashAndIndex servered from flume light")
-	hitMeter.Mark(1)
-	gtbhiHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getTransactionByBlockHashAndIndex servered from flume light")
+		hitMeter.Mark(1)
+		gtbhiHitMeter.Mark(1)
+	}
 
 	var err error
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
@@ -115,7 +119,7 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 	}
 	result := returnSingleTransaction(txs)
 
-	return result, nil
+	return &result, nil
 }
 
 var (
@@ -123,7 +127,7 @@ var (
 	gtbniMissMeter = metrics.NewMinorMeter("/flume/gtbni/miss")
 )
 
-func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
@@ -133,12 +137,14 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getTransactionByBlockNumberAndIndex served from flume light")
-	hitMeter.Mark(1)
-	gtbniHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getTransactionByBlockNumberAndIndex served from flume light")
+		hitMeter.Mark(1)
+		gtbniHitMeter.Mark(1)
+	}
 
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
@@ -155,7 +161,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 
 	result := returnSingleTransaction(txs)
 
-	return result, nil
+	return &result, nil
 }
 
 var (
@@ -163,7 +169,7 @@ var (
 	gtrcMissMeter = metrics.NewMinorMeter("/flume/gtrc/miss")
 )
 
-func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
 		log.Debug("eth_getTransactionReceipt sent to flume heavy")
@@ -173,12 +179,14 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 		if err != nil {
 			return nil, err
 		}
-		return *responseShell, nil
+		return responseShell, nil
 	}
 
-	log.Debug("eth_getTransactionReceipt served from flume light")
-	hitMeter.Mark(1)
-	gtrcHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getTransactionReceipt served from flume light")
+		hitMeter.Mark(1)
+		gtrcHitMeter.Mark(1)
+	}
 
 	pluginMethods := api.pl.Lookup("GetTransactionReceipt", func(v interface{}) bool {
 		_, ok := v.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
@@ -195,14 +203,14 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		if pluginResult, err := fn(result, txHash, api.db); err == nil {
-			return pluginResult, nil
+			return &pluginResult, nil
 		} else {
 			log.Warn("Error evoking GetTransactionReceipt in plugin", "err", err.Error())
 			return nil, err
 		}
 	}
 
-	return result, nil
+	return &result, nil
 }
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
