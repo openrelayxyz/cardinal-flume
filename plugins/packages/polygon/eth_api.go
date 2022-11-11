@@ -8,9 +8,9 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
 )
 
 type PolygonEthService struct {
