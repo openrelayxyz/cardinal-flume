@@ -99,11 +99,14 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	switch {
 		case numOk:
 			blockNumber = uint64(number)
+			var hashBytes []byte
 
-			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&blockHash); err != nil {
+			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&hashBytes); err != nil {
 				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err.Error())
 				return nil, nil
 			}
+
+			blockHash = plugins.BytesToHash(hashBytes)
 
 			offset := blockNumber % 1024
 			
