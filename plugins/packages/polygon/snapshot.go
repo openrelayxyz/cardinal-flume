@@ -37,6 +37,7 @@ type Validator struct {
 func (service *PolygonBorService) fetchSnapshot(ctx context.Context, blockNumber uint64) (*Snapshot, error) {
 	var snapshotBytes []byte
 
+	log.Error("inside fetch with block numbner", "number", blockNumber)
 	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes);
 	err != nil {
 		log.Error("sql snapshot fetch error Snapshot()", "err", err.Error())
@@ -51,10 +52,11 @@ func (service *PolygonBorService) fetchSnapshot(ctx context.Context, blockNumber
 
 	var snapshot *Snapshot
 
-	json.Unmarshal(ssb, &snapshot)
+	err = json.Unmarshal(ssb, &snapshot)
 
+	log.Error("from fetch we are returning a snap with number", "number", snapshot.Number)
 
-	return snapshot, nil
+	return snapshot, err
 }
 
 func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]common.Address, error) {
@@ -185,7 +187,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot() mod 64 != 0 condition", "err", err.Error())
-			return, err
+			return nil, err
 		}
 		snap.Number = blockNumber
 		snap.Hash = blockHash
