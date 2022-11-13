@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	
+
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -61,25 +61,25 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 	recents := make(map[uint64]common.Address)
 
 	initialBlock := blockNumber - 63
-	
+
 	rows, _ := service.db.QueryContext(context.Background(), "SELECT coinbase FROM blocks.blocks WHERE number >= ? AND number <= ?;", initialBlock, blockNumber)
 	defer rows.Close()
-	
+
 	index := initialBlock
-	
+
 	for rows.Next() {
-		var signer common.Address
-		err := rows.Scan(&signer)
+		var signerBytes []byte
+		err := rows.Scan(&signerBytes)
 		if err != nil {
 			log.Error("getRecents scan error", "err", err.Error())
 			return nil, err
 		}
-		recents[index] = signer
+		recents[index] = plugins.BytesToAddress(signerBytes)
 
 		index += 1
 	}
 
-	return recents, nil 
+	return recents, nil
 
 }
 
@@ -93,7 +93,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	number, numOk := blockNrOrHash.Number()
 	blockHash, hshOk := blockNrOrHash.Hash()
 
-	var blockNumber uint64 
+	var blockNumber uint64
 
 	switch {
 		case numOk:
@@ -108,7 +108,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			blockHash = plugins.BytesToHash(hashBytes)
 
 			offset := blockNumber % 64
-			
+
 			requiredSnapshot := blockNumber - offset
 
 			if len(service.cfg.HeavyServer) > 0 && requiredSnapshot < service.cfg.EarliestBlock {
@@ -132,7 +132,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		case hshOk:
 			var present int
 			service.db.QueryRow("SELECT 1 FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&present)
-			
+
 			if len(service.cfg.HeavyServer) > 0 && present == 0 {
 				log.Debug("bor_getSnapshot sent to flume heavy")
 				polygonMissMeter.Mark(1)
@@ -149,7 +149,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash, "err", err.Error())
 				return nil, nil
 			}
-			
+
 			if len(service.cfg.HeavyServer) > 0 {
 				log.Debug("bor_getSnapshot served from flume light")
 				polygonHitMeter.Mark(1)
@@ -170,7 +170,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	if blockNumber % 64 == 0 {
 		snap := &Snapshot{}
-		snap, err = service.fetchSnapshot(ctx, blockNumber)	
+		snap, err = service.fetchSnapshot(ctx, blockNumber)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot(), mod 64 condition", "err", err.Error())
 			return nil, err
