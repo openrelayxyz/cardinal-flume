@@ -24,8 +24,8 @@ func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txCount int, txDedup 
 
 func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[types.Hash]struct{}, tx *evm.Transaction) []string {
 	txHash := tx.Hash()
-	if _, ok := txDedup[txHash]; !ok {
-		log.Warn("Failed to dedup transaction", "transaction", tx)
+	if _, ok := txDedup[txHash]; ok {
+		return []string{}
 	}
 	var signer evm.Signer
 	var accessListRLP []byte
@@ -90,7 +90,9 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[type
 	}
 	if _, err := db.Exec(strings.Join(statements, " ; ") + ";"); err != nil {
 		log.Error("Error on insert:", strings.Join(statements, " ; "), "err", err.Error())
+		return []string{}
 	}
+	txDedup[txHash] = struct{}{}
 	txCount++
 	db.QueryRow("SELECT count(*) FROM mempool.transactions;").Scan(&txCount)
 
