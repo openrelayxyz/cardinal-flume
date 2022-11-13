@@ -108,7 +108,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 			blockHash = plugins.BytesToHash(hashBytes)
 
-			offset := blockNumber % 1024
+			offset := blockNumber % 64
 			
 			requiredSnapshot := blockNumber - offset
 
@@ -170,10 +170,13 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	}
 
 	if blockNumber % 64 == 0 {
+		log.Error("We are in the mod 64 case with block Number", "number", blockNumber)
 		snap := &Snapshot{}
 		snap, err = service.fetchSnapshot(ctx, blockNumber)	
+		log.Error("this is the blockNumber of the snap we just fetched", "number", snap.Number)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot(), mod 64 condition", "err", err.Error())
+			return nil, err
 		}
 		return snap, nil
 	} else {
@@ -182,6 +185,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot() mod 64 != 0 condition", "err", err.Error())
+			return, err
 		}
 		snap.Number = blockNumber
 		snap.Hash = blockHash
