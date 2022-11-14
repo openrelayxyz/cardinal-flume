@@ -168,26 +168,41 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		log.Error("Error getting recents get_snapshot()", "err", err.Error())
 	}
 
-	if blockNumber % 64 == 0 {
-		snap := &Snapshot{}
-		snap, err = service.fetchSnapshot(ctx, blockNumber)
-		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot(), mod 64 condition", "err", err.Error())
-			return nil, err
-		}
-		return snap, nil
-	} else {
-		snap := &Snapshot{}
-		previousSnapshot := blockNumber - (blockNumber % 64)
-		snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
-		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot() mod 64 != 0 condition", "err", err.Error())
-			return nil, err
-		}
-		snap.Number = blockNumber
-		snap.Hash = blockHash
-		snap.Recents = recents
-		return snap, nil
-	}
+	mod := blockNumber % 64
 
+	switch mod {
+		case 0:
+			snap := &Snapshot{}
+			snap, err = service.fetchSnapshot(ctx, blockNumber)
+			if err != nil {
+				log.Error("Error fetching snapshot get_snapshot(), mod 64 == 0 case", "err", err.Error())
+				return nil, err
+			}
+			return snap, nil
+
+		case 63:
+			snap := &Snapshot{}
+			subsequentSnapshot := blockNumber + 1
+			snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
+			if err != nil {
+				log.Error("Error fetching snapshot get_snapshot() mod 64 == 0 63 case", "err", err.Error())
+				return nil, err
+			}
+			snap.Number = blockNumber
+			snap.Hash = blockHash
+			snap.Recents = recents
+			return snap, nil
+		default:
+			snap := &Snapshot{}
+			previousSnapshot := blockNumber - (blockNumber % 64)
+			snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
+			if err != nil {
+				log.Error("Error fetching snapshot get_snapshot() default condition", "err", err.Error())
+				return nil, err
+			}
+			snap.Number = blockNumber
+			snap.Hash = blockHash
+			snap.Recents = recents
+			return snap, nil
+		}
 }
