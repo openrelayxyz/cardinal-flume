@@ -365,5 +365,3 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 
 	return receipts, nil
 }
-
-// func (service *PolygonEthService) getBorTxHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]map[string]interface{}, error) {
