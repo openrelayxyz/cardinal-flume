@@ -52,6 +52,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 				"value": "0x0",
 			}
 			blockVal["transactions"] = append(txns, borTx)
+			blockVal["miner"] = "0x0000000000000000000000000000000000000000"
 			return blockVal, nil
 		}
 	}
@@ -99,6 +100,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 				"value": "0x0",
 			}
 			blockVal["transactions"] = append(txns, borTx)
+			blockVal["miner"] = "0x0000000000000000000000000000000000000000"
 			return blockVal, nil
 
 		}
