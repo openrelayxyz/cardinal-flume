@@ -356,7 +356,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	}
 
 	for _, receipt := range receipts {
-		if receipt["type"] == hexutil.Uint(2) {
+		if receipt["type"] == hexutil.Uint(2) || receipt["type"] == hexutil.Uint(1) {
 			receipt["from"] = "0x0000000000000000000000000000000000000000"
 		}
 		delete(receipt, "effectiveGasPrice")
