@@ -285,6 +285,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	var column interface{}
 	var whereClause string
 	var borTxQuery string
+	var borTxHashBytes []byte
 
 	switch {
 		case numOk:
@@ -300,13 +301,16 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 				return *responseShell, nil
 			}
 
-			log.Debug("eth_getTransactionReceiptByBlock served from flume light")
-			polygonHitMeter.Mark(1)
-			gtrbbHitMeter.Mark(1)
+			if len(service.cfg.HeavyServer) > 0 {
+				log.Debug("eth_getTransactionReceiptByBlock served from flume light")
+				polygonHitMeter.Mark(1)
+				gtrbbHitMeter.Mark(1)
+			}
 
 			column = number
 			whereClause = "block = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE block = ?;"
+			service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
 		case hshOk:
 
 			if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(hash, service.cfg, service.db) {
@@ -327,8 +331,9 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 			}
 
 			column = plugins.TrimPrefix(hash.Bytes())
-			whereClause = "blocks.hash = ?"
+			whereClause = "hash = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE blockHash = ?;"
+			service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
 		default:
 			errResponse["message"] = "invalid argument 0: json: cannot unmarshal number into Go value of type string"
 			receipts = append(receipts, errResponse)
@@ -341,29 +346,24 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 		return nil, err
 	}
 
-	var borTxHashBytes  []byte
-
-	if err := service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
-	err != nil {
-		log.Error("bor tx query", "err", err)
-		return nil, err
+	if borTxHashBytes != nil {
+		var nilMap map[string]interface{}
+		borReceipt, _ := GetTransactionReceipt(nilMap, plugins.BytesToHash(borTxHashBytes), service.db)
+		receipts = append(receipts, borReceipt)
+		for _, receipt := range receipts {
+			receipt["transactionHash"] = plugins.BytesToHash(borTxHashBytes)
+		}
 	}
 
-	var nilMap map[string]interface{}
-
-	borReceipt, err := GetTransactionReceipt(nilMap, plugins.BytesToHash(borTxHashBytes), service.db)
-	
-	
-	receipts = append(receipts, borReceipt)
-
-	// This is left here for exploring / debugging purposes
-	// if len(receipts) > 0 {
-	// 	for _, receipt := range receipts {
-	// 		delete(receipt, "effectiveGasPrice")
-	// 		delete(receipt, "type")
-	// 		receipt["transactionHash"] = plugins.BytesToHash(borTxHashBytes)
-	// 	}
-	// }
+	for _, receipt := range receipts {
+		if receipt["type"] == hexutil.Uint(2) {
+			receipt["from"] = "0x0000000000000000000000000000000000000000"
+		}
+		delete(receipt, "effectiveGasPrice")
+		delete(receipt, "type")
+	}
 
 	return receipts, nil
 }
+
+// func (service *PolygonEthService) getBorTxHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]map[string]interface{}, error) {
