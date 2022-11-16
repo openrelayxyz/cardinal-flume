@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
@@ -268,7 +269,8 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 		return &borBlockObj, nil
 	}
 
-	return nil, nil
+	err := errors.New("not found")
+	return nil, err
 }
 
 var (
