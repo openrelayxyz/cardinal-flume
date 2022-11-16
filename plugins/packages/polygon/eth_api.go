@@ -146,7 +146,7 @@ func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *s
 				"s": "0x0",
 		}
 
-		txObj = borTxObj
+		return borTxObj, nil
 
 	}
 
