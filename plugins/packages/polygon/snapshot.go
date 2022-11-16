@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -163,6 +164,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 
+	log.Error("testing")
 	recents, err := service.getRecents(blockNumber)
 	if err != nil {
 		log.Error("Error getting recents get_snapshot()", "err", err.Error())
@@ -172,6 +174,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	switch mod {
 		case 0:
+			log.Error("inside of mod 64 == 0 case")
 			snap := &Snapshot{}
 			snap, err = service.fetchSnapshot(ctx, blockNumber)
 			if err != nil {
@@ -181,6 +184,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			return snap, nil
 
 		case 63:
+			log.Error("inside of mod 64 == 63 case")
 			snap := &Snapshot{}
 			subsequentSnapshot := blockNumber + 1
 			snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
@@ -193,6 +197,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			snap.Recents = recents
 			return snap, nil
 		default:
+			log.Error("inside of default case")
 			snap := &Snapshot{}
 			previousSnapshot := blockNumber - (blockNumber % 64)
 			snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
@@ -205,4 +210,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			snap.Recents = recents
 			return snap, nil
 		}
+	log.Error("outside of case switch for input")
+	err = errors.New("unknown block") 
+	log.Error("unkown block error", "block number", blockNumber)
+	return nil, err
 }
