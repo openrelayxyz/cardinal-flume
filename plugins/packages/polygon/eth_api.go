@@ -31,6 +31,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
 			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
+			blockVal["miner"] = "0x0000000000000000000000000000000000000000"
 			return blockVal, nil
 
 		case []map[string]interface{}:
@@ -79,6 +80,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
 			blockVal["transactions"] = append(txns, plugins.BytesToHash(txHash))
+			blockVal["miner"] = "0x0000000000000000000000000000000000000000"
 			return blockVal, nil
 
 		case []map[string]interface{}:
