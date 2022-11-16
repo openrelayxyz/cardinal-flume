@@ -99,19 +99,9 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	switch {
 		case numOk:
 			blockNumber = uint64(number)
-			var hashBytes []byte
-
-			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&hashBytes); err != nil {
-				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err.Error())
-				return nil, nil
-			}
-
-			blockHash = plugins.BytesToHash(hashBytes)
-
-			offset := blockNumber % 64
-
-			requiredSnapshot := blockNumber - offset
-
+			
+			requiredSnapshot := blockNumber - (blockNumber % 64)
+			
 			if len(service.cfg.HeavyServer) > 0 && requiredSnapshot < service.cfg.EarliestBlock {
 				log.Debug("bor_getSnapshot sent to flume heavy")
 				polygonMissMeter.Mark(1)
@@ -123,6 +113,15 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				}
 				return *response, nil
 			}
+			
+			var hashBytes []byte
+			
+			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&hashBytes); err != nil {
+				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err.Error())
+				return nil, nil
+			}
+
+			blockHash = plugins.BytesToHash(hashBytes)
 
 			if len(service.cfg.HeavyServer) > 0 {
 				log.Debug("bor_getSnapshot served from flume light")
