@@ -217,8 +217,9 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT DISTINCT block, transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", bkHash).Scan(&blockNumber, &transactionHash, &txIndex);
 	err != nil {
+		err := errors.New("not found")
 		log.Error("sql response", "err", err)
-		return nil, nil
+		return nil, err
 	}
 	
 	if transactionHash != nil {
