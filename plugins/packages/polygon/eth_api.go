@@ -216,7 +216,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 	err != nil {
 		err := rpc.NewRPCError(-32000, "not found")
 		log.Error("sql query error, polygon getBorBlockReceipt", "err", err)
-		return nil, nil
+		return nil, err
 	}
 	
 	if transactionHash != nil {
