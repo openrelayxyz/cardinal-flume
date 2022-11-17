@@ -140,7 +140,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 				response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
 				if err != nil {
 					log.Error("Error calling to heavy server, getSnapshot()", "blockHash", blockHash, "err", err.Error())
-					return nil, nil
+					return nil, err
 				}
 				return *response, nil
 			}
