@@ -12,6 +12,7 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-rpc"
 )
 
 type PolygonEthService struct {
@@ -217,7 +218,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT DISTINCT block, transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", bkHash).Scan(&blockNumber, &transactionHash, &txIndex);
 	err != nil {
-		err := errors.New("not found")
+		err := rpc.NewRPCError(-32000, "not found")
 		log.Error("sql response", "err", err)
 		return nil, err
 	}
@@ -272,7 +273,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 		return &borBlockObj, nil
 	}
 
-	err := errors.New("not found")
+	err := rpc.NewRPCError(-32000, "not found")
 	return nil, err
 }
 
