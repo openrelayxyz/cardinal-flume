@@ -68,10 +68,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 	var txHash  []byte
 	var txIndex  uint64
 
-	if err := db.QueryRowContext(context.Background(), "SELECT transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", blockVal["hash"]).Scan(&txHash, &txIndex)
-	err != nil {
-		log.Info("sql response", "err", err)
-	}
+	db.QueryRowContext(context.Background(), "SELECT transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", blockVal["hash"]).Scan(&txHash, &txIndex)
 
 	if txHash != nil {
 
@@ -124,7 +121,7 @@ func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *s
 
 		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
 		err != nil {
-			log.Info("sql response", "err", err)
+			log.Debug("sql query error, polygon getTransactionByHash", "err", err)
 			return nil, nil
 		}
 
@@ -162,7 +159,7 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 
 		if err := db.QueryRowContext(context.Background(), "SELECT DISTINCT block, blockHash, transactionIndex FROM bor.bor_logs INDEXED BY logsTxHash WHERE transactionHash = ?;", txHash).Scan(&blockNumber, &blockHash, &txIndex);
 		err != nil {
-			log.Info("GTR sql response", "err", err)
+			log.Debug("sql query error, polygon getTransactionReceipt", "err", err)
 			return nil, nil
 		}
 
@@ -171,13 +168,13 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
 
 		logsBloom, err := plugins.GetLogsBloom(db, blockNumber)
 		if err != nil {
-			log.Error("Error fetching logsBloom", "err", err.Error())
+			log.Error("Error fetching logsBloom, polygon getTransactionReceipt", "err", err.Error())
 			return nil, err
 		}
 
 		txLogs, err := plugins.GetLogs(db, blockNumber, bkHash, txIndex)
 		if err != nil {
-			log.Error("Error fetching logs", "err", err.Error())
+			log.Error("Error fetching logs, polygon getTransactionReceipt", "err", err.Error())
 			return nil, err
 		}
 
@@ -198,7 +195,7 @@ func GetTransactionReceipt(receiptObj map[string]interface{}, txHash types.Hash,
     		"type": "0x0",
 		}
 
-		receiptObj =  borReceiptObj
+		return borReceiptObj, nil
 	}
 
 	return receiptObj, nil
@@ -218,8 +215,8 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 	if err := service.db.QueryRowContext(context.Background(), "SELECT DISTINCT block, transactionHash, transactionIndex FROM bor.bor_logs WHERE blockHash = ?;", bkHash).Scan(&blockNumber, &transactionHash, &txIndex);
 	err != nil {
 		err := rpc.NewRPCError(-32000, "not found")
-		log.Error("sql response", "err", err)
-		return nil, err
+		log.Error("sql query error, polygon getBorBlockReceipt", "err", err)
+		return nil, nil
 	}
 	
 	if transactionHash != nil {
@@ -245,13 +242,13 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 		
 		logsBloom, err := plugins.GetLogsBloom(service.db, blockNumber)
 		if err != nil {
-			log.Error("Error fetching logsBloom", "err", err.Error())
+			log.Error("Error fetching logsBloom, polygon getBorBlockReceipt", "err", err.Error())
 			return nil, err
 		}
 
 		txLogs, err := plugins.GetLogs(service.db, blockNumber, bkHash, txIndex)
 		if err != nil {
-			log.Error("Error fetching logs", "err", err.Error())
+			log.Error("Error fetching logs, polygon getBorBlockReceipt", "err", err.Error())
 			return nil, err
 		}
 
