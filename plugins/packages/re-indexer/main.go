@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"context"
 	"database/sql"
 	"os"
 	"strings"
 	"net/http"
 	"time"
 	"encoding/json"
-	"reflect"
 
 	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
@@ -74,31 +72,31 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 			log.Error("Error closing output file, reindexer", "err", err)
         }
 	}()
-
+	
+	var highestBlock int64
+	if err := db.QueryRow("SELECT max(number) FROM blocks.blocks;").Scan(&highestBlock); err != nil {
+		log.Error("Error querying for last block", "err", err.Error())
+	}
+	
+	mod_64_snapshots := []uint64{}
+	
+	for i := 0; i <= int(highestBlock); i = i + 64 {
+		mod_64_snapshots = append(mod_64_snapshots, uint64(i))
+	}
+	
 	var firstBlock uint64
-
 	var lastBlock uint64
 
-	idx := 0
-		
-	rows, _ := db.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE blocks.number + 1 NOT IN (SELECT blocks.number FROM blocks.blocks);")
-	defer rows.Close()
-
-	log.Info("rows type", "type", reflect.TypeOf(rows))
-	
-	for rows.Next() {
-		var number uint64
-		rows.Scan(&number)
-		idx += 1
+	for i, number := range mod_64_snapshots {
 
 		lastBlock = number
-		
-		if idx == 1 {
+	
+		if i == 0 {
 			firstBlock = number
 		}
 
 		nbr := hexutil.EncodeUint64(number)
-		
+	
 		num := []string{}
 
 		num = append(num, nbr)
@@ -129,15 +127,13 @@ func ReIndexer(cfg *config.Config, db *sql.DB, indexers []indexer.Indexer) error
 
 		tb := or.Result.Batch
 
-		for _, indexer := range indexers {
-			statements, err := indexer.Index(tb.ToPendingBatch())
-			if err != nil {
-				log.Error("Error generating statement reindexer, on indexer", indexer, "block", number, "err", err.Error())
-			}
-			for _, statement := range statements {
-				if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
-					log.Error("Error writing to output file, reindexer", "err", err)
-				}
+		statements, err := indexers[3].Index(tb.ToPendingBatch())
+		if err != nil {
+			log.Error("Error generating statement reindexer", "block", number, "err", err.Error())
+		}
+		for _, statement := range statements {
+			if _, err := output.Write([]byte(statement + ";" + "\n")); err != nil {
+				log.Error("Error writing to output file, reindexer", "err", err)
 			}
 		}
 	}
