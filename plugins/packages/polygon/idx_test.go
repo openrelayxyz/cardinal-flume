@@ -8,7 +8,7 @@ import (
 	"testing"
 	"database/sql"
 	"github.com/mattn/go-sqlite3"
-	// "reflect"
+	"reflect"
 
 
 	// "github.com/openrelayxyz/cardinal-evm/vm"
@@ -16,15 +16,15 @@ import (
 	// "github.com/openrelayxyz/cardinal-flume/api"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-flume/migrations"
-	"github.com/openrelayxyz/cardinal-flume/indexer"
-	// "github.com/openrelayxyz/cardinal-evm/common"
+	// "github.com/openrelayxyz/cardinal-flume/migrations"
+	// "github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
 
 	"bytes"
-	"strings"
+	// "strings"
 
 	"compress/gzip"
 	"encoding/json"
@@ -86,6 +86,36 @@ func txReceiptsDecompress() ([][]map[string]json.RawMessage, error) {
 	return blockTxReceipts, nil
 }
 
+func rootHashDecompress() ([]string, error) {
+	file, _ := ioutil.ReadFile("test-resources2/root_hashes.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var rootHashes []string
+	json.Unmarshal(raw, &rootHashes)
+	return rootHashes, nil
+}
+
+func authorDecompress() ([]*common.Address, error) {
+	file, _ := ioutil.ReadFile("test-resources2/authors.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var authors []*common.Address
+	json.Unmarshal(raw, &authors)
+	return authors, nil
+}
+
 var register sync.Once
 
 func testNumbers() []plugins.BlockNumberOrHash {
@@ -145,47 +175,47 @@ func TestIndexer(t *testing.T) {
 	}
 	db, _ := connectToDatabase(cfg)
 	defer db.Close()
-	if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
-	}
-	if err := migrations.MigrateTransactions(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
-	}
-	if err := migrations.MigrateLogs(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
-	}
-	if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
-	}
-	if err := Migrate(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
-	}
-	batches, err := pendingBatchDecompress()
-	if err != nil {
-		log.Error("pending batch decompression error", "err", err.Error())
-		t.Fatalf("error decompressing pending batches")
-	}
-	indexers := []indexer.Indexer{}
-	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
-	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
-	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
-	indexers = append(indexers, Indexer(cfg))
+	// if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
+	// if err := migrations.MigrateTransactions(db, cfg.Chainid); err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
+	// if err := migrations.MigrateLogs(db, cfg.Chainid); err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
+	// if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
+	// if err := Migrate(db, cfg.Chainid); err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
+	// batches, err := pendingBatchDecompress()
+	// if err != nil {
+	// 	log.Error("pending batch decompression error", "err", err.Error())
+	// 	t.Fatalf("error decompressing pending batches")
+	// }
+	// indexers := []indexer.Indexer{}
+	// indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
+	// indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+	// indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
+	// indexers = append(indexers, Indexer(cfg))
 
-	statements := []string{}
-	for _, idx := range indexers {
-		for _, pb := range batches {
-			group, err := idx.Index(pb)
-			if err != nil {
-				t.Fatalf(err.Error())
-			}
-			statements = append(statements, group...)
-		}
-	}
-	megaStatement := strings.Join(statements, ";")
-	_, err = db.Exec(megaStatement)
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	// statements := []string{}
+	// for _, idx := range indexers {
+	// 	for _, pb := range batches {
+	// 		group, err := idx.Index(pb)
+	// 		if err != nil {
+	// 			t.Fatalf(err.Error())
+	// 		}
+	// 		statements = append(statements, group...)
+	// 	}
+	// }
+	// megaStatement := strings.Join(statements, ";")
+	// _, err = db.Exec(megaStatement)
+	// if err != nil {
+	// 	t.Fatalf(err.Error())
+	// }
 
 	// pl, err := plugins.NewPluginLoader(cfg)
 	// if err != nil {
@@ -197,11 +227,14 @@ func TestIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	blockObject, err = testDataDecompress()
+	rootHashes, err := rootHashDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-
+	authors, err := authorDecompress()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	txReceipts, err := txReceiptsDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -251,8 +284,26 @@ func TestIndexer(t *testing.T) {
 
 	bor := NewBorAPI(db, cfg)
 	eth := NewEthAPI(db, cfg)
+	firstBlock, _ := blockNumbers[0].Number()
+	log.Error("bn type", "type", reflect.TypeOf(firstBlock))
 	for i, block := range blockNumbers {
-		log.Warn("blockNumber", "number", block)
+		currentBlock, _ := block.Number()
+		log.Warn("right chere", "first", firstBlock, "current", currentBlock)
+
+
+		testRootHash, err := bor.GetRootHash(context.Background(), uint64(firstBlock), uint64(currentBlock))
+		if testRootHash != rootHashes[i] {
+			t.Fatalf("getRootHash mismatch on block %v", currentBlock)
+		}
+
+		
+
+		testAuthor, err := bor.GetAuthor(context.Background(), currentBlock)
+		if *testAuthor != *authors[i] {
+			t.Fatalf("getAuthor mismatch on block %v", currentBlock)
+		}
+
+
 		actualTxReceiptBlock, err := eth.GetTransactionReceiptsByBlock(context.Background(), block)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -263,37 +314,34 @@ func TestIndexer(t *testing.T) {
 					logs := value.(plugins.SortLogs)
 					var controlLogs plugins.SortLogs
 					json.Unmarshal(txReceipts[i][j]["logs"], &controlLogs)
-					// log.Info("lengths", "actual", len(logs), "control", len(blockTxs))
-					for k, log := range logs {
-						// var controlSingleLog plugins.LogType
-						// json.Unmarshal(controlLogs[idx], &controlSingleLog)
-						if log.Address != controlLogs[k].Address {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Address", block, j, k)
+					for k, lg := range logs {
+						if lg.Address != controlLogs[k].Address {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Address", currentBlock, j, k)
 						} 
-						if len(log.Data) != len(controlLogs[k].Data) {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Data ", block, j, k)
+						if len(lg.Data) != len(controlLogs[k].Data) {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Data ", currentBlock, j, k)
 						}
-						if log.BlockNumber != controlLogs[k].BlockNumber {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: BlockNumber ", block, j, k)
+						if lg.BlockNumber != controlLogs[k].BlockNumber {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: BlockNumber ", currentBlock, j, k)
 						}
-						if log.TxHash != controlLogs[k].TxHash {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: TxHash ", block, j, k)
+						if lg.TxHash != controlLogs[k].TxHash {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: TxHash ", currentBlock, j, k)
 						}
-						if log.TxIndex != controlLogs[k].TxIndex {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: TxIndex ", block, j, k)
+						if lg.TxIndex != controlLogs[k].TxIndex {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: TxIndex ", currentBlock, j, k)
 						}
-						if log.BlockHash != controlLogs[k].BlockHash {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: BlockHash ", block, j, k)
+						if lg.BlockHash != controlLogs[k].BlockHash {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: BlockHash ", currentBlock, j, k)
 						}
-						if log.Index != controlLogs[k].Index {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Index ", block, j, k)
+						if lg.Index != controlLogs[k].Index {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Index ", currentBlock, j, k)
 						}
-						if log.Removed != controlLogs[k].Removed {
-							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Removed ", block, j, k)
+						if lg.Removed != controlLogs[k].Removed {
+							t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field: Removed ", currentBlock, j, k)
 						}
-						for idx, topic := range log.Topics {
+						for idx, topic := range lg.Topics {
 							if topic != controlLogs[k].Topics[idx] {
-								t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field Topics, topic index %v", block, j, idx, k)
+								t.Fatalf("getTransactionReceiptsByBlock log mismatch found on block %v receipt %v, log %v, field Topics, topic index %v", currentBlock, j, idx, k)
 							}
 						}
 					}
@@ -303,7 +351,7 @@ func TestIndexer(t *testing.T) {
 						t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 					}
 					if !bytes.Equal(d, txReceipts[i][j][key]) {
-						t.Fatalf("didnt work %v", key)
+						t.Fatalf("getTransactionReceiptsByBlock mismatch found on block %v receipt %v, key %v", block, j, key)
 					}
 				}
 			}

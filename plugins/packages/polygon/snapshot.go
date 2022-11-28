@@ -163,7 +163,6 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 
-	log.Error("testing")
 	recents, err := service.getRecents(blockNumber)
 	if err != nil {
 		log.Error("Error getting recents get_snapshot()", "err", err.Error())
