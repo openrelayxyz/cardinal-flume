@@ -8,7 +8,7 @@ import (
 	"testing"
 	"database/sql"
 	"github.com/mattn/go-sqlite3"
-	"reflect"
+	// "reflect"
 
 
 	// "github.com/openrelayxyz/cardinal-evm/vm"
@@ -223,7 +223,7 @@ func TestIndexer(t *testing.T) {
 	// }
 	// pl.Initialize(cfg)
 	blockNumbers := testNumbers()
-	blockObject, err := testDataDecompress()
+	controlSnapshots, err := testDataDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -285,11 +285,8 @@ func TestIndexer(t *testing.T) {
 	bor := NewBorAPI(db, cfg)
 	eth := NewEthAPI(db, cfg)
 	firstBlock, _ := blockNumbers[0].Number()
-	log.Error("bn type", "type", reflect.TypeOf(firstBlock))
 	for i, block := range blockNumbers {
 		currentBlock, _ := block.Number()
-		log.Warn("right chere", "first", firstBlock, "current", currentBlock)
-
 
 		testRootHash, err := bor.GetRootHash(context.Background(), uint64(firstBlock), uint64(currentBlock))
 		if testRootHash != rootHashes[i] {
@@ -356,28 +353,31 @@ func TestIndexer(t *testing.T) {
 				}
 			}
 		}
-		// log.Info("get snapshot", "number", block)
-		// t.Run(fmt.Sprintf("GetSanpshot %v", i), func(t *testing.T) {
-		actual, err := bor.GetSnapshot(context.Background(), block)
+		
+		testSnapshot, err := bor.GetSnapshot(context.Background(), block)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
 		var number uint64
-		json.Unmarshal(blockObject[i]["number"], &number)
-		if actual.Number != number {
-			t.Fatalf("not equal, number")
+		json.Unmarshal(controlSnapshots[i]["number"], &number)
+		if testSnapshot.Number != number {
+			t.Fatalf("getSnapshot ValidatorSet.Number mismatch found on block %v", currentBlock)
 		}
 		var hash types.Hash
-		json.Unmarshal(blockObject[i]["hash"], &hash)
-		if actual.Hash != hash {
-			t.Fatalf("not equal, hash")
+		json.Unmarshal(controlSnapshots[i]["hash"], &hash)
+		if testSnapshot.Hash != hash {
+			t.Fatalf("getSnapshot ValidatorSet.Hash mismatch found on block %v", currentBlock)
 		}
-		// var proposer Validator
-		// json.Unmarshal(blockObject[i]["validatorSet"]["proposer"], &proposer)
-		// if *actual.ValidatorSet.Proposer != proposer {
-		// 	t.Fatalf("not equal, propser")
-		// }
-		log.Info("number", "number", block)
+		var controlValidatorSet ValidatorSet
+		json.Unmarshal(controlSnapshots[i]["validatorSet"], &controlValidatorSet)
+		if *testSnapshot.ValidatorSet.Proposer != *controlValidatorSet.Proposer {
+			t.Fatalf("getSnapshot ValidatorSet.Proposer mismatch found on block %v", currentBlock)
+		}
+		for j, validator := range testSnapshot.ValidatorSet.Validators {
+			if *validator != *controlValidatorSet.Validators[j] {
+				t.Fatalf("getSnapshot ValidatorSet.Validator mismatch found on block %v, inddex %v", currentBlock, j)
+			}
+		}
 	}
 
 }
