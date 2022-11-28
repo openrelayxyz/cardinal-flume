@@ -170,7 +170,6 @@ var (
 )
 
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
-
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
 		log.Debug("eth_getTransactionReceipt sent to flume heavy")
 		missMeter.Mark(1)
@@ -189,7 +188,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	}
 
 	pluginMethods := api.pl.Lookup("GetTransactionReceipt", func(v interface{}) bool {
-		_, ok := v.(func(map[string]interface{}, *sql.DB, types.Hash) (map[string]interface{}, error))
+		_, ok := v.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
 		return ok
 	})
 
