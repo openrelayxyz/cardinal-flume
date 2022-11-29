@@ -45,7 +45,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getBlockByNumber" {
 		t.Fatal("GetBlockByNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(hexutil.Uint64) != hexutil.Uint64(testBlockNumber) {
 		t.Fatal("GetBlockByNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[1].(bool) != true {

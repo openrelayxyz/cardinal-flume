@@ -6,6 +6,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -154,4 +155,5 @@ func TestTransactionIndexer(t *testing.T) {
 			}
 		}
 	}
+	os.Remove("../testing-resources/test.sqlite")
 }

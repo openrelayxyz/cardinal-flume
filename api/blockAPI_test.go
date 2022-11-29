@@ -185,7 +185,7 @@ func TestBlockAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			for k, v := range actual {
+			for k, v := range *actual {
 				if k == "transactions" {
 					txs := v.([]map[string]interface{})
 					var blockTxs []map[string]json.RawMessage
@@ -249,7 +249,7 @@ func TestBlockAPI(t *testing.T) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}
-				for k, v := range actual {
+				for k, v := range *actual {
 					if k == "transactions" {
 						txs := v.([]map[string]interface{})
 						var blockTxs []map[string]json.RawMessage
