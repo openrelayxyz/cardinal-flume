@@ -29,6 +29,7 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 	
 	if txHash != nil {
 
+
 		switch blockVal["transactions"].(type) {
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)

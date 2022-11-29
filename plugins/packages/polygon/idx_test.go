@@ -16,15 +16,15 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/api"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-types"
-	// "github.com/openrelayxyz/cardinal-flume/migrations"
-	// "github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/migrations"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
 
 	"bytes"
-	// "strings"
+	"strings"
 
 	"compress/gzip"
 	"encoding/json"
@@ -146,6 +146,51 @@ func blockDecompress() ([]map[string]json.RawMessage, error) {
 	return blocks, nil
 }
 
+func txDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("test-resources2/txns.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var txns []map[string]json.RawMessage
+	json.Unmarshal(raw, &txns)
+	return txns, nil
+}
+
+func blockReceiptsDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("test-resources2/block_receipts.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var receipts []map[string]json.RawMessage
+	json.Unmarshal(raw, &receipts)
+	return receipts, nil
+}
+
+func singleTxReceiptsDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("test-resources2/tx_receipts.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var receipts []map[string]json.RawMessage
+	json.Unmarshal(raw, &receipts)
+	return receipts, nil
+}
+
 var register sync.Once
 
 func testNumbers() []plugins.BlockNumberOrHash {
@@ -214,47 +259,47 @@ func TestIndexer(t *testing.T) {
 	}
 	db, _ := connectToDatabase(cfg)
 	defer db.Close()
-	// if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
-	// if err := migrations.MigrateTransactions(db, cfg.Chainid); err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
-	// if err := migrations.MigrateLogs(db, cfg.Chainid); err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
-	// if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
-	// if err := Migrate(db, cfg.Chainid); err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
-	// batches, err := pendingBatchDecompress()
-	// if err != nil {
-	// 	log.Error("pending batch decompression error", "err", err.Error())
-	// 	t.Fatalf("error decompressing pending batches")
-	// }
-	// indexers := []indexer.Indexer{}
-	// indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
-	// indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
-	// indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
-	// indexers = append(indexers, Indexer(cfg))
+	if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
+		t.Fatalf(err.Error())
+	}
+	if err := migrations.MigrateTransactions(db, cfg.Chainid); err != nil {
+		t.Fatalf(err.Error())
+	}
+	if err := migrations.MigrateLogs(db, cfg.Chainid); err != nil {
+		t.Fatalf(err.Error())
+	}
+	if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
+		t.Fatalf(err.Error())
+	}
+	if err := Migrate(db, cfg.Chainid); err != nil {
+		t.Fatalf(err.Error())
+	}
+	batches, err := pendingBatchDecompress()
+	if err != nil {
+		log.Error("pending batch decompression error", "err", err.Error())
+		t.Fatalf("error decompressing pending batches")
+	}
+	indexers := []indexer.Indexer{}
+	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
+	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
+	indexers = append(indexers, Indexer(cfg))
 
-	// statements := []string{}
-	// for _, idx := range indexers {
-	// 	for _, pb := range batches {
-	// 		group, err := idx.Index(pb)
-	// 		if err != nil {
-	// 			t.Fatalf(err.Error())
-	// 		}
-	// 		statements = append(statements, group...)
-	// 	}
-	// }
-	// megaStatement := strings.Join(statements, ";")
-	// _, err = db.Exec(megaStatement)
-	// if err != nil {
-	// 	t.Fatalf(err.Error())
-	// }
+	statements := []string{}
+	for _, idx := range indexers {
+		for _, pb := range batches {
+			group, err := idx.Index(pb)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+			statements = append(statements, group...)
+		}
+	}
+	megaStatement := strings.Join(statements, ";")
+	_, err = db.Exec(megaStatement)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 
 
 	blockNumbers := testNumbers()
@@ -275,6 +320,18 @@ func TestIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	txReceipts, err := txReceiptsDecompress()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	controlTxns, err := txDecompress()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	controlReceipts, err := blockReceiptsDecompress()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	controlTxReceipts, err := singleTxReceiptsDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -424,8 +481,6 @@ func TestIndexer(t *testing.T) {
 
 	var passThroughHashes []types.Hash
 
-	log.Error("mr p", "tru num", passThroughBlocks)
-	
 	for i, block := range passThroughBlocks {
 		shell, err := b.GetBlockByNumber(context.Background(), block, true)
 		if err != nil {
@@ -464,9 +519,9 @@ func TestIndexer(t *testing.T) {
 			}
 		}
 	}
-	
-	log.Error("silk da shocker", "tru hash", passThroughHashes)
 
+	var borTxHashes []types.Hash
+	
 	for i, hash := range passThroughHashes {
 		shell, err := b.GetBlockByHash(context.Background(), hash, true)
 		if err != nil {
@@ -477,10 +532,12 @@ func TestIndexer(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error engaging plugin method getBlockByNumber, block %v, err %v", testBlock["number"], err.Error())
 		}
-		passThroughHashes = append(passThroughHashes, testBlock["hash"].(types.Hash))
+		
 		for k, v := range testBlock {
 			if k == "transactions" {
 				txs := v.([]map[string]interface{})
+				borTxHashes = append(borTxHashes, txs[len(txs) - 1]["hash"].(types.Hash)) // capturing hashes for testing of getTransactionByhash
+				// log.Error("tx", "tx", txs[len(txs)-1])
 				var blockTxs []map[string]json.RawMessage
 				json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
 				for j, item := range txs {
@@ -490,7 +547,7 @@ func TestIndexer(t *testing.T) {
 							t.Fatalf("transaction key marshalling error on block %v tx index %v", testBlock["number"], j)
 						}
 						if !bytes.Equal(d, blockTxs[j][key]) {
-							t.Fatalf("didnt work")
+							t.Fatalf("mismatch todo fix this")
 						}
 					}
 				}
@@ -505,69 +562,139 @@ func TestIndexer(t *testing.T) {
 			}
 		}
 	}
+
+	tx := api.NewTransactionAPI(db, 137, pl, cfg)
+
+	for i, hash := range borTxHashes {
+		shell, err := tx.GetTransactionByHash(context.Background(), hash)
+		if err != nil {
+			t.Fatalf("Error fetching transaction, getTransactionByhash, hash %v, err %v", hash, err.Error())
+		}
+		testTx, err := GetTransactionByHash(*shell, hash, db)
+		if err != nil {
+			t.Fatalf("Error engaging plugin method getTransactionByhash, hash %v, err %v", hash, err.Error())
+		}
+		for k, v := range testTx {
+			d, err := json.Marshal(v)
+			if err != nil {
+				t.Fatalf("json marshalling error, getTransactionByhash, on key %v hash %v", k, hash)
+			}
+			if !bytes.Equal(d, controlTxns[i][k]) {
+				t.Fatalf("value mismatch, getTransactionByhash, on key %v, hash %v", k, hash)
+			}
+		}
+	}
+
+	for i, hash := range borTxHashes {
+		shell, err := tx.GetTransactionReceipt(context.Background(), hash)
+		if err != nil {
+			t.Fatalf("Error fetching receipt, getTransactionReceipt, hash %v, err %v", hash, err.Error())
+		}
+		testReciept, err := GetTransactionReceipt(*shell, hash, db)
+		if err != nil {
+			t.Fatalf("Error engaging plugin method getTransactionReceipt, hash %v, err %v", hash, err.Error())
+		}
+		for k, v := range testReciept {
+			if k == "logs" {
+				var controlLogs plugins.SortLogs
+				json.Unmarshal(controlTxReceipts[i]["logs"], &controlLogs)
+				for j, lg := range v.(plugins.SortLogs) {
+					if lg.Address != controlLogs[j].Address {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: Address", hash)
+					} 
+					if len(lg.Data) != len(controlLogs[j].Data) {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: Data", hash)
+					}
+					if lg.BlockNumber != controlLogs[j].BlockNumber {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: BlockNumber", hash)
+					}
+					if lg.TxHash != controlLogs[j].TxHash {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: TxHash", hash)
+					}
+					if lg.TxIndex != controlLogs[j].TxIndex {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: TxIndex", hash)
+					}
+					if lg.BlockHash != controlLogs[j].BlockHash {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: BlockHash", hash)
+					}
+					if lg.Index != controlLogs[j].Index {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: Index", hash)
+					}
+					if lg.Removed != controlLogs[j].Removed {
+						t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field: Removed", hash)
+					}
+					for idx, topic := range lg.Topics {
+						if topic != controlLogs[j].Topics[idx] {
+							t.Fatalf("getTransactionReceipt log mismatch found on hash %v, field Topics, topic %v", hash, idx)
+						}
+					}
+				}
+			} else {
+				d, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("json marshalling error, getTransactionReceipt, on key %v hash %v", k, hash)
+				}
+				if !bytes.Equal(d, controlTxReceipts[i][k]) {
+					var generic interface{}
+					json.Unmarshal(controlReceipts[i][k], &generic)
+					t.Fatalf("value mismatch, getTransactionReceipt, on key %v, hash %v %v %v", k, hash, v, generic)
+				}
+			}
+		}
+	}
+
+	for i, hash := range passThroughHashes {
+		testReceipt, err := eth.GetBorBlockReceipt(context.Background(), hash)
+		if err != nil {
+			t.Fatalf("Error fetching block receipt, getBorBlockReceipt, hash %v, err %v", hash, err.Error())
+		}
+		for k, v := range *testReceipt {
+			if k == "logs" {
+				var controlLogs plugins.SortLogs
+				json.Unmarshal(controlReceipts[i]["logs"], &controlLogs)
+				for j, lg := range v.(plugins.SortLogs) {
+					if lg.Address != controlLogs[j].Address {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: Address", hash)
+					} 
+					if len(lg.Data) != len(controlLogs[j].Data) {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: Data", hash)
+					}
+					if lg.BlockNumber != controlLogs[j].BlockNumber {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: BlockNumber", hash)
+					}
+					if lg.TxHash != controlLogs[j].TxHash {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: TxHash", hash)
+					}
+					if lg.TxIndex != controlLogs[j].TxIndex {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: TxIndex", hash)
+					}
+					if lg.BlockHash != controlLogs[j].BlockHash {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: BlockHash", hash)
+					}
+					if lg.Index != controlLogs[j].Index {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: Index", hash)
+					}
+					if lg.Removed != controlLogs[j].Removed {
+						t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field: Removed", hash)
+					}
+					for idx, topic := range lg.Topics {
+						if topic != controlLogs[j].Topics[idx] {
+							t.Fatalf("getBorBlockReceipt log mismatch found on hash %v, field Topics, topic %v", hash, idx)
+						}
+					}
+				}
+			} else {
+				d, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("json marshalling error, getBorBlockReceipt, on key %v hash %v", k, hash)
+				}
+				if !bytes.Equal(d, controlReceipts[i][k]) {
+					t.Fatalf("value mismatch, getBorBlockReceipt, on key %v, hash %v", k, hash)
+				}
+			}
+		}
+	}
 }
-
-
-			// pl, err := plugins.NewPluginLoader(cfg)
-			// if err != nil {
-			// 	log.Error("No PluginLoader initialized", "err", err.Error())
-			// }
-			// pl.Initialize(cfg)
-			// b := api.NewBlockAPI(db, 137, pl, cfg)
-			
-			// bigBlocks := testNumbers2()
-			// blocks := []vm.BlockNumber{}
-			// for _, b := range bigBlocks {
-			// 	if b.Int64() % 64 == 0 {
-			// 		blocks = append(blocks, b)
-			// 	}
-			// }
-			
-			// testBlocks, err := blockDecompress()
-			// if err != nil {
-			// 	t.Fatalf(err.Error())
-			// }
-			
-			// for i, block := range blocks {
-			// 	shell, err := b.GetBlockByNumber(context.Background(), block, true)
-			// 	if err != nil {
-			// 		t.Fatal(err.Error())
-			// 	}
-			// 	controlBlock, _ := GetBlockByNumber(*shell, db)
-			// 		for k, v := range controlBlock {
-			// 			if k == "transactions" {
-			// 				txs := v.([]map[string]interface{})
-			// 				var blockTxs []map[string]json.RawMessage
-			// 				json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
-			// 				for j, item := range txs {
-			// 					for key, value := range item {
-			// 						d, err := json.Marshal(value)
-			// 						if err != nil {
-			// 							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
-			// 						}
-			// 						if !bytes.Equal(d, blockTxs[j][key]) {
-			// 							t.Fatalf("didnt work")
-			// 						}
-			
-			// 					}
-			// 				}
-			// 			} else {
-			// 				data, err := json.Marshal(v)
-			// 				if err != nil {
-			// 					t.Errorf("nope %v", k)
-			// 				}
-			// 				if !bytes.Equal(data, testBlocks[i][k]) {
-			// 					var generic interface{}
-			// 					json.Unmarshal(testBlocks[i][k], &generic)
-			// 					log.Info("values", "data", v, "test", generic)
-			// 					log.Info("pre marshal type", "type", reflect.TypeOf(v))
-			
-			// 					t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(testBlocks [i][k]))
-			// 				}
-			// 			}
-			// 		}
-			// }
-			// }
 			
 //eth: getBlockByNumber getBlockByHash getTransactionByHash GetTransactionReceipt GetBorBlockReceipt GetTransactionReceiptsByBlock
 //bor: getAuthor GetRootHash GetSignersAtHash GetCurrentValidators GetCurrentProposer
