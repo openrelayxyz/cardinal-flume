@@ -11,9 +11,9 @@ import (
 	// "reflect"
 
 
-	// "github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 
-	// "github.com/openrelayxyz/cardinal-flume/api"
+	"github.com/openrelayxyz/cardinal-flume/api"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-types"
 	// "github.com/openrelayxyz/cardinal-flume/migrations"
@@ -116,6 +116,36 @@ func authorDecompress() ([]*common.Address, error) {
 	return authors, nil
 }
 
+func signerDecompress() (map[types.Hash][]common.Address, error) {
+	file, _ := ioutil.ReadFile("test-resources2/new_sigs.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var signers map[types.Hash][]common.Address
+	json.Unmarshal(raw, &signers)
+	return signers, nil
+}
+
+func blockDecompress() ([]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("test-resources2/blocks.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var blocks []map[string]json.RawMessage
+	json.Unmarshal(raw, &blocks)
+	return blocks, nil
+}
+
 var register sync.Once
 
 func testNumbers() []plugins.BlockNumberOrHash {
@@ -126,6 +156,15 @@ func testNumbers() []plugins.BlockNumberOrHash {
 			BlockNumber: &number,
 		}
 		result = append(result, num)
+	}
+	return result
+}
+
+func testNumbers2() []vm.BlockNumber {
+	var result []vm.BlockNumber
+	for i := uint64(35779967); i < uint64(35780033); i++ {
+		number := vm.BlockNumber(i)
+		result = append(result, number)
 	}
 	return result
 }
@@ -217,17 +256,13 @@ func TestIndexer(t *testing.T) {
 	// 	t.Fatalf(err.Error())
 	// }
 
-	// pl, err := plugins.NewPluginLoader(cfg)
-	// if err != nil {
-	// 	log.Error("No PluginLoader initialized", "err", err.Error())
-	// }
-	// pl.Initialize(cfg)
+
 	blockNumbers := testNumbers()
 	controlSnapshots, err := testDataDecompress()
 	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	rootHashes, err := rootHashDecompress()
+			t.Fatalf(err.Error())
+		}
+		rootHashes, err := rootHashDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -235,72 +270,31 @@ func TestIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	controlSigners, err := signerDecompress()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
 	txReceipts, err := txReceiptsDecompress()
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	// b := api.NewBlockAPI(db, 137, pl, cfg)
-	// for i, block := range blockNumbers {
-	// 	log.Info("blocks by number", "number", block)
-	// 	t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
-	// 		actual, err := b.GetBlockByNumber(context.Background(), block, true)
-	// 		if err != nil {
-	// 			t.Fatal(err.Error())
-	// 		}
-	// 		for k, v := range *actual {
-	// 			if k == "transactions" {
-	// 				txs := v.([]map[string]interface{})
-	// 				var blockTxs []map[string]json.RawMessage
-	// 				json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
-	// 				// log.Info("txns", "len", len(blockTxs))
-	// 				for j, item := range txs {
-	// 					for key, value := range item {
-	// 						d, err := json.Marshal(value)
-	// 						if err != nil {
-	// 							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
-	// 						}
-	// 						if !bytes.Equal(d, blockTxs[j][key]) {
-	// 							t.Fatalf("didnt work")
-	// 						}
-	// 					}
-	// 				}
-	// 			} else {
-	// 				data, err := json.Marshal(v)
-	// 				if err != nil {
-	// 					t.Errorf("nope %v", k)
-	// 				}
-	// 				if !bytes.Equal(data, blockObject[i][k]) {
-	// 					var generic interface{}
-	// 					json.Unmarshal(blockObject[i][k], &generic)
-	// 					log.Info("values", "data", v, "test", generic)
-	// 					log.Info("pre marshal type", "type", reflect.TypeOf(v))
 
-	// 					t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
-	// 				}
-	// 			}
-	// 		}
-	// 	})
-	// }
-
+	
+	
 	bor := NewBorAPI(db, cfg)
 	eth := NewEthAPI(db, cfg)
 	firstBlock, _ := blockNumbers[0].Number()
+
+	var passThroughBlocks []vm.BlockNumber
+
 	for i, block := range blockNumbers {
 		currentBlock, _ := block.Number()
-
-		testRootHash, err := bor.GetRootHash(context.Background(), uint64(firstBlock), uint64(currentBlock))
-		if testRootHash != rootHashes[i] {
-			t.Fatalf("getRootHash mismatch on block %v", currentBlock)
+		if currentBlock % 64 == 0 {
+			passThroughBlocks = append(passThroughBlocks, vm.BlockNumber(currentBlock))
 		}
 
+		// eth api tests 
 		
-
-		testAuthor, err := bor.GetAuthor(context.Background(), currentBlock)
-		if *testAuthor != *authors[i] {
-			t.Fatalf("getAuthor mismatch on block %v", currentBlock)
-		}
-
-
 		actualTxReceiptBlock, err := eth.GetTransactionReceiptsByBlock(context.Background(), block)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -343,7 +337,7 @@ func TestIndexer(t *testing.T) {
 						}
 					}
 					} else {
-					d, err := json.Marshal(value)
+						d, err := json.Marshal(value)
 					if err != nil {
 						t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 					}
@@ -353,7 +347,19 @@ func TestIndexer(t *testing.T) {
 				}
 			}
 		}
+
+		//bor api tests 
 		
+		testRootHash, err := bor.GetRootHash(context.Background(), uint64(firstBlock), uint64(currentBlock))
+		if testRootHash != rootHashes[i] {
+			t.Fatalf("getRootHash mismatch on block %v", currentBlock)
+		}
+
+		testAuthor, err := bor.GetAuthor(context.Background(), currentBlock)
+		if *testAuthor != *authors[i] {
+			t.Fatalf("getAuthor mismatch on block %v", currentBlock)
+		}
+
 		testSnapshot, err := bor.GetSnapshot(context.Background(), block)
 		if err != nil {
 			t.Fatal(err.Error())
@@ -378,9 +384,147 @@ func TestIndexer(t *testing.T) {
 				t.Fatalf("getSnapshot ValidatorSet.Validator mismatch found on block %v, inddex %v", currentBlock, j)
 			}
 		}
+		if currentBlock == plugins.BlockNumber(35779968) || currentBlock == plugins.BlockNumber(35780031) || currentBlock == plugins.BlockNumber(35780032) {
+			var controlRecents map[uint64]common.Address
+			json.Unmarshal(controlSnapshots[i]["recents"], &controlRecents)
+			for block, address := range testSnapshot.Recents {
+				if address != controlRecents[block] {
+					t.Fatalf("getSnapshot ValidatorSet.Recents mismatch found on block %v, key %v", currentBlock, block)
+				}
+			}
+			
+			
+			blockHash := plugins.BlockNumberOrHash{
+				BlockHash: &testSnapshot.Hash,
+			}
+			testSigners, err := bor.GetSignersAtHash(context.Background(), blockHash)
+			if err != nil {
+					t.Fatalf("Error calling getSignersAtHash on block %v, err %v", currentBlock, err.Error())
+			}
+			hash, _ := blockHash.Hash()
+			for j, signer := range testSigners {
+				if signer != controlSigners[hash][j]{
+						t.Fatalf("getSignersAtHash mismatch found on hash %v, index %v", hash, j)
+				}
+			}
+		}
+	}
+	log.Error("pbbs", "tru to da gizame", passThroughBlocks)
+
+	pl, err := plugins.NewPluginLoader(cfg)
+	if err != nil {
+		log.Error("No PluginLoader initialized", "err", err.Error())
+	}
+	pl.Initialize(cfg)
+	b := api.NewBlockAPI(db, 137, pl, cfg)
+
+	testBlocks, err := blockDecompress()
+	if err != nil {
+		t.Fatalf("Error ecompressing test blocks, err %v", err.Error())
 	}
 
+	// var passThroughHashes []types.Hash
+
+	for i, block := range passThroughBlocks {
+		shell, err := b.GetBlockByNumber(context.Background(), block, true)
+		if err != nil {
+			t.Fatalf("Error fetching block, getBlockByNumber, block %v, err %v", block, err.Error())
+		}
+		// passThroughHashes = append(passThroughHashes, *shell["hash"])
+		testBlock, err := GetBlockByNumber(*shell, db)
+		if err != nil {
+			t.Fatalf("Error engaging plugin method getBlockByNumber, block %v, err %v", block, err.Error())
+		}
+		for k, v := range testBlock {
+			if k == "transactions" {
+				txs := v.([]map[string]interface{})
+				var blockTxs []map[string]json.RawMessage
+				json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
+				for j, item := range txs {
+					for key, value := range item {
+						d, err := json.Marshal(value)
+						if err != nil {
+							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
+						}
+						if !bytes.Equal(d, blockTxs[j][key]) {
+							t.Fatalf("didnt work")
+						}
+					}
+				}
+			} else {
+				data, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", block, k)
+				}
+				if !bytes.Equal(data, testBlocks[i][k]) {
+					t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", block, k)
+			}
+		}
+	}
+}
 }
 
+
+			// pl, err := plugins.NewPluginLoader(cfg)
+			// if err != nil {
+			// 	log.Error("No PluginLoader initialized", "err", err.Error())
+			// }
+			// pl.Initialize(cfg)
+			// b := api.NewBlockAPI(db, 137, pl, cfg)
+			
+			// bigBlocks := testNumbers2()
+			// blocks := []vm.BlockNumber{}
+			// for _, b := range bigBlocks {
+			// 	if b.Int64() % 64 == 0 {
+			// 		blocks = append(blocks, b)
+			// 	}
+			// }
+			
+			// testBlocks, err := blockDecompress()
+			// if err != nil {
+			// 	t.Fatalf(err.Error())
+			// }
+			
+			// for i, block := range blocks {
+			// 	shell, err := b.GetBlockByNumber(context.Background(), block, true)
+			// 	if err != nil {
+			// 		t.Fatal(err.Error())
+			// 	}
+			// 	controlBlock, _ := GetBlockByNumber(*shell, db)
+			// 		for k, v := range controlBlock {
+			// 			if k == "transactions" {
+			// 				txs := v.([]map[string]interface{})
+			// 				var blockTxs []map[string]json.RawMessage
+			// 				json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
+			// 				for j, item := range txs {
+			// 					for key, value := range item {
+			// 						d, err := json.Marshal(value)
+			// 						if err != nil {
+			// 							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
+			// 						}
+			// 						if !bytes.Equal(d, blockTxs[j][key]) {
+			// 							t.Fatalf("didnt work")
+			// 						}
+			
+			// 					}
+			// 				}
+			// 			} else {
+			// 				data, err := json.Marshal(v)
+			// 				if err != nil {
+			// 					t.Errorf("nope %v", k)
+			// 				}
+			// 				if !bytes.Equal(data, testBlocks[i][k]) {
+			// 					var generic interface{}
+			// 					json.Unmarshal(testBlocks[i][k], &generic)
+			// 					log.Info("values", "data", v, "test", generic)
+			// 					log.Info("pre marshal type", "type", reflect.TypeOf(v))
+			
+			// 					t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(testBlocks [i][k]))
+			// 				}
+			// 			}
+			// 		}
+			// }
+			// }
+			
 //eth: getBlockByNumber getBlockByHash getTransactionByHash GetTransactionReceipt GetBorBlockReceipt GetTransactionReceiptsByBlock
 //bor: getAuthor GetRootHash GetSignersAtHash GetCurrentValidators GetCurrentProposer
