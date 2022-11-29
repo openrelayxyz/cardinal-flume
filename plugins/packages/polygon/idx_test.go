@@ -409,7 +409,6 @@ func TestIndexer(t *testing.T) {
 			}
 		}
 	}
-	log.Error("pbbs", "tru to da gizame", passThroughBlocks)
 
 	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
@@ -423,18 +422,21 @@ func TestIndexer(t *testing.T) {
 		t.Fatalf("Error ecompressing test blocks, err %v", err.Error())
 	}
 
-	// var passThroughHashes []types.Hash
+	var passThroughHashes []types.Hash
 
+	log.Error("mr p", "tru num", passThroughBlocks)
+	
 	for i, block := range passThroughBlocks {
 		shell, err := b.GetBlockByNumber(context.Background(), block, true)
 		if err != nil {
-			t.Fatalf("Error fetching block, getBlockByNumber, block %v, err %v", block, err.Error())
+			obj := *shell
+			t.Fatalf("Error fetching block, getBlockByNumber, block %v, err %v", obj["number"], err.Error())
 		}
-		// passThroughHashes = append(passThroughHashes, *shell["hash"])
 		testBlock, err := GetBlockByNumber(*shell, db)
 		if err != nil {
-			t.Fatalf("Error engaging plugin method getBlockByNumber, block %v, err %v", block, err.Error())
+			t.Fatalf("Error engaging plugin method getBlockByNumber, block %v, err %v", testBlock["number"], err.Error())
 		}
+		passThroughHashes = append(passThroughHashes, testBlock["hash"].(types.Hash))
 		for k, v := range testBlock {
 			if k == "transactions" {
 				txs := v.([]map[string]interface{})
@@ -444,7 +446,7 @@ func TestIndexer(t *testing.T) {
 					for key, value := range item {
 						d, err := json.Marshal(value)
 						if err != nil {
-							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
+							t.Fatalf("transaction key marshalling error on block %v tx index %v", testBlock["number"], j)
 						}
 						if !bytes.Equal(d, blockTxs[j][key]) {
 							t.Fatalf("didnt work")
@@ -454,14 +456,55 @@ func TestIndexer(t *testing.T) {
 			} else {
 				data, err := json.Marshal(v)
 				if err != nil {
-					t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", block, k)
+					t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", testBlock["number"], k)
 				}
 				if !bytes.Equal(data, testBlocks[i][k]) {
-					t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", block, k)
+					t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", testBlock["number"], k)
+				}
 			}
 		}
 	}
-}
+	
+	log.Error("silk da shocker", "tru hash", passThroughHashes)
+
+	for i, hash := range passThroughHashes {
+		shell, err := b.GetBlockByHash(context.Background(), hash, true)
+		if err != nil {
+			obj := *shell
+			t.Fatalf("Error fetching block, getBlockByNumber, block %v, err %v", obj["number"], err.Error())
+		}
+		testBlock, err := GetBlockByHash(*shell, db)
+		if err != nil {
+			t.Fatalf("Error engaging plugin method getBlockByNumber, block %v, err %v", testBlock["number"], err.Error())
+		}
+		passThroughHashes = append(passThroughHashes, testBlock["hash"].(types.Hash))
+		for k, v := range testBlock {
+			if k == "transactions" {
+				txs := v.([]map[string]interface{})
+				var blockTxs []map[string]json.RawMessage
+				json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
+				for j, item := range txs {
+					for key, value := range item {
+						d, err := json.Marshal(value)
+						if err != nil {
+							t.Fatalf("transaction key marshalling error on block %v tx index %v", testBlock["number"], j)
+						}
+						if !bytes.Equal(d, blockTxs[j][key]) {
+							t.Fatalf("didnt work")
+						}
+					}
+				}
+			} else {
+				data, err := json.Marshal(v)
+				if err != nil {
+					t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", testBlock["number"], k)
+				}
+				if !bytes.Equal(data, testBlocks[i][k]) {
+					t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", testBlock["number"], k)
+				}
+			}
+		}
+	}
 }
 
 
