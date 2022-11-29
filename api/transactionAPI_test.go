@@ -103,7 +103,7 @@ func TestTransactionAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			for k, v := range actual {
+			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
 					t.Errorf("marshalling error gtbh on key: %v", k)
@@ -115,7 +115,7 @@ func TestTransactionAPI(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
 			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
-			for k, v := range actual {
+			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
 					t.Errorf(err.Error())
@@ -133,7 +133,7 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["hash"], &h)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
-				for k, v := range actual {
+				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
@@ -149,7 +149,7 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["number"], &n)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
-				for k, v := range actual {
+				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
