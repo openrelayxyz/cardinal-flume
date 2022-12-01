@@ -48,10 +48,12 @@ func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber plu
 		return *response, nil
 	}
 
-	log.Debug("bor_getAuthor served from flume light")
-	polygonHitMeter.Mark(1)
-	bgaHitMeter.Mark(1)
-	
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getAuthor served from flume light")
+		polygonHitMeter.Mark(1)
+		bgaHitMeter.Mark(1)
+	}
+
 	var signerBytes []byte
 	err := service.db.QueryRowContext(ctx, "SELECT coinbase FROM blocks.blocks where number = ?;", hexutil.Uint64(blockNumber)).Scan(&signerBytes)
 	if err != nil {
@@ -166,9 +168,11 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 		return *response, nil
 	}
 
-	log.Debug("bor_getRootHash served from flume light")
-	polygonHitMeter.Mark(1)
-	bgrhHitMeter.Mark(1)
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getRootHash served from flume light")
+		polygonHitMeter.Mark(1)
+		bgrhHitMeter.Mark(1)
+	}
 	
 	length := end - start + 1
 	

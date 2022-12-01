@@ -161,19 +161,33 @@ type logType struct {
 	Removed bool `json:"removed"`
 }
 
+type LogType struct {
+	Address common.Address `json:"address" gencodec:"required"`
+	Topics []types.Hash `json:"topics" gencodec:"required"`
+	Data hexutil.Bytes `json:"data" gencodec: "required"`
+	BlockNumber string `json:"blockNumber"`
+	TxHash types.Hash `json:"transactionHash" gencodec:"required"`
+	TxIndex hexutil.Uint `json:"transactionIndex"`
+	BlockHash types.Hash `json:"blockHash"`
+	Index hexutil.Uint `json:"logIndex"`
+	Removed bool `json:"removed"`
+}
+
 type sortLogs []*logType
 
-func (ms sortLogs) Len() int {
+type SortLogs []*LogType
+
+func (ms SortLogs) Len() int {
 	return len(ms)
 }
 
-func (ms sortLogs) Less(i, j int) bool {
+func (ms SortLogs) Less(i, j int) bool {
 	if ms[i].BlockNumber != ms[j].BlockNumber {
 		return ms[i].BlockNumber < ms[j].BlockNumber
 	}
 	return ms[i].Index < ms[j].Index
 }
 
-func (ms sortLogs) Swap(i, j int) {
+func (ms SortLogs) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }

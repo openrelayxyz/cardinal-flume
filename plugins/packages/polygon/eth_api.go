@@ -26,7 +26,10 @@ func GetBlockByNumber(blockVal map[string]interface{}, db *sql.DB) (map[string]i
 
 	db.QueryRowContext(context.Background(), "SELECT hash, transactionIndex FROM bor.bor_receipts WHERE block = ?;", uint64(blockVal["number"].(hexutil.Uint64))).Scan(&txHash, &txIndex)
 
+	
 	if txHash != nil {
+
+
 		switch blockVal["transactions"].(type) {
 		case []types.Hash:
 			txns := blockVal["transactions"].([]types.Hash)
@@ -115,6 +118,7 @@ func GetBlockByHash(blockVal map[string]interface{}, db *sql.DB) (map[string]int
 func GetTransactionByHash(txObj map[string]interface{}, txHash types.Hash, db *sql.DB) (map[string]interface{}, error) {
 
 	if txObj == nil {
+
 
 		var blockHash []byte
 		var blockNumber, txIndex  uint64
