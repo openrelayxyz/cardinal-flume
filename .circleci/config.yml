@@ -38,6 +38,12 @@ jobs:
             CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flume-arm64
             go build -buildmode=plugin -o ./polygon-amd64.so plugins/packages/polygon/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./polygon-arm64.so plugins/packages/polygon/*.go
+      - run:
+          name: test api
+          command: go test ./api/
+      - run:
+          name: test indexer
+          command: go test ./indexer/
       # - run:
       #     name: build image
       #     command: |
