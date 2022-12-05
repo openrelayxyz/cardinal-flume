@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	// "net/url"
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
+	// "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
 	"github.com/openrelayxyz/cardinal-flume/api"
@@ -27,8 +29,15 @@ func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
+	bootStrap := flag.Bool("genesisHash", false, "index from zero")
 
 	flag.CommandLine.Parse(os.Args[1:])
+
+	if *bootStrap {
+		indexGenesis()
+	} else { 	
+		log.Error("absent", "?", *bootStrap)
+	}
 
 	cfg, err := config.LoadConfig(flag.CommandLine.Args()[0])
 	if err != nil {
