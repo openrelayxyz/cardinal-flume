@@ -48,7 +48,7 @@ func main() {
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range cfg.Databases {
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 2147483646 ;", path, name, name, name, name), nil)
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 2147483646 ;", path, name, name, name, name, name), nil)
 				}
 				return nil
 			},
