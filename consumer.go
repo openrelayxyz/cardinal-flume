@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "reflect"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -87,7 +86,6 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlo
 	var lastNumber, timestamp int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
-		log.Error("inside this case")
 		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
