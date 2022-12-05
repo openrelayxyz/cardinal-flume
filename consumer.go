@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "reflect"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -113,13 +112,13 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlo
 		var lW hexutil.Bytes
 
 		if err := json.Unmarshal(rb["totalDifficulty"], &lW); err != nil {
-			log.Warn("Json unmarshalling error, totoal difficulty", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition totoal difficulty", "err", err)
 		}
 		if err := json.Unmarshal(rb["hash"], &lH); err != nil {
-			log.Warn("Json unmarshalling error, hash", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition hash", "err", err)
 		}
 		if err := json.Unmarshal(rb["timestamp"], &rT); err != nil {
-			log.Warn("Json unmarshalling error, timestamp", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition timestamp", "err", err)
 		}
 
 		lastWeight = lW
