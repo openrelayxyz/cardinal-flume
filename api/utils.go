@@ -140,7 +140,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 		return nil, err
 	}
 	defer rows.Close()
-	var results []map[string]interface{}
+	results := []map[string]interface{}{}
 	for rows.Next() {
 		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
 		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v uint64
@@ -297,6 +297,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			if err := txRows.Err(); err != nil {
 				return nil, err
 			}
+			log.Error("this is the list", "len", len(txs))
 			fields["transactions"] = txs
 		}
 		if len(baseFee) > 0 {
