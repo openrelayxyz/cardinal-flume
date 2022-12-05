@@ -5,11 +5,9 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	// "net/url"
 	log "github.com/inconshreveable/log15"
 	"github.com/mattn/go-sqlite3"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
-	// "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
 	"github.com/openrelayxyz/cardinal-flume/api"
@@ -29,15 +27,9 @@ func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
-	bootStrap := flag.Bool("genesisHash", false, "index from zero")
+	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 
 	flag.CommandLine.Parse(os.Args[1:])
-
-	if *bootStrap {
-		indexGenesis()
-	} else { 	
-		log.Error("absent", "?", *bootStrap)
-	}
 
 	cfg, err := config.LoadConfig(flag.CommandLine.Args()[0])
 	if err != nil {
@@ -150,11 +142,6 @@ func main() {
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, err := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
-	if err != nil {
-		log.Error("error establishing consumer", "err", err.Error())
-	}
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
@@ -180,6 +167,16 @@ func main() {
 		}
 	}
 
+	if *genesisIndex {
+		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut)
+		if err != nil {
+			log.Error("Failed to index genesis block", "err", err.Error())
+			panic(err)
+		} else {
+			log.Info("genesis block indexed")
+		}
+	}
+
 	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
 		return ok
@@ -197,6 +194,11 @@ func main() {
 
 	if reIndexed == true {
 		return
+	}
+
+	consumer, err := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
+	if err != nil {
+		log.Error("error establishing consumer", "err", err.Error())
 	}
 
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
@@ -233,7 +235,7 @@ func main() {
 	<-consumer.Ready()
 	var minBlock int
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
+	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
