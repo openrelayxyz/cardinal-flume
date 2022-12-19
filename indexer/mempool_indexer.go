@@ -7,19 +7,9 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"strings"
 	"time"
 )
-
-
-type MempoolIndexer struct{}
-
-func (indexer *MempoolIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-	return []string{
-		"DELETE FROM mempool.transactions WHERE (sender, nonce) IN (SELECT sender, nonce FROM transactions.transactions)",
-	}, nil
-}
 
 func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}) {
 	var txCount int
