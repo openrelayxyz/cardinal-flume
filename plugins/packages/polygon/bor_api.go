@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"encoding/json"
 
 	"github.com/xsleonard/go-merkle"
 	log "github.com/inconshreveable/log15"
@@ -263,13 +264,23 @@ func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrO
 
 func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*Validator, error) {
 
-	var snapshot *snapshot
+	var snapshotBytes []byte
 
-	err := service.db.QueryRow("SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshot)
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
 	if err != nil {
-		log.Info("GetCurentValidators sql error", "err", err.Error())
+		log.Error("GetCurentValidators sql error", "err", err.Error())
 		return nil, err
 	}
+
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentValidators", "err", err.Error())
+		return nil, err
+	}
+
+	var snapshot *Snapshot
+
+	err = json.Unmarshal(ssb, &snapshot)
 
 	var result []*Validator
 
@@ -282,17 +293,26 @@ func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*
 }
 
 func (service *PolygonBorService) GetCurrentProposer(ctx context.Context) (*common.Address, error) {
-
-	var result *common.Address
-
-	var snapshot *snapshot
-
-	err := service.db.QueryRow("SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshot)
+	
+	var snapshotBytes []byte
+	
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
 	if err != nil {
-		log.Info("GetCurentProposer sql error", "err", err.Error())
+		log.Error("GetCurentValidators sql error", "err", err.Error())
 		return nil, err
 	}
 
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentProposer", "err", err.Error())
+		return nil, err
+	}
+	
+	var snapshot *Snapshot
+	
+	err = json.Unmarshal(ssb, &snapshot)
+	
+	var result *common.Address
 
 	result = &snapshot.ValidatorSet.Proposer.Address
 
