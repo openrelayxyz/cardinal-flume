@@ -29,15 +29,16 @@ func decompress(data []byte) ([]byte, error) {
 }
 
 func TestTransactionIndexer(t *testing.T) {
-
+	
 	test_dbs := make(map[string]string)
 	test_dbs["control"] = "../testing-resources/transactions.sqlite"
 	test_dbs["transactions"] = "../testing-resources/test.sqlite"
-
+	
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	defer os.Remove("../testing-resources/test.sqlite")
 	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE transactions.transactions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,5 +156,4 @@ func TestTransactionIndexer(t *testing.T) {
 			}
 		}
 	}
-	os.Remove("../testing-resources/test.sqlite")
 }
