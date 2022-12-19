@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type DecimalOrHex uint64
@@ -171,6 +172,30 @@ type FilterQuery struct {
 	Topics [][]types.Hash
 }
 
+func (args FilterQuery) MarshalJSON() ([]byte, error) {
+	type output struct {
+		BlockHash *types.Hash     `json:"blockHash,omitempty"`
+		FromBlock *plugins.BlockNumber `json:"fromBlock,omitempty"`
+		ToBlock   *plugins.BlockNumber `json:"toBlock,omitempty"`
+		Addresses []common.Address `json:"address,omitempty"`
+		Topics    [][]types.Hash   `json:"topics,omitempty"`
+	}
+	out := output{
+		BlockHash: args.BlockHash,
+		Addresses: args.Addresses,
+		Topics: args.Topics,
+	}
+	if args.FromBlock != nil {
+		fromBlock := plugins.BlockNumber(args.FromBlock.Int64())
+		out.FromBlock = &fromBlock
+	}
+	if args.ToBlock != nil {
+		toBlock := plugins.BlockNumber(args.ToBlock.Int64())
+		out.ToBlock = &toBlock
+	}
+	return json.Marshal(out)
+}
+
 // UnmarshalJSON sets *args fields with given data.
 func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 	type input struct {
@@ -213,19 +238,19 @@ func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 					addr, err := decodeAddress(strAddr)
 					if err != nil {
 						log.Error("invalid address at index %d: %v", i, err)
-						return errors.New("invalid address") 
+						return errors.New("invalid address")
 					}
 					args.Addresses = append(args.Addresses, addr)
 				} else {
 					log.Error("non-string address at index %d", i)
-					return errors.New("non-string address") 
+					return errors.New("non-string address")
 				}
 			}
 		case string:
 			addr, err := decodeAddress(rawAddr)
 			if err != nil {
 				log.Error("invalid address: %v", err)
-				return errors.New("invalid address") 
+				return errors.New("invalid address")
 			}
 			args.Addresses = []common.Address{addr}
 		default:
@@ -281,7 +306,7 @@ func decodeAddress(s string) (common.Address, error) {
 	b, err := hexutil.Decode(s)
 	if err == nil && len(b) != common.AddressLength {
 		log.Error("hex has invalid length %d after decoding; expected %d for address", len(b), common.AddressLength)
-		err = errors.New("hex has invalid length, for address") 
+		err = errors.New("hex has invalid length, for address")
 	}
 	return bytesToAddress(b), err
 }
@@ -290,7 +315,7 @@ func decodeTopic(s string) (types.Hash, error) {
 	b, err := hexutil.Decode(s)
 	if err == nil && len(b) != types.HashLength {
 		log.Error("hex has invalid length %d after decoding; expected %d for topic", len(b), types.HashLength)
-		err = errors.New("hex has invalid length, for topic") 
+		err = errors.New("hex has invalid length, for topic")
 	}
 	return bytesToHash(b), err
 }
