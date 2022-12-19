@@ -19,6 +19,17 @@ const (
 	EarliestBlockNumber = BlockNumber(0)
 )
 
+func (bn *BlockNumber) MarshalJSON() ([]byte, error) {
+	switch *bn {
+	case -2:
+		return []byte("pending"), nil
+	case -1:
+		return []byte("latest"), nil
+	default:
+		return json.Marshal(hexutil.Uint(*bn))
+	}
+}
+
 // UnmarshalJSON parses the given JSON fragment into a BlockNumber. It supports:
 // - "latest", "earliest" or "pending" as string arguments
 // - the block number

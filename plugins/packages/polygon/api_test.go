@@ -264,7 +264,7 @@ func TestPolygonApi(t *testing.T) {
 	}
 	indexers := []indexer.Indexer{}
 	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
-	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, false))
 	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
 	indexers = append(indexers, Indexer(cfg))
 
