@@ -165,7 +165,6 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	}
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
-	txCount := 0
 	txDedup := make(map[types.Hash]struct{})
 	defer txSub.Unsubscribe()
 	db.Exec("DELETE FROM mempool.transactions WHERE 1;")
@@ -180,9 +179,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				return
 			}
 		case <-pruneTicker.C:
-			mempool_dropLowestPrice(db, mempoolSlots, txCount, txDedup)
+			mempool_dropLowestPrice(db, mempoolSlots, txDedup)
 		case tx := <-txCh:
-			mempool_indexer(db, mempoolSlots, txCount, txDedup, tx)
+			mempool_indexer(db, mempoolSlots, txDedup, tx)
 		case chainUpdate := <-csCh:
 			var lastBatch *delivery.PendingBatch
 		UPDATELOOP:

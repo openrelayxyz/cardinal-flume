@@ -153,6 +153,9 @@ func main() {
 	if hasLogs {
 		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
 	}
+	if hasMempool {
+		indexes = append(indexes, indexer.MempoolIndexer{})
+	}
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config) indexer.Indexer)
