@@ -339,7 +339,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 			}
 
 			column = plugins.TrimPrefix(hash.Bytes())
-			whereClause = "hash = ?"
+			whereClause = "blocks.hash = ?"
 			borTxQuery = "SELECT transactionHash FROM bor.bor_logs WHERE blockHash = ?;"
 			service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
 		default:
