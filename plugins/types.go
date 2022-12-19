@@ -26,7 +26,7 @@ func (bn BlockNumber) MarshalJSON() ([]byte, error) {
 	case -1:
 		return []byte(`"latest"`), nil
 	default:
-		return json.Marshal(hexutil.Uint(*bn))
+		return json.Marshal(hexutil.Uint(bn))
 	}
 }
 
