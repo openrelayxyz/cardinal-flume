@@ -148,7 +148,7 @@ func main() {
 		indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid))
 	}
 	if hasTx {
-		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool))
 	}
 	if hasLogs {
 		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
