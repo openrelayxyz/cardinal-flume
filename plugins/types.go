@@ -19,12 +19,12 @@ const (
 	EarliestBlockNumber = BlockNumber(0)
 )
 
-func (bn *BlockNumber) MarshalJSON() ([]byte, error) {
-	switch *bn {
+func (bn BlockNumber) MarshalJSON() ([]byte, error) {
+	switch bn {
 	case -2:
-		return []byte("pending"), nil
+		return []byte(`"pending"`), nil
 	case -1:
-		return []byte("latest"), nil
+		return []byte(`"latest"`), nil
 	default:
 		return json.Marshal(hexutil.Uint(*bn))
 	}
