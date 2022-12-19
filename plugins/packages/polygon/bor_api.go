@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	// "reflect"
+	"encoding/json"
 
 	"github.com/xsleonard/go-merkle"
 	log "github.com/inconshreveable/log15"
@@ -16,7 +16,6 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
-	// "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -265,27 +264,27 @@ func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrO
 
 func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*Validator, error) {
 
-	var blockNumber *plugins.BlockNumber
+	var snapshotBytes []byte
 
-	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
 	if err != nil {
-		log.Info("GetCurentValidators error", "err", err.Error())
+		log.Error("GetCurentValidators sql error", "err", err.Error())
 		return nil, err
 	}
 
-	bkNrOrHsh := plugins.BlockNumberOrHash {
-		BlockNumber: blockNumber,
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentValidators", "err", err.Error())
+		return nil, err
 	}
+
+	var snapshot *Snapshot
+
+	err = json.Unmarshal(ssb, &snapshot)
 
 	var result []*Validator
 
-	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
-	if err != nil {
-		log.Error("Error fetching snapshot GetCurrentValidators", "err", err.Error())
-		return nil, err
-	}
-
-	for _, validator := range snap.ValidatorSet.Validators {
+	for _, validator := range snapshot.ValidatorSet.Validators {
 		result = append(result, validator)
 	}
 
@@ -294,27 +293,28 @@ func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*
 }
 
 func (service *PolygonBorService) GetCurrentProposer(ctx context.Context) (*common.Address, error) {
+	
+	var snapshotBytes []byte
+	
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
+	if err != nil {
+		log.Error("GetCurentValidators sql error", "err", err.Error())
+		return nil, err
+	}
 
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentProposer", "err", err.Error())
+		return nil, err
+	}
+	
+	var snapshot *Snapshot
+	
+	err = json.Unmarshal(ssb, &snapshot)
+	
 	var result *common.Address
 
-	var blockNumber *plugins.BlockNumber
-	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
-	if err != nil {
-		log.Info("GetCurentPropser error", "err", err.Error())
-		return nil, err
-	}
-
-	bkNrOrHsh := plugins.BlockNumberOrHash {
-		BlockNumber: blockNumber,
-	}
-
-	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
-	if err != nil {
-		log.Error("Error fetching snapshot GetCurrentProposer", "err", err.Error())
-		return nil, err
-	}
-
-	result = &snap.ValidatorSet.Proposer.Address
+	result = &snapshot.ValidatorSet.Proposer.Address
 
 	return result, nil 
 
