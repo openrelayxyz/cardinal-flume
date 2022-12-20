@@ -30,8 +30,12 @@ func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 	}
 }
 
-func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
 
+	if offset == nil {
+		*offset = 0
+	}
+	
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_erc20ByAccount sent to flume heavy by default")
 		missMeter.Mark(1)
@@ -68,13 +72,17 @@ func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Addre
 	}
 	result := paginator[common.Address]{Items: addresses}
 	if len(addresses) == 1000 {
-		result.Token = offset + len(addresses)
+		result.Token = *offset + len(addresses)
 	}
 	return &result, nil
 }
 
-func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
-
+func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
+	
+	if offset == nil {
+		*offset = 0
+	}
+	
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_erc20Holders sent to flume heavy by default")
 		missMeter.Mark(1)
@@ -87,6 +95,7 @@ func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 
 	topic0 := types.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
 	// topic0 must match ERC20, topic3 must be empty (to exclude ERC721) and topic2 is the recipient address
@@ -112,7 +121,7 @@ func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address
 	}
 	result := paginator[common.Address]{Items: addresses}
 	if len(addresses) == 1000 {
-		result.Token = offset + len(addresses)
+		result.Token = *offset + len(addresses)
 	}
 	return &result, nil
 }
