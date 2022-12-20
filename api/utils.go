@@ -716,13 +716,13 @@ func getFlumeTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit 
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, transactions.block
 			FROM transactions.transactions INNER JOIN blocks.blocks ON event_logs.block = blocks.number
-			WHERE %v
+			WHERE %v LIMIT ? OFFSET ?
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 }
 
 func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query, logsQuery string, params ...interface{}) ([]map[string]interface{}, error) {
-	logRows, err := db.QueryContext(ctx, logsQuery, params...)
+	logRows, err := db.QueryContext(ctx, logsQuery, append(params, limit, offset)...)
 	if err != nil {
 		log.Error("Error selecting logs", "query", query, "err", err.Error())
 		return nil, err
@@ -854,7 +854,7 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, block
 			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
-			WHERE %v
+			WHERE %v LIMIT ? OFFSET ?
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 
