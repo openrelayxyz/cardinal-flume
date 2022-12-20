@@ -211,22 +211,22 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	return &result, nil
 }
 
-func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (hexutil.Uint64, error) {
+func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionCount sent to flume heavy by default")
 		missMeter.Mark(1)
 		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		return *count, nil
+		return count, nil
 	}
 
 	nonce, err := getSenderNonce(ctx, api.db, addr)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return nonce, nil
+	return &nonce, nil
 }
