@@ -166,7 +166,11 @@ func TestTransactionAPI(t *testing.T) {
 	for _, tx := range transactions {
 		var sender common.Address
 		json.Unmarshal(tx["from"], &sender)
-		nonces[sender]++
+		var nonce hexutil.Uint64
+		json.Unmarshal(tx["nonce"], nonce)
+		if nonces[sender] < nonce {
+			nonces[sender] = nonce
+		}
 	}
 
 	for sender, nonce := range nonces {
