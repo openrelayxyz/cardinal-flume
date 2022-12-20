@@ -537,7 +537,7 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 		FROM event_logs
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, transactions.block
-			FROM transactions.transactions INNER JOIN blocks.blocks ON event_logs.block = blocks.number
+			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
 			WHERE %v
 		);`, whereClause)
 	return getTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
@@ -557,21 +557,20 @@ func getTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, limit 
 }
 
 func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address) (hexutil.Uint64, error) {
-	var count uint64
-	var nonce sql.NullInt64
-	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
+	var count, nonce sql.NullInt64
+	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
 		return 0, err
 	}
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM mempool.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&nonce); err != nil {
 		return 0, err
 	}
 	if !nonce.Valid {
-		return hexutil.Uint64(count), nil
+		return hexutil.Uint64(count.Int64), nil
 	}
-	if uint64(nonce.Int64) > count {
+	if nonce.Int64 > count.Int64 {
 		return hexutil.Uint64(nonce.Int64), nil
 	}
-	return hexutil.Uint64(count), nil
+	return hexutil.Uint64(count.Int64), nil
 }
 
 func returnSingleTransaction(txs []map[string]interface{}) map[string]interface{} {
@@ -715,7 +714,7 @@ func getFlumeTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit 
 		FROM event_logs
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, transactions.block
-			FROM transactions.transactions INNER JOIN blocks.blocks ON event_logs.block = blocks.number
+			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
 			WHERE %v LIMIT ? OFFSET ?
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
