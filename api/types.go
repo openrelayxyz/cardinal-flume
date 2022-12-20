@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"strconv"
+	// "reflect"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -89,6 +90,81 @@ func (ms sortLogs) Less(i, j int) bool {
 }
 
 func (ms sortLogs) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
+}
+
+type sortTxMap []map[string]interface{}
+
+func (ms sortTxMap) Len() int {
+	return len(ms)
+}
+
+func (ms sortTxMap) Less(i, j int) bool {
+	if ibni, ok := ms[i]["blockNumber"]; ok {
+		jbni, ok := ms[j]["blockNumber"]
+		if !ok {
+			log.Warn("blockNumber not found")
+			return false
+		}
+		switch ibn := ibni.(type) {
+		case *hexutil.Big:
+			jbn, ok := jbni.(*hexutil.Big)
+			if !ok {
+				log.Warn("blockNumber type mismatch")
+				return false
+			}
+			if v := ibn.ToInt().Cmp(jbn.ToInt()); v != 0 {
+				return v < 0
+			}
+		case hexutil.Uint64:
+			jbn, ok := jbni.(hexutil.Uint64)
+			if !ok {
+				log.Warn("blockNumber type mismatch")
+				return false
+			}
+			if jbn != ibn {
+				return ibn < jbn
+			}
+		default:
+			log.Warn("unknown BLOCK NUMBER type")
+		}
+	} else {
+		log.Warn("Block number not found")
+		return false
+	}
+	if itxi, ok := ms[i]["transactionIndex"]; ok {
+		jtxi, ok := ms[j]["transactionIndex"]
+		if !ok {
+			log.Warn("transactionIndex not found")
+			return false
+		}
+		switch itx := itxi.(type) {
+		case *hexutil.Uint64:
+			jtx, ok := jtxi.(*hexutil.Uint64)
+			if !ok {
+				log.Warn("transactionIndex type mismatch")
+				return false
+			}
+			return *itx < *jtx
+		case hexutil.Uint64:
+			jtx, ok := jtxi.(hexutil.Uint64)
+			if !ok {
+				log.Warn("transactionIndex type mismatch")
+			}
+			return itx < jtx
+		default:
+			log.Warn("unknown tx index type")
+			return false
+		}
+	} else {
+		log.Warn("No tx index")
+		return false
+	}
+	log.Warn("Sort mismatch")
+	return false
+}
+
+func (ms sortTxMap) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }
 

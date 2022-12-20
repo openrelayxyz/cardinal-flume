@@ -112,6 +112,37 @@ var (
 	genericAddr   = "0x3cd751e6b0078be393132286c442345e5dc49699"
 )
 
+func vlist(ms []map[string]json.RawMessage, key string) []string {
+	result := make([]string, 0, len(ms))
+	for _, m := range ms {
+		if v, ok := m[key]; ok {
+			result = append(result, string(v))
+		}
+	}
+	return result
+}
+func vlisti(ms []map[string]interface{}, key string) []string {
+	result := make([]string, 0, len(ms))
+	for _, m := range ms {
+		if v, ok := m[key]; ok {
+			result = append(result, fmt.Sprintf("%v", v))
+		}
+	}
+	return result
+}
+
+func (ms sortTxMap) TransactionIndexes() []hexutil.Uint64 {
+	result := make([]hexutil.Uint64, 0, len(ms))
+	for _, m := range ms {
+		if bni, ok := m["transactionIndex"]; ok {
+			if bn, ok := bni.(hexutil.Uint64); ok {
+				result = append(result, bn)
+			}
+		}
+	}
+	return result
+}
+
 func TestFlumeAPI(t *testing.T) {
 	db, err := connectToDatabase()
 	if err != nil {
@@ -285,7 +316,6 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
 		}
 		for i, tx := range actual.Items {
-
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -295,7 +325,7 @@ func TestFlumeAPI(t *testing.T) {
 					if k == "timestamp" {
 						continue
 					} else {
-						t.Fatalf("getTransactionsByParticipant error index %v, key %v", i, k)
+						t.Errorf("getTransactionsByParticipant error index %v, key %v, value %v != %v", i, k, string(participantTxns[i][k]), string(data))
 					}
 				}
 			}

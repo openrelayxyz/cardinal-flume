@@ -297,6 +297,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			if err := txRows.Err(); err != nil {
 				return nil, err
 			}
+			log.Error("this is the list", "len", len(txs))
 			fields["transactions"] = txs
 		}
 		if len(baseFee) > 0 {
@@ -601,7 +602,7 @@ func returnSingleReceipt(txs []map[string]interface{}) map[string]interface{} {
 }
 
 func getFlumeTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	return getFlumeTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
@@ -611,7 +612,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		return nil, err
 	}
 	defer rows.Close()
-	var results []map[string]interface{}
+	var results sortTxMap
 	for rows.Next() {
 		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
 		var nonce, gasLimit, blockNumber, gasPrice, time, txIndex, v uint64
@@ -704,12 +705,12 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 			}
 		}
 	}
-
+	sort.Sort(results)
 	return results, nil
 }
 
 func getFlumeTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	logsQuery := fmt.Sprintf(`
 		SELECT transactionHash, block, address, topic0, topic1, topic2, topic3, data, logIndex
 		FROM event_logs
@@ -777,7 +778,7 @@ func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, l
 		return nil, err
 	}
 	defer rows.Close()
-	results := []map[string]interface{}{}
+	results := sortTxMap{}
 	for rows.Next() {
 		var to, from, blockHash, txHash, contractAddress, bloomBytes []byte
 		var blockNumber, txIndex, time, gasUsed, cumulativeGasUsed, status, gasPrice uint64
@@ -842,6 +843,7 @@ func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, l
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	sort.Sort(results)
 	return results, nil
 }
 
