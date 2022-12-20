@@ -225,7 +225,7 @@ func TestBlockAPI(t *testing.T) {
 			}
 			var txSlice []map[string]interface{}
 			json.Unmarshal(blockObject[i]["transactions"], &txSlice)
-			if actual != hexutil.Uint64(len(txSlice)) {
+			if *actual != hexutil.Uint64(len(txSlice)) {
 				t.Fatalf("transaction count by block %v %v", actual, hexutil.Uint64(len(txSlice)))
 			}
 		})
@@ -237,7 +237,7 @@ func TestBlockAPI(t *testing.T) {
 			}
 			var uncleSlice []types.Hash
 			json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
-			if actual != hexutil.Uint64(len(uncleSlice)) {
+			if *actual != hexutil.Uint64(len(uncleSlice)) {
 				t.Fatalf("uncle count by block %v %v", actual, hexutil.Uint64(len(uncleSlice)))
 			}
 		})
@@ -284,7 +284,7 @@ func TestBlockAPI(t *testing.T) {
 				}
 				var txSlice []map[string]interface{}
 				json.Unmarshal(blockObject[i]["transactions"], &txSlice)
-				if actual != hexutil.Uint64(len(txSlice)) {
+				if *actual != hexutil.Uint64(len(txSlice)) {
 					t.Fatalf("transaction count by hash %v %v", actual, hexutil.Uint64(len(txSlice)))
 				}
 			})
@@ -296,7 +296,7 @@ func TestBlockAPI(t *testing.T) {
 				}
 				var uncleSlice []types.Hash
 				json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
-				if actual != hexutil.Uint64(len(uncleSlice)) {
+				if *actual != hexutil.Uint64(len(uncleSlice)) {
 					t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))
 				}
 			})

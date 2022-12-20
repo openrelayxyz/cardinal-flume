@@ -172,7 +172,7 @@ func TestTransactionAPI(t *testing.T) {
 	for sender, nonce := range nonces {
 		t.Run(fmt.Sprintf("GetTransactionCount"), func(t *testing.T) {
 			actual, _ := tx.GetTransactionCount(context.Background(), sender)
-			if actual != nonce {
+			if *actual != nonce {
 				t.Fatalf("GetTransactionCountError %v %v", actual, nonce)
 			}
 		})

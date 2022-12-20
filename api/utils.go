@@ -297,7 +297,6 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			if err := txRows.Err(); err != nil {
 				return nil, err
 			}
-			log.Error("this is the list", "len", len(txs))
 			fields["transactions"] = txs
 		}
 		if len(baseFee) > 0 {

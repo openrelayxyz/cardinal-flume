@@ -181,7 +181,7 @@ var (
 	gtcbnMissMeter = metrics.NewMinorMeter("/flume/gtcbn/miss")
 )
 
-func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber plugins.BlockNumber) (hexutil.Uint64, error) {
+func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber plugins.BlockNumber) (*hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getBlockTransactionCountByNumber sent to flume heavy")
@@ -189,9 +189,9 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		gtcbnMissMeter.Mark(1)
 		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getBlockTransactionCountByNumber", blockNumber)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		return *count, nil
+		return count, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -206,16 +206,16 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 		blockNumber = plugins.BlockNumber(latestBlock)
 	}
 
 	count, err = txCount(ctx, api.db, "block = ?", blockNumber)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return count, nil
+	return &count, nil
 }
 
 var (
