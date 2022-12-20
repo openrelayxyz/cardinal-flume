@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
@@ -86,7 +85,7 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlo
 	var lastNumber, timestamp int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
-		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+		highestBlock, err := heavy.CallHeavy[plugins.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
 			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))

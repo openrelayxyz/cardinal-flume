@@ -8,13 +8,11 @@ import (
 	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
-	// "reflect"
 )
 
 func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[types.Hash][]map[string]json.RawMessage {
@@ -34,13 +32,13 @@ func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMes
 	return result
 }
 
-func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[vm.BlockNumber][]map[string]json.RawMessage {
+func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[plugins.BlockNumber][]map[string]json.RawMessage {
 	bkNumbers := getBlockNumbers(jsonBlockObject)
-	result := map[vm.BlockNumber][]map[string]json.RawMessage{}
+	result := map[plugins.BlockNumber][]map[string]json.RawMessage{}
 	for _, number := range bkNumbers {
 		receipts := []map[string]json.RawMessage{}
 		for _, receipt := range jsonReceiptObject {
-			var n vm.BlockNumber
+			var n plugins.BlockNumber
 			json.Unmarshal(receipt["blockNumber"], &n)
 			if number == n {
 				receipts = append(receipts, receipt)

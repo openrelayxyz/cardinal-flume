@@ -6,7 +6,6 @@ import (
 
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
@@ -30,7 +29,7 @@ func TestCallHeavy(t *testing.T) {
 
 	b := NewBlockAPI(db, 1, pl, cfg)
 
-	testBlockNumber := vm.BlockNumber(0)
+	testBlockNumber := plugins.BlockNumber(0)
 
 	testHash := types.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
@@ -73,7 +72,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getBlockTransactionCountByNumber" {
 		t.Fatal("GetBlockTransactionCountByNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
 		t.Fatal("GetBlockTransactionCountByNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 
@@ -95,7 +94,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getUncleCountByBlockNumber" {
 		t.Fatal("GetUncleCountByBlockNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
 		t.Fatal("GetUncleCountByBlockNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 
@@ -144,7 +143,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getTransactionByBlockNumberAndIndex" {
 		t.Fatal("GetTransactionByBlockNumberAndIndex did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
 		t.Fatal("GetTransactionByBlockNumberAndIndex did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[1].(hexutil.Uint64) != testUint64 {
@@ -209,7 +208,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(DecimalOrHex) != blockCount {
 		t.Fatal("FeeHistory did not return expected parameter blockCount, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[1].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[1].(plugins.BlockNumber) != testBlockNumber {
 		t.Fatal("FeeHistory did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 	for i, p := range err.(*heavy.MockError).Params[2].([]float64) {
@@ -322,38 +321,38 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "flume_getTransactionReceiptsByBlockNumber" {
 		t.Fatal("GetTransactionReceiptsByBlockNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(vm.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
 		t.Fatal("GetTransactionReceiptsByBlockNumber did not return expected parameter BlockNumber, heavy test", "err", err.Error())
 	}
 
 	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
 
-	_, err = ft.GetERC20ByAccount(context.Background(), testAddress, 1)
+	_, err = ft.Erc20ByAccount(context.Background(), testAddress, 1)
 	if err == nil {
-		t.Fatal("GetERC20ByAccount did not return expected error, heavy test", "err", err.Error())
+		t.Fatal("Erc20ByAccount did not return expected error, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Method != "flume_getERC20ByAccount" {
-		t.Fatal("GetERC20ByAccount did not return expected method name, heavy test", "err", err.Error())
+	if err.(*heavy.MockError).Method != "flume_erc20ByAccount" {
+		t.Fatal("Erc20ByAccount did not return expected method name, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
-		t.Fatal("GetERC20ByAccount did not return expected parameter address, heavy test", "err", err.Error())
+		t.Fatal("Erc20ByAccount did not return expected parameter address, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[1].(int) != 1 {
-		t.Fatal("GetERC20ByAccount did not return expected parameter offset, heavy test", "err", err.Error())
+		t.Fatal("Erc20ByAccount did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = ft.GetERC20Holders(context.Background(), testAddress, 1)
+	_, err = ft.Erc20Holders(context.Background(), testAddress, 1)
 	if err == nil {
-		t.Fatal("GetERC20Holders did not return expected error, heavy test", "err", err.Error())
+		t.Fatal("Erc20Holders did not return expected error, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Method != "flume_getERC20Holders" {
-		t.Fatal("GetERC20ByAccount did not return expected method name, heavy test", "err", err.Error())
+	if err.(*heavy.MockError).Method != "flume_erc20Holders" {
+		t.Fatal("Erc20ByAccount did not return expected method name, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
-		t.Fatal("GetERC20Holders did not return expected parameter address, heavy test", "err", err.Error())
+		t.Fatal("Erc20Holders did not return expected parameter address, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[1].(int) != 1 {
-		t.Fatal("GetERC20Holders did not return expected parameter offset, heavy test", "err", err.Error())
+		t.Fatal("Erc20Holders did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
 	cfg.EarliestBlock = 14000022

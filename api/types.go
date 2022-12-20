@@ -12,7 +12,6 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
@@ -200,8 +199,8 @@ func (args FilterQuery) MarshalJSON() ([]byte, error) {
 func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 	type input struct {
 		BlockHash *types.Hash     `json:"blockHash"`
-		FromBlock *vm.BlockNumber `json:"fromBlock"`
-		ToBlock   *vm.BlockNumber `json:"toBlock"`
+		FromBlock *plugins.BlockNumber `json:"fromBlock"`
+		ToBlock   *plugins.BlockNumber `json:"toBlock"`
 		Addresses interface{}      `json:"address"`
 		Topics    []interface{}    `json:"topics"`
 	}

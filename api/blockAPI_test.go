@@ -16,7 +16,6 @@ import (
 	"testing"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -123,10 +122,10 @@ func receiptsDecompress() ([]map[string]json.RawMessage, error) {
 	return receiptsObject, nil
 }
 
-func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []vm.BlockNumber {
-	result := []vm.BlockNumber{}
+func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []plugins.BlockNumber {
+	result := []plugins.BlockNumber{}
 	for _, block := range jsonBlockObject {
-		var x vm.BlockNumber
+		var x plugins.BlockNumber
 		json.Unmarshal(block["number"], &x)
 		result = append(result, x)
 	}

@@ -19,7 +19,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-flume/api"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/indexer"
@@ -324,12 +323,12 @@ func TestPolygonApi(t *testing.T) {
 
 	firstBlock, _ := blockNumbers[0].Number()
 
-	var passThroughBlocks []vm.BlockNumber
+	var passThroughBlocks []plugins.BlockNumber
 
 	for i, block := range blockNumbers {
 		currentBlock, _ := block.Number()
 		if currentBlock%64 == 0 {
-			passThroughBlocks = append(passThroughBlocks, vm.BlockNumber(currentBlock))
+			passThroughBlocks = append(passThroughBlocks, plugins.BlockNumber(currentBlock))
 		}
 
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlock %v", i), func(t *testing.T) {

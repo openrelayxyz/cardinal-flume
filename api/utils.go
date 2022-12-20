@@ -10,10 +10,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -27,8 +27,8 @@ import (
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
-	case vm.BlockNumber:
-		if uint64(input.(vm.BlockNumber).Int64()) < cfg.EarliestBlock {
+	case plugins.BlockNumber:
+		if uint64(input.(plugins.BlockNumber).Int64()) < cfg.EarliestBlock {
 			present = false
 			return present
 		}

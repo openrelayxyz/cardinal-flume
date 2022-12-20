@@ -30,12 +30,12 @@ func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 	}
 }
 
-func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("flume_getERC20ByAccount sent to flume heavy by default")
+		log.Debug("flume_erc20ByAccount sent to flume heavy by default")
 		missMeter.Mark(1)
-		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20ByAccount", addr, offset)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_erc20ByAccount", addr, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -73,12 +73,12 @@ func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Ad
 	return &result, nil
 }
 
-func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("flume_getERC20Holders sent to flume heavy by default")
+		log.Debug("flume_erc20Holders sent to flume heavy by default")
 		missMeter.Mark(1)
-		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20Holders", addr, offset)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_erc20Holders", addr, offset)
 		if err != nil {
 			return nil, err
 		}

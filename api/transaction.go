@@ -6,7 +6,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -127,7 +126,7 @@ var (
 	gtbniMissMeter = metrics.NewMinorMeter("/flume/gtbni/miss")
 )
 
-func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber vm.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
+func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber plugins.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
@@ -151,7 +150,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = vm.BlockNumber(latestBlock)
+		blockNumber = plugins.BlockNumber(latestBlock)
 	}
 
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
