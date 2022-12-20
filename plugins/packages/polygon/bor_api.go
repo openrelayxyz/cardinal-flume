@@ -244,7 +244,29 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 
 }
 
+var (
+	bgshHitMeter  = metrics.NewMinorMeter("/flume/polygon/bgrh/hit")
+	bgshMissMeter = metrics.NewMinorMeter("/flume/polygon/bgrh/miss")
+)
+
 func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]common.Address, error) {
+
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNrOrHash, service.cfg, service.db) {
+		log.Debug("bor_getSignersAtHash sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgshMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[[]common.Address](ctx, service.cfg.HeavyServer, "bor_getSignersAtHash", blockNrOrHash)
+		if err != nil {
+			return nil, err
+		}
+		return *response, nil
+	}
+
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getSignersAtHash served from flume light")
+		polygonHitMeter.Mark(1)
+		bgshHitMeter.Mark(1)
+	}
 
 	var result []common.Address
 
