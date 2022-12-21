@@ -10,10 +10,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -27,8 +27,8 @@ import (
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
-	case vm.BlockNumber:
-		if uint64(input.(vm.BlockNumber).Int64()) < cfg.EarliestBlock {
+	case plugins.BlockNumber:
+		if uint64(input.(plugins.BlockNumber).Int64()) < cfg.EarliestBlock {
 			present = false
 			return present
 		}
@@ -297,7 +297,6 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			if err := txRows.Err(); err != nil {
 				return nil, err
 			}
-			log.Error("this is the list", "len", len(txs))
 			fields["transactions"] = txs
 		}
 		if len(baseFee) > 0 {
@@ -538,7 +537,7 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 		FROM event_logs
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, transactions.block
-			FROM transactions.transactions INNER JOIN blocks.blocks ON event_logs.block = blocks.number
+			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
 			WHERE %v
 		);`, whereClause)
 	return getTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
@@ -558,21 +557,20 @@ func getTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, limit 
 }
 
 func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address) (hexutil.Uint64, error) {
-	var count uint64
-	var nonce sql.NullInt64
-	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
+	var count, nonce sql.NullInt64
+	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
 		return 0, err
 	}
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM mempool.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&nonce); err != nil {
 		return 0, err
 	}
 	if !nonce.Valid {
-		return hexutil.Uint64(count), nil
+		return hexutil.Uint64(count.Int64), nil
 	}
-	if uint64(nonce.Int64) > count {
+	if nonce.Int64 > count.Int64 {
 		return hexutil.Uint64(nonce.Int64), nil
 	}
-	return hexutil.Uint64(count), nil
+	return hexutil.Uint64(count.Int64), nil
 }
 
 func returnSingleTransaction(txs []map[string]interface{}) map[string]interface{} {
@@ -602,7 +600,7 @@ func returnSingleReceipt(txs []map[string]interface{}) map[string]interface{} {
 }
 
 func getFlumeTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	return getFlumeTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
@@ -612,7 +610,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		return nil, err
 	}
 	defer rows.Close()
-	var results []map[string]interface{}
+	var results sortTxMap
 	for rows.Next() {
 		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
 		var nonce, gasLimit, blockNumber, gasPrice, time, txIndex, v uint64
@@ -705,25 +703,25 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 			}
 		}
 	}
-
+	sort.Sort(results)
 	return results, nil
 }
 
 func getFlumeTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	logsQuery := fmt.Sprintf(`
 		SELECT transactionHash, block, address, topic0, topic1, topic2, topic3, data, logIndex
 		FROM event_logs
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, transactions.block
-			FROM transactions.transactions INNER JOIN blocks.blocks ON event_logs.block = blocks.number
-			WHERE %v
+			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
+			WHERE %v LIMIT ? OFFSET ?
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 }
 
 func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query, logsQuery string, params ...interface{}) ([]map[string]interface{}, error) {
-	logRows, err := db.QueryContext(ctx, logsQuery, params...)
+	logRows, err := db.QueryContext(ctx, logsQuery, append(params, limit, offset)...)
 	if err != nil {
 		log.Error("Error selecting logs", "query", query, "err", err.Error())
 		return nil, err
@@ -778,7 +776,7 @@ func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, l
 		return nil, err
 	}
 	defer rows.Close()
-	results := []map[string]interface{}{}
+	results := sortTxMap{}
 	for rows.Next() {
 		var to, from, blockHash, txHash, contractAddress, bloomBytes []byte
 		var blockNumber, txIndex, time, gasUsed, cumulativeGasUsed, status, gasPrice uint64
@@ -843,6 +841,7 @@ func getFlumeTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, l
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	sort.Sort(results)
 	return results, nil
 }
 
@@ -854,7 +853,7 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 		WHERE (transactionHash, block) IN (
 			SELECT transactions.hash, block
 			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
-			WHERE %v
+			WHERE %v LIMIT ? OFFSET ?
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 

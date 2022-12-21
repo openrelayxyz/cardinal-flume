@@ -8,8 +8,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	// "github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -252,7 +250,7 @@ var (
 	gtrbnMissMeter = metrics.NewMinorMeter("/flume/gtrbn/miss")
 )
 
-func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber vm.BlockNumber) ([]map[string]interface{}, error) {
+func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber plugins.BlockNumber) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("flume_getTransactionReceiptsByBlockNumber sent to flume heavy")
@@ -277,7 +275,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = vm.BlockNumber(latestBlock)
+		blockNumber = plugins.BlockNumber(latestBlock)
 	}
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber.Int64()))

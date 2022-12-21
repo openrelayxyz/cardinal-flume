@@ -122,6 +122,26 @@ func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool
 			present = false
 			return present
 		}
+	case plugins.BlockNumberOrHash:
+		bNumOrHsh := input.(plugins.BlockNumberOrHash)
+		blockNumber, numOk := bNumOrHsh.Number()
+		blockHash, hshOk := bNumOrHsh.Hash()
+
+		if numOk{
+			if uint64(blockNumber) < cfg.EarliestBlock {
+				present = false
+				return present
+			}
+		}
+		if hshOk{
+			var response int
+			statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+			db.QueryRow(statement, plugins.TrimPrefix(blockHash.Bytes())).Scan(&response)
+			if response == 0 {
+				present = false
+				return present
+			}
+		}
 	}
 	return present
 }

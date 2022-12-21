@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -173,7 +172,7 @@ var (
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 
-func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock vm.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
+func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock plugins.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	defer eh.HandleErr(&err)
 
 	if blockCount > 128 {
@@ -187,7 +186,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		if err != nil {
 			return nil, err
 		}
-		lastBlock = vm.BlockNumber(latestBlock)
+		lastBlock = plugins.BlockNumber(latestBlock)
 	}
 
 	earliestBlockInCall := (int64(lastBlock) - int64(blockCount) + 1)
@@ -196,7 +195,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		log.Debug("eth_feeHistory sent to flume heavy")
 		missMeter.Mark(1)
 		gfhMissMeter.Mark(1)
-		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, vm.BlockNumber(earliestBlockInCall), rewardPercentiles)
+		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, plugins.BlockNumber(earliestBlockInCall), rewardPercentiles)
 		if err != nil {
 			return nil, err
 		}
