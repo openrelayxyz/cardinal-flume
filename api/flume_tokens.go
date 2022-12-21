@@ -31,11 +31,11 @@ func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 }
 
 func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
-
-	if offset == nil {
-		*offset = 0
-	}
 	
+	if offset == nil {
+		offset = new(int)
+	}
+
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_erc20ByAccount sent to flume heavy by default")
 		missMeter.Mark(1)
@@ -80,7 +80,7 @@ func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Addre
 func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
 	
 	if offset == nil {
-		*offset = 0
+		offset = new(int)
 	}
 	
 	if len(api.cfg.HeavyServer) > 0 {

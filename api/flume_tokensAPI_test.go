@@ -49,7 +49,7 @@ func TestERCMethods(t *testing.T) {
 	address := "0xdac17f958d2ee523a2206206994597c13d831ec7"
 
 	t.Run(fmt.Sprintf("Erc20Holders"), func(t *testing.T) {
-		actual, _ := ft.Erc20Holders(context.Background(), common.HexToAddress(address), 0)
+		actual, _ := ft.Erc20Holders(context.Background(), common.HexToAddress(address), nil)
 		for i, addr := range actual.Items {
 			if addr != data[0][i] {
 				t.Fatalf("Erc20Holders error")
@@ -57,7 +57,7 @@ func TestERCMethods(t *testing.T) {
 		}
 	})
 	t.Run(fmt.Sprintf("Erc20ByAccount"), func(t *testing.T) {
-		actual, _ := ft.Erc20ByAccount(context.Background(), common.HexToAddress(address), 0)
+		actual, _ := ft.Erc20ByAccount(context.Background(), common.HexToAddress(address), nil)
 		for i, addr := range actual.Items {
 			if addr != data[1][i] {
 				t.Fatalf("Erc20ByAccount error")

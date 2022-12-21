@@ -326,8 +326,11 @@ func TestCallHeavy(t *testing.T) {
 	}
 
 	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
+	var offset *int
+	offset = new(int)
+	*offset = 1
 
-	_, err = ft.Erc20ByAccount(context.Background(), testAddress, 1)
+	_, err = ft.Erc20ByAccount(context.Background(), testAddress, offset)
 	if err == nil {
 		t.Fatal("Erc20ByAccount did not return expected error, heavy test", "err", err.Error())
 	}
@@ -337,11 +340,11 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("Erc20ByAccount did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[1].(int) != 1 {
-		t.Fatal("Erc20ByAccount did not return expected parameter offset, heavy test", "err", err.Error())
+	if err.(*heavy.MockError).Params[1].(*int) != offset {
+		t.Fatal("Erc20ByAccount did not return expected parameter offset, heavy test", "err", err.(*heavy.MockError).Params[1])
 	}
 
-	_, err = ft.Erc20Holders(context.Background(), testAddress, 1)
+	_, err = ft.Erc20Holders(context.Background(), testAddress, offset)
 	if err == nil {
 		t.Fatal("Erc20Holders did not return expected error, heavy test", "err", err.Error())
 	}
@@ -351,7 +354,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("Erc20Holders did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[1].(int) != 1 {
+	if err.(*heavy.MockError).Params[1].(*int) != offset {
 		t.Fatal("Erc20Holders did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
