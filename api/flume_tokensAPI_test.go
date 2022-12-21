@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	_ "net/http/pprof"
 	"testing"
+	"os"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -32,14 +33,18 @@ func tokenDataDecompress() ([][]common.Address, error) {
 }
 
 func TestERCMethods(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestFlumeTokensAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
 	ft := NewFlumeTokensAPI(db, 1, pl, cfg)

@@ -241,6 +241,11 @@ func TestPolygonApi(t *testing.T) {
 	}
 	db, _ := connectToDatabase(cfg)
 	defer db.Close()
+	for _, path := range cfg.Databases {
+		defer os.Remove(path)
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
+	}
 	if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -690,11 +695,5 @@ func TestPolygonApi(t *testing.T) {
 				}
 			}
 		})
-	}
-
-	for _, path := range cfg.Databases {
-		os.Remove(path)
-		os.Remove(path + "-wal")
-		os.Remove(path + "-shm")
 	}
 }

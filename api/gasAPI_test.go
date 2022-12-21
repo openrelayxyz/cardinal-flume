@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"os"
 
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -37,14 +38,18 @@ func getRewardsList(jsonObject json.RawMessage) []json.RawMessage {
 }
 
 func TestGasAPI(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestGasAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
 	g := NewGasAPI(db, 1, pl, cfg)

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -17,14 +18,18 @@ import (
 
 func TestLogsAPI(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestLogsAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
 	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
 	pl, _ := plugins.NewPluginLoader(cfg)
 	l := NewLogsAPI(db, 1, pl, cfg)
