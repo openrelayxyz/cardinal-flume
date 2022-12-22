@@ -72,9 +72,9 @@ func TestBlockIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	defer controlDB.Close()
 	defer os.Remove(test_dbs["control"] + "-wal")
 	defer os.Remove(test_dbs["control"] + "-shm")
+	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE blocks (
 				number      BIGINT PRIMARY KEY,
 				hash        varchar(32) UNIQUE,

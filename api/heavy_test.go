@@ -24,11 +24,11 @@ func TestCallHeavy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	cfg.EarliestBlock = 1
 	pl, _ := plugins.NewPluginLoader(cfg)
 

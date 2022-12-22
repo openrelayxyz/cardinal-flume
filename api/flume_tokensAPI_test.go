@@ -41,11 +41,11 @@ func TestERCMethods(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
 

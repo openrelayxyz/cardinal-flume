@@ -18,9 +18,9 @@ func TestLogIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	defer controlDB.Close()
 	defer os.Remove(test_dbs["control"] + "-wal")
 	defer os.Remove(test_dbs["control"] + "-shm")
+	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE event_logs (
 				address varchar(20),
 				topic0 varchar(32),

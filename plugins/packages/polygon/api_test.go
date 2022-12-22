@@ -240,12 +240,12 @@ func TestPolygonApi(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	db, _ := connectToDatabase(cfg)
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path)
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	if err := migrations.MigrateBlocks(db, cfg.Chainid); err != nil {
 		t.Fatalf(err.Error())
 	}

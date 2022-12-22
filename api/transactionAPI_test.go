@@ -88,11 +88,11 @@ func TestTransactionAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	tx := NewTransactionAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()

@@ -26,11 +26,11 @@ func TestLogsAPI(t *testing.T) {
 	if err != nil {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	l := NewLogsAPI(db, 1, pl, cfg)
 

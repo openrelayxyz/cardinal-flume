@@ -145,11 +145,11 @@ func TestBlockNumber(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
@@ -171,11 +171,11 @@ func TestBlockAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
 	for _, path := range cfg.Databases {
 		defer os.Remove(path + "-wal")
 		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
