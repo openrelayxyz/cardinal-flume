@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"testing"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	_ "github.com/mattn/go-sqlite3"
@@ -18,6 +19,8 @@ func TestLogIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	defer controlDB.Close()
+	defer os.Remove(test_dbs["control"] + "-wal")
+	defer os.Remove(test_dbs["control"] + "-shm")
 	_, err = controlDB.Exec(`CREATE TABLE event_logs (
 				address varchar(20),
 				topic0 varchar(32),

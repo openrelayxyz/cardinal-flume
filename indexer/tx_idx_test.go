@@ -38,8 +38,10 @@ func TestTransactionIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	defer os.Remove("../testing-resources/test.sqlite")
 	defer controlDB.Close()
+	defer os.Remove(test_dbs["control"] + "-wal")
+	defer os.Remove(test_dbs["control"] + "-shm")
+	defer os.Remove("../testing-resources/test.sqlite")
 	_, err = controlDB.Exec(`CREATE TABLE transactions.transactions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				gas BIGINT,

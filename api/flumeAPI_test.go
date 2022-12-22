@@ -173,7 +173,10 @@ func TestFlumeAPI(t *testing.T) {
 	for i, hash := range bkHashes {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
-			for j := range actual {
+			for j, receipt := range actual {
+				if len(receipt) != len(receiptsByHash[hash][j]) + 1{
+					t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
+				}
 				for k, v := range actual[j] {
 					data, err := json.Marshal(v)
 					if err != nil {
@@ -191,9 +194,12 @@ func TestFlumeAPI(t *testing.T) {
 		})
 	}
 	for i, number := range bkNumbers {
-		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber%v", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
-			for j := range actual {
+			for j, receipt := range actual {
+				if len(receipt) != len(receiptsByBlock[number][j]) + 1 {
+					t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
+				}
 				for k, v := range actual[j] {
 					data, err := json.Marshal(v)
 					if err != nil {
@@ -218,9 +224,12 @@ func TestFlumeAPI(t *testing.T) {
 	t.Run(fmt.Sprintf("GetTransactionsBySender"), func(t *testing.T) {
 		actual, _ := f.GetTransactionsBySender(context.Background(), sender, nil)
 		if len(actual.Items) != len(senderTxns) {
-			t.Fatalf("getTransactionsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderTxns))
+			t.Fatalf("length error getTransactionsBySender on address %v", sender)
 		}
 		for i, tx := range actual.Items {
+			if len(tx) != len(senderTxns[i]) + 1 {
+				t.Fatalf("length error getTransactionsBySender on address %v, tx %v", sender, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -246,6 +255,9 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderReceipts))
 		}
 		for i, tx := range actual.Items {
+			if len(tx) != len(senderReceipts[i]) + 1 {
+				t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -272,7 +284,9 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientTxns))
 		}
 		for i, tx := range actual.Items {
-
+			if len(tx) != len(recipientTxns[i])  + 1 {
+				t.Fatalf("length error getTransactionsByRecipient on address %v, tx %v", recipient, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -298,6 +312,9 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientReceipts))
 		}
 		for i, tx := range actual.Items {
+			if len(tx) != len(recipientReceipts[i]) + 1 {
+				t.Fatalf("length error getTransactionReceiptsByRecipient on address %v, reciept %v", recipient, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -321,6 +338,9 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
 		}
 		for i, tx := range actual.Items {
+			if len(tx) != len(participantTxns[i]) + 1 {
+				t.Fatalf("length error getTransactionsByParticipant on address %v, tx %v", participant, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -343,6 +363,9 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantReceipts))
 		}
 		for i, tx := range actual.Items {
+			if len(tx) != len(participantReceipts[i]) + 1 {
+				t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
+			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
