@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
@@ -14,6 +13,7 @@ import (
 	"io/ioutil"
 	_ "net/http/pprof"
 	"path/filepath"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
@@ -71,6 +71,9 @@ func TestBlockIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+
+	defer os.Remove(test_dbs["control"] + "-wal")
+	defer os.Remove(test_dbs["control"] + "-shm")
 	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE blocks (
 				number      BIGINT PRIMARY KEY,

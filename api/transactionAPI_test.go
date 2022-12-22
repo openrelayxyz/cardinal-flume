@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -79,15 +80,19 @@ func removeDuplicateValues(addressSlice []common.Address) []common.Address {
 }
 
 func TestTransactionAPI(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestTransactionAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	tx := NewTransactionAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
@@ -102,6 +107,9 @@ func TestTransactionAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
+			if len(*actual) != len(transactions[i]) {
+				t.Fatalf("length error GetTransactionByHash on hash %v", hash)
+			}
 			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -114,6 +122,9 @@ func TestTransactionAPI(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
 			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
+			if len(*actual) != len(receiptsMap[i]) {
+				t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
+			}
 			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -132,6 +143,9 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["hash"], &h)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
+				if len(*actual) != len(transactionLists[i][j]) {
+					t.Fatalf("length error GetTransactionByBlockHashAndIndex on blockHash %v, index %v", h, j)
+				}
 				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {
@@ -148,6 +162,9 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["number"], &n)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
+				if len(*actual) != len(transactionLists[i][j]) {
+					t.Fatalf("length error GetTransactionByBlockNumberAndIndex on blockNumber %v, index %v", n, j)
+				}
 				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {

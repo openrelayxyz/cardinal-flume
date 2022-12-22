@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"testing"
+	"os"
 
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -15,15 +16,19 @@ import (
 )
 
 func TestCallHeavy(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/heavy_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestCallHeavy", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/heavy_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config in heavy test", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	cfg.EarliestBlock = 1
 	pl, _ := plugins.NewPluginLoader(cfg)
 

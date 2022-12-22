@@ -26,13 +26,7 @@ import (
 
 var register sync.Once
 
-func connectToDatabase() (*sql.DB, error) {
-
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		log.Error("Error parsing config", "err", err.Error())
-		os.Exit(1)
-	}
+func connectToDatabase(cfg *config.Config) (*sql.DB, error) {
 
 	register.Do(func() {
 		sql.Register("sqlite3_hooked",
@@ -143,15 +137,19 @@ func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []types.Hash {
 }
 
 func TestBlockNumber(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestBlockNumber", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
 	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
@@ -165,15 +163,19 @@ func TestBlockNumber(t *testing.T) {
 }
 
 func TestBlockAPI(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestBlockApi", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
@@ -181,6 +183,9 @@ func TestBlockAPI(t *testing.T) {
 	for i, block := range blockNumbers {
 		t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
 			actual, err := b.GetBlockByNumber(context.Background(), block, true)
+			if len(*actual) != len(blockObject[i]) {
+				t.Fatalf("length error GetBlockByNumber on blockNumber %v", block)
+			}
 			if err != nil {
 				t.Fatal(err.Error())
 			}
@@ -190,13 +195,16 @@ func TestBlockAPI(t *testing.T) {
 					var blockTxs []map[string]json.RawMessage
 					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 					for j, item := range txs {
+						if len(item) != len(blockTxs[j]) {
+							t.Fatalf("length error GetBlockByNumber, transactions, on blockNumber %v, transaction %v", block, j)
+						}
 						for key, value := range item {
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("didnt work")
+								t.Fatalf("error in getBlockByNumber, transactions on block %v, txn %v", block, j)
 							}
 
 						}
@@ -248,12 +256,18 @@ func TestBlockAPI(t *testing.T) {
 				if err != nil {
 					t.Fatal(err.Error())
 				}
+				if len(*actual) != len(blockObject[i]) {
+					t.Fatalf("length error GetBlockByHash on hash %v", hash)
+				}
 				for k, v := range *actual {
 					if k == "transactions" {
 						txs := v.([]map[string]interface{})
 						var blockTxs []map[string]json.RawMessage
 						json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 						for j, item := range txs {
+							if len(item) != len(blockTxs[j]) {
+								t.Fatalf("length error GetBlockByHash, transactions, on hash %v, transaction %v", hash, j)
+							}
 							for key, value := range item {
 								d, err := json.Marshal(value)
 								if err != nil {

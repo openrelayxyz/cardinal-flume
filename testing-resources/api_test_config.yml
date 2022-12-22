@@ -7,8 +7,4 @@ databases:
   transactions: ../testing-resources/transactions.sqlite
   logs: ../testing-resources/logs.sqlite
   mempool: ../testing-resources/mempool.sqlite
-  bor: ../testing-resources/bor.sqlite
-pluginPath: ../testing-resources/
-plugins:
-  []
-heavyserver:
+
