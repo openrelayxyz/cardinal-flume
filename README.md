@@ -1,3 +1,9 @@
+## About 
+
+inject language around rivet.cloud links
+
+Our mission is to make ETH nodes operationally manageable. Cardinal-flume was initially designed to organize Ethereum log data and make it more accessible than a conventional Ethereum node. Over time the project has grown and now indexes block and transaction data as well. Indexed data is stored in SQLite relational databases. The data is exposed through several API's written to serve a subset of the ETH namespace as well as some custom RPC methods. 
+
 # Building and running a cardinal-flume service. 
 
 For the purposes of this document it is assumed that the user has installed go version 1.18 or later. Also cardianl-flume will require access to a synced and healthy [Plugeth](https://github.com/openrelayxyz/plugeth) master with the [blockupdates](https://github.com/openrelayxyz/plugeth-plugins/tree/master/packages/blockupdates), [cardinal producer](https://github.com/openrelayxyz/cardinal-evm/tree/master/plugins/producer), and [cardinal merge](https://github.com/openrelayxyz/cardinal-evm/tree/master/plugins/merge) plugins loaded and a websocket port open on 8555. 
@@ -95,10 +101,12 @@ Due to their considerable combined size cardinal-flume databases can be resource
 
 Throughout cardinal-flume there is logic which routes requests to the appropriate instance according to what data is requred to serve them. The location of the heavy instance is provided in the heavyserver field of the config. 
 
-If no heavyserver address is provided in the config then cardinal-flume will default to heavy behavior and all archive data will be required to serve all potential requests. 
+If no heavyserver address is provided in the config then cardinal-flume will default to heavy behavior and all archive data will be required to serve all potential requests.
+
+The idea is to deploy light servers on an as needed basis to handle the majority of requests and take pressure off of the heavy servers. The light servers are meant to begin syncing from current the moment they are turned on and continue syncing until they are not longer neccesary and can be discarded. 
 
 
-A version of this more complete implemnetation of the config could look like this:
+A version of this more complete implementation of the config could look like this:
 
 ```yml
 networkName: mainnet
@@ -113,9 +121,9 @@ databases:
   transactions: /path/to/directory/transactions.sqlite
   logs: /path/to/directory/logs.sqlite
   mempool: /path/to/directory/mempool.sqlite
-port: 9000
-minSafeBlock: 27000000
-pluginPath: /path/to/plugin-directory
+port: port
+minSafeBlock: *current block*
+pluginPath: /path/to/plugin-directory/
 plugins:
   ['myPlugin','anotherPlugin']
 heavyserver:
@@ -141,3 +149,23 @@ Once synced cardinal-flume will begin serving requests. In some cases, such as w
 #### --genesisIndex
 
 This flag must be provided if starting cardinal-flume for the first time with the intention of indexing a network from the genesis block. If this flag is not present, starting the service with empty databases will cause cardianl-flume to begin syncing from the most recent blocks (which is the typical behavior of a light instance).
+
+## Supported RPC Methods
+
+#### Extented Flume Namespace RPC Methods
+
+
+-`flume_getTransactionReceiptsByBlockNumber` -Takes a hex incoded block number as an argument.
+-`flume_getTransactionReceiptsByBlockHash` -Takes a block hash as an argument. 
+
+
+-`flume_getTransactionsBySender` 
+-`flume_getTransactionReceiptsBySender`
+-`flume_getTransactionsByRecipient`
+-`flume_getTransactionReceiptsByRecipient`
+-`flume_getTransactionsByParticipant`
+-`flume_getTransactionReceiptsByParticipant` - All Take an address and an optional offset as arguments. 
+
+#### ETH Methods
+
+
