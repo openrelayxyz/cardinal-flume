@@ -91,7 +91,7 @@ Then this would be the Plugins list in the config: [`'myPlugin'`, `'anotherPlugi
 
 #### heavyserver
 
-Due to their considerable combined size cardinal-flume databases can be resource intensive to maintain. The cardinal-flume project was designed with idea of serving archive log data. As the project has grown other types of rpc requests have been implemented. Some of the most common requests do not require historic data. And so, it is possible to run cardinal-flume in a light and heavy configuration. That is: a heavy istance of the service is attached to and syncing full archive databases while another (or multiple) light instance is attached to smaller databases with only the most recent data available. 
+Due to their considerable combined size cardinal-flume databases can be resource intensive to maintain. The cardinal-flume project was designed with idea of serving archive log data. As the project has grown other APIs have been developed to serve a variety of other requests. Some of the most common requests do not require historic data. And so, it is possible to run cardinal-flume in a light and heavy configuration. That is: a heavy instance of the service is attached to and syncing full archive databases while another (or multiple) light instance is attached to smaller databases with only the most recent data available. 
 
 Throughout cardinal-flume there is logic which routes requests to the appropriate instance according to what data is requred to serve them. The location of the heavy instance is provided in the heavyserver field of the config. 
 
