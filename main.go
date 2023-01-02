@@ -201,9 +201,11 @@ func main() {
 		log.Error("error establishing consumer", "err", err.Error())
 	}
 
-	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
+	hc := &indexer.HealthCheck{}
+	indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.RegisterHealthCheck(hc)
 	tm.AddHTTPServer(cfg.Port)
 
 	pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
