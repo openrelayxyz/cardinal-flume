@@ -190,7 +190,7 @@ func LoadConfig(fname string) (*Config, error) {
 			cfg.Brokers[i].ReceiptTopic = fmt.Sprintf("%v-receipt", cfg.Brokers[i].DefaultTopic)
 		}
 		if cfg.Brokers[i].Rollback == 0 {
-			cfg.Brokers[i].Rollback = 5000
+			cfg.Brokers[i].Rollback = 500
 		}
 		cfg.BrokerParams[i] = transports.BrokerParams{
 			URL:          cfg.Brokers[i].URL,
