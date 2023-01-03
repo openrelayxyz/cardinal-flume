@@ -40,7 +40,7 @@ func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption s
 	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, tp, nil)
 }
 
-func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool, pl *plugins.PluginLoader) (streamsTransports.Consumer, error) {
+func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool, pl *plugins.PluginLoader) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
 	var err error
