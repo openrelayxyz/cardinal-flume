@@ -167,24 +167,24 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		log.Error("Error getting recents get_snapshot()", "err", err.Error())
 	}
 
-	mod := blockNumber % 64
+	mod := blockNumber % 16
 
 	switch mod {
 	case 0:
 		snap := &Snapshot{}
 		snap, err = service.fetchSnapshot(ctx, blockNumber)
 		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot(), mod 64 == 0 case", "err", err.Error())
+			log.Error("Error fetching snapshot get_snapshot(), mod 16 == 0 case", "err", err.Error())
 			return nil, err
 		}
 		return snap, nil
 
-	case 63:
+	case 15:
 		snap := &Snapshot{}
 		subsequentSnapshot := blockNumber + 1
 		snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
 		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot() mod 64 == 0 63 case", "err", err.Error())
+			log.Error("Error fetching snapshot get_snapshot() mod 16 == 0 15 case", "err", err.Error())
 			return nil, err
 		}
 		snap.Number = blockNumber
