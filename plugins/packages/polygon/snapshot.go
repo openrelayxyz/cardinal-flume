@@ -167,7 +167,13 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		log.Error("Error getting recents get_snapshot()", "err", err.Error())
 	}
 
-	mod := blockNumber % 64
+	var mod uint64
+
+	if blockNumber < 38189056 {
+		mod = blockNumber % 64
+	} else {
+		mod = blockNumber % 16
+	}
 
 	switch mod {
 	case 0:
@@ -179,7 +185,7 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		}
 		return snap, nil
 
-	case 63:
+	case mod -1 :
 		snap := &Snapshot{}
 		subsequentSnapshot := blockNumber + 1
 		snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
