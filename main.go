@@ -85,6 +85,7 @@ func main() {
 		go p.ListenAndServe()
 	}
 
+	
 	_, hasLogs := cfg.Databases["logs"]
 	if hasLogs {
 		log.Info("has logs", "logs", cfg.Databases["logs"])
@@ -122,18 +123,23 @@ func main() {
 			log.Error(err.Error())
 		}
 	}
-
+	
 	pluginMigrations := pl.Lookup("Migrate", func(v interface{}) bool {
 		_, ok := v.(func(*sql.DB, uint64) error)
 		return ok
 	})
-
+	
 	for _, mgt := range pluginMigrations {
 		fn := mgt.(func(*sql.DB, uint64) error)
 		if err := fn(logsdb, cfg.Chainid); err != nil {
 			log.Error("Unable to migrate from plugin", "err", err.Error())
 		}
 	}
+	
+	var maxBlock int
+	logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&maxBlock)
+	cfg.LatestBlock = uint64(maxBlock)
+	log.Debug("latest block config", "number", cfg.LatestBlock)
 
 	txFeed, err := txfeed.ResolveTransactionFeed(cfg.BrokerParams[0].URL, cfg.TxTopic)
 	if err != nil {
@@ -237,7 +243,7 @@ func main() {
 	<-consumer.Ready()
 	var minBlock int
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks;").Scan(&minBlock)
+	logsdb.QueryRowContext(context.Background(), "SELECT mix(number) FROM blocks.blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
