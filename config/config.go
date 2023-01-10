@@ -65,10 +65,10 @@ type Config struct {
 	BrokerParams    []transports.BrokerParams
 	Statsd          *statsdOpts     `yaml:"statsd"`
 	CloudWatch      *cloudwatchOpts `yaml:"cloudwatch"`
-	HeavyServer   string `yaml:"heavyserver"`
-	EarliestBlock uint64 
-	LatestBlock   uint64
-	BaseFeeDenominator  *big.Int
+	HeavyServer   	string `yaml:"heavyserver"`
+	EarliestBlock 	uint64 
+	LatestBlock   	uint64
+	BaseFeeChangeBlockHeight uint64
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -87,8 +87,6 @@ func LoadConfig(fname string) (*Config, error) {
 	// cfg.BlocksDb = cfg.Databases["transactions"]
 	// cfg.BlocksDb = cfg.Databases["logs"]
 	// cfg.BlocksDb = cfg.Databases["mempool"]
-	
-	cfg.BaseFeeDenominator = big.NewInt(8)
 	
 	switch cfg.Network {
 	case "mainnet":
@@ -119,6 +117,7 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 137
+		cfg.BaseFeeChangeBlockHeight = 38189056
 	case "mumbai":
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
@@ -131,7 +130,11 @@ func LoadConfig(fname string) (*Config, error) {
 		default:
 			err := errors.New("Unrecognized network name")
 			return nil, err
-		}
+	}
+
+	if cfg.BaseFeeChangeBlockHeight == 0 {
+		cfg.BaseFeeChangeBlockHeight = 1000000000
+	}
 		
 		var logLvl log.Lvl
 		switch cfg.LogLevel {
@@ -220,12 +223,18 @@ func LoadConfig(fname string) (*Config, error) {
 	return &cfg, nil
 }
 
+var (
+	preForkDenominator = big.NewInt(8)
+	postForkDenominator = big.NewInt(16)
+  )
 
-func (c *Config) SetBFVal(ctx context.Context, db *sql.DB) error {
-	var latestBlock int64
-	if err := db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&latestBlock); err != nil {return err}
-	if latestBlock >= 38189056 {
-		c.BaseFeeDenominator = big.NewInt(16)
+func (cfg *Config) GetBaseFeeDenominator(db *sql.DB) *big.Int {
+
+	var blockNumber uint64
+	db.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
+
+	if blockNumber > cfg.BaseFeeChangeBlockHeight {
+		return postForkDenominator
 	}
-	return nil
+	return preForkDenominator
 }
