@@ -1,12 +1,16 @@
 package config
 
 import (
+	"database/sql"
+	"context"
 	"errors"
 	"fmt"
-	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-streams/transports"
+	"math/big"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	log "github.com/inconshreveable/log15"
+	
+	"github.com/openrelayxyz/cardinal-streams/transports"
 )
 
 type statsdOpts struct {
@@ -61,9 +65,10 @@ type Config struct {
 	BrokerParams    []transports.BrokerParams
 	Statsd          *statsdOpts     `yaml:"statsd"`
 	CloudWatch      *cloudwatchOpts `yaml:"cloudwatch"`
-	EarliestBlock uint64 
-	LatestBlock   uint64
-	HeavyServer   string `yaml:"heavyserver"`
+	HeavyServer   	string `yaml:"heavyserver"`
+	EarliestBlock 	uint64 
+	LatestBlock   	uint64
+	BaseFeeChangeBlockHeight uint64
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -77,12 +82,12 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 
 	cfg.PluginDir = cfg.PluginDir + "plugins"
-
+	
 	// cfg.BlocksDb = cfg.Databases["blocks"]
 	// cfg.BlocksDb = cfg.Databases["transactions"]
 	// cfg.BlocksDb = cfg.Databases["logs"]
 	// cfg.BlocksDb = cfg.Databases["mempool"]
-
+	
 	switch cfg.Network {
 	case "mainnet":
 		cfg.HomesteadBlock = 1150000
@@ -112,6 +117,7 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 137
+		cfg.BaseFeeChangeBlockHeight = 38189056
 	case "mumbai":
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
@@ -120,55 +126,59 @@ func LoadConfig(fname string) (*Config, error) {
 		if cfg.Chainid == 0 {
 			err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
 			return nil, err
-		} //if chainid is not zero we assume the other fields are valid
-	default:
-		err := errors.New("Unrecognized network name")
-		return nil, err
+			} //if chainid is not zero we assume the other fields are valid
+		default:
+			err := errors.New("Unrecognized network name")
+			return nil, err
 	}
 
-	var logLvl log.Lvl
-	switch cfg.LogLevel {
-	case "debug":
-		logLvl = log.LvlDebug
-	case "info":
-		logLvl = log.LvlInfo
-	case "warn":
-		logLvl = log.LvlWarn
-	case "error":
-		logLvl = log.LvlError
-	default:
-		logLvl = log.LvlInfo
+	if cfg.BaseFeeChangeBlockHeight == 0 {
+		cfg.BaseFeeChangeBlockHeight = 1000000000
 	}
-
-	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
-
-	if cfg.Port == 0 {
-		cfg.Port = 8000
-	}
-
+		
+		var logLvl log.Lvl
+		switch cfg.LogLevel {
+		case "debug":
+			logLvl = log.LvlDebug
+		case "info":
+			logLvl = log.LvlInfo
+		case "warn":
+			logLvl = log.LvlWarn
+		case "error":
+			logLvl = log.LvlError
+		default:
+			logLvl = log.LvlInfo
+		}
+		
+		log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
+		
+		if cfg.Port == 0 {
+			cfg.Port = 8000
+		}
+		
 	if cfg.PprofPort == 0 {
 		cfg.PprofPort = 6969
 	}
-
+	
 	if cfg.HealthcheckPort == 0 {
 		cfg.HealthcheckPort = 9999
 	}
-
+	
 	if cfg.MinSafeBlock == 0 {
 		cfg.MinSafeBlock = 1000000
 	}
-
+	
 	if cfg.KafkaRollback == 0 {
 		cfg.KafkaRollback = 5000
 	}
-
+	
 	if cfg.ReorgThreshold == 0 {
 		cfg.ReorgThreshold = 128
 	}
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 16
 	}
-
+	
 	if len(cfg.Brokers) == 0 {
 		return nil, errors.New("Config must specify at least one broker")
 	}
@@ -211,4 +221,20 @@ func LoadConfig(fname string) (*Config, error) {
 		}
 	}
 	return &cfg, nil
+}
+
+var (
+	preForkDenominator = big.NewInt(8)
+	postForkDenominator = big.NewInt(16)
+  )
+
+func (cfg *Config) GetBaseFeeDenominator(db *sql.DB) *big.Int {
+
+	var blockNumber uint64
+	db.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
+
+	if blockNumber > cfg.BaseFeeChangeBlockHeight {
+		return postForkDenominator
+	}
+	return preForkDenominator
 }
