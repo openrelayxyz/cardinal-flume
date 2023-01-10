@@ -61,8 +61,8 @@ type Config struct {
 	BrokerParams    []transports.BrokerParams
 	Statsd          *statsdOpts     `yaml:"statsd"`
 	CloudWatch      *cloudwatchOpts `yaml:"cloudwatch"`
-	// LightServer   bool               `yaml:"flumeLight"`  //***flume light notes***
-	EarliestBlock uint64 //***flume light notes***
+	EarliestBlock uint64 
+	LatestBlock   uint64
 	HeavyServer   string `yaml:"heavyserver"`
 }
 

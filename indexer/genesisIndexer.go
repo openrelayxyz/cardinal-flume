@@ -4,8 +4,6 @@ import (
 	"sync"
 	"context"
 	"database/sql"
-	"flag"
-	"os"
 	"strings"
 	"net/http"
 	"time"
@@ -37,10 +35,9 @@ type outerResult struct {
 
 func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
 
-	cfg, err := config.LoadConfig(flag.CommandLine.Args()[0])
-	if err != nil {
-		log.Error("Error parsing config geneis indexer", "err", err)
-		os.Exit(1)
+	if cfg.LatestBlock > 0 {
+		log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
+		return nil
 	}
 
 
@@ -63,6 +60,7 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	conn, _, err := dialer.Dial(wsURL, nil)
     if err != nil {
 		log.Error("Websocket dial error, genesis indexer", "err", err.Error())
+		return err
 	}
 
 	genesis := uint64(0)
