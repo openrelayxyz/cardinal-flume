@@ -168,13 +168,16 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	}
 
 	var sprint uint64
+	var mod uint64
 	if blockNumber < 38189056 {
-		sprint = blockNumber % 64
+		sprint = 64
+		mod = blockNumber % sprint
 	} else {
-		sprint = blockNumber % 16
+		sprint = 16
+		mod = blockNumber % sprint
 	}
 
-	switch sprint {
+	switch mod {
 	case 0:
 		snap := &Snapshot{}
 		snap, err = service.fetchSnapshot(ctx, blockNumber)
