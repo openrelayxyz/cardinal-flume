@@ -68,7 +68,7 @@ type Config struct {
 	HeavyServer   string `yaml:"heavyserver"`
 	EarliestBlock uint64 
 	LatestBlock   uint64
-	BaseFeeVal  *big.Int
+	BaseFeeDenominator  *big.Int
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -88,7 +88,7 @@ func LoadConfig(fname string) (*Config, error) {
 	// cfg.BlocksDb = cfg.Databases["logs"]
 	// cfg.BlocksDb = cfg.Databases["mempool"]
 	
-	cfg.BaseFeeVal = big.NewInt(8)
+	cfg.BaseFeeDenominator = big.NewInt(8)
 	
 	switch cfg.Network {
 	case "mainnet":
@@ -225,7 +225,7 @@ func (c *Config) SetBFVal(ctx context.Context, db *sql.DB) error {
 	var latestBlock int64
 	if err := db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&latestBlock); err != nil {return err}
 	if latestBlock >= 38189056 {
-		c.BaseFeeVal = big.NewInt(16)
+		c.BaseFeeDenominator = big.NewInt(16)
 	}
 	return nil
 }

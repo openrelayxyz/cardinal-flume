@@ -87,14 +87,14 @@ func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
 		return baseFee, nil
 	} else if gasUsed > gasTarget {
 		delta := gasUsed - gasTarget
-		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(baseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeVal)
+		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(baseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeDenominator)
 		if baseFeeDelta.Cmp(new(big.Int)) == 0 {
 			baseFeeDelta = big.NewInt(1)
 		}
 		return new(big.Int).Add(baseFee, baseFeeDelta), nil
 	}
 	delta := gasTarget - gasUsed
-	baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(baseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeVal)
+	baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(baseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeDenominator)
 	return new(big.Int).Sub(baseFee, baseFeeDelta), nil
 }
 
@@ -285,14 +285,14 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(lastBaseFee)
 	} else if lastGasUsed > gasTarget {
 		delta := lastGasUsed - gasTarget
-		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeVal)
+		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeDenominator)
 		if baseFeeDelta.Cmp(new(big.Int)) == 0 {
 			baseFeeDelta = big.NewInt(1)
 		}
 		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Add(lastBaseFee, baseFeeDelta))
 	} else {
 		delta := gasTarget - lastGasUsed
-		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeVal)
+		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), api.cfg.BaseFeeDenominator)
 		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Sub(lastBaseFee, baseFeeDelta))
 	}
 	return result, nil
