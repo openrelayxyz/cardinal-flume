@@ -89,11 +89,11 @@ func LoadConfig(fname string) (*Config, error) {
 	// cfg.BlocksDb = cfg.Databases["mempool"]
 	
 	switch cfg.Network {
-	case "mainnet":
+	case "mainnet", "eth":
 		cfg.HomesteadBlock = 1150000
 		cfg.Eip155Block = 2675000
 		cfg.Chainid = 1
-	case "classic":
+	case "classic", "etc":
 		cfg.HomesteadBlock = 1150000
 		cfg.Eip155Block = 3000000
 		cfg.Chainid = 61
