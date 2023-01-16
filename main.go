@@ -258,7 +258,7 @@ func main() {
 		}
 		stopFns := make([]func(), 0, len(startFns))
 		for _, v := range startFns {
-			if fn, ok := v.(func(*sql.DB, *config.Config) func(); ok {
+			if fn, ok := v.(func(*sql.DB, *config.Config) func()); ok {
 				stopFns = append(stopFns, fn(logsdb, cfg))
 			}
 		}
@@ -275,8 +275,8 @@ func main() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
+		stop()
 	}
-	stop()
 	quit <- struct{}{}
 	logsdb.Close()
 	metrics.Clear()
