@@ -559,3 +559,69 @@ func getTokenInfo(w http.ResponseWriter, r *http.Request, db *sql.DB, chainToken
 		Discord:         token.Social["discord"],
 	}, 200, false)
 }
+
+func Migrate(*sql.DB, uint64) error {
+	var maxStartBlock int64
+	db.QueryRow(`SELECT max(startBlock) FROM issuance;`).Scan(&maxStartBlock)
+	switch chainid {
+	case 1:
+		if maxStartBlock < 1 {
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, 4369999, 5000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 4370000 {
+			db.Exec(`UPDATE issuance SET endBlock = 4369999 WHERE endBlock = ?;`, maxInt);
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 4370000, 7279999, 3000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 7280000 {
+			db.Exec(`UPDATE issuance SET endBlock = 7279999 WHERE endBlock = ?;`, maxInt);
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 7280000, 15537392, 2000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 15537393 {
+			db.Exec(`UPDATE issuance SET endBlock = 15537392 WHERE endBlock = ?;`, maxInt);
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 15537393, maxInt, 0); err != nil { return err }
+		}
+	case 61:
+		// ETC's issuance is planned out indefinitely
+		if maxStartBlock < 1 {
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, 5000000, 5000000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 5000001, 10000000, 4000000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 10000001, 15000000, 3200000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 15000001, 20000000, 2560000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 20000001, 25000000, 2048000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 25000001, maxInt, 0); err != nil { return err }
+		}
+	case 3:
+		if maxStartBlock < 1 {
+			db.Exec(`UPDATE issuance SET endBlock = 1699999 WHERE endBlock = ?;`, maxInt)
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, 1699999, 5000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 1700000 {
+			db.Exec(`UPDATE issuance SET endBlock = 4229999 WHERE endBlock = ?;`, maxInt)
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1700000, 4229999, 3000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 4230000 {
+			db.Exec(`UPDATE issuance SET endBlock = maxInt WHERE endBlock = ?;`, maxInt)
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 4230000, 12350712, 2000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 12350713 {
+			db.Exec(`UPDATE issuance SET endBlock = maxInt WHERE endBlock = ?;`, maxInt)
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 12350712, maxInt, 0); err != nil { return err }
+		}
+	case 5:
+		if maxStartBlock < 1 {
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, 7382818, 5000000000000000000); err != nil { return err }
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 7382819, maxInt, 0); err != nil { return err }
+		}
+	case 11155111:
+		if maxStartBlock < 1 {
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, 1450408, 2000000000000000000); err != nil { return err }
+		}
+		if maxStartBlock < 1450409 {
+			if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1450409, maxInt, 0); err != nil { return err }
+		}
+	default:
+		// Covers polygon, mumbai, rinkeby, etc.
+		if _, err := db.Exec(`INSERT INTO issuance(startBlock, endBlock, value) VALUES (?, ?, ?)`, 1, maxInt, 0); err != nil { return err }
+	}
+	db.Exec(`UPDATE migrations SET version = 2;`)
+}
