@@ -7,13 +7,12 @@ import (
 	"sort"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/openrelayxyz/flume/config"
-	eh "github.com/openrelayxyz/flume/errhandle"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	eh "github.com/openrelayxyz/cardinal-flume/errhandle"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type GasAPI struct {
@@ -114,9 +113,11 @@ func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
 		return *price, nil
 	}
 
-	log.Debug("eth_gasPrice served from flume light")
-	hitMeter.Mark(1)
-	gpHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_gasPrice served from flume light")
+		hitMeter.Mark(1)
+		gpHitMeter.Mark(1)
+	}
 
 	tip, err := api.gasTip(ctx)
 	if err != nil {
@@ -156,9 +157,11 @@ func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err er
 		return *price, nil
 	}
 
-	log.Debug("eth_maxPriorityFeePerGas served from flume light")
-	hitMeter.Mark(1)
-	mpfgHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_maxPriorityFeePerGas served from flume light")
+		hitMeter.Mark(1)
+		mpfgHitMeter.Mark(1)
+	}
 
 	defer eh.HandleErr(&err)
 	return hexutil.EncodeBig(eh.CheckAndAssign(api.gasTip(ctx))), nil
@@ -169,7 +172,7 @@ var (
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 
-func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock vm.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
+func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock plugins.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	defer eh.HandleErr(&err)
 
 	if blockCount > 128 {
@@ -183,7 +186,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		if err != nil {
 			return nil, err
 		}
-		lastBlock = vm.BlockNumber(latestBlock)
+		lastBlock = plugins.BlockNumber(latestBlock)
 	}
 
 	earliestBlockInCall := (int64(lastBlock) - int64(blockCount) + 1)
@@ -192,16 +195,18 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		log.Debug("eth_feeHistory sent to flume heavy")
 		missMeter.Mark(1)
 		gfhMissMeter.Mark(1)
-		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, vm.BlockNumber(earliestBlockInCall), rewardPercentiles)
+		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, plugins.BlockNumber(earliestBlockInCall), rewardPercentiles)
 		if err != nil {
 			return nil, err
 		}
 		return *responseShell, nil
 	}
 
-	log.Debug("eth_feeHistory served from flume light")
-	hitMeter.Mark(1)
-	gfhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_feeHistory served from flume light")
+		hitMeter.Mark(1)
+		gfhHitMeter.Mark(1)
+	}
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 

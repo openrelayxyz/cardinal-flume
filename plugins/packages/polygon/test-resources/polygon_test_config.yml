@@ -1,0 +1,13 @@
+networkName: polygon
+brokers:
+ - url: null://
+loggingLevel: debug
+databases:
+  blocks: ./test-resources/blocks.sqlite
+  transactions: ./test-resources/transactions.sqlite
+  logs: ./test-resources/logs.sqlite
+  mempool: ./test-resources/mempool.sqlite
+  bor: ./test-resources/bor.sqlite
+pluginPath: ./
+plugins:
+#  ['polygon']

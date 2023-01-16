@@ -8,11 +8,9 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	// "github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type FlumeAPI struct {
@@ -233,9 +231,11 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 		return *rt, nil
 	}
 
-	log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
-	hitMeter.Mark(1)
-	gtrbhHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getTransactionReceiptsByBlockHash served from flume light")
+		hitMeter.Mark(1)
+		gtrbhHitMeter.Mark(1)
+	}
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
@@ -250,7 +250,7 @@ var (
 	gtrbnMissMeter = metrics.NewMinorMeter("/flume/gtrbn/miss")
 )
 
-func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber vm.BlockNumber) ([]map[string]interface{}, error) {
+func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber plugins.BlockNumber) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("flume_getTransactionReceiptsByBlockNumber sent to flume heavy")
@@ -263,16 +263,19 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		return *rt, nil
 	}
 
-	log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
-	hitMeter.Mark(1)
-	gtrbnHitMeter.Mark(1)
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
+		hitMeter.Mark(1)
+		gtrbnHitMeter.Mark(1)
+	}
 
 	if blockNumber.Int64() < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = vm.BlockNumber(latestBlock)
+		blockNumber = plugins.BlockNumber(latestBlock)
 	}
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber.Int64()))

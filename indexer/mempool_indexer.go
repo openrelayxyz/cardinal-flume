@@ -11,21 +11,22 @@ import (
 	"time"
 )
 
-func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txCount int, txDedup map[types.Hash]struct{}) {
+func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}) {
+	var txCount int
 	db.QueryRow("SELECT count(*) FROM mempool.transactions;").Scan(&txCount)
 	if txCount > mempoolSlots {
 		pstart := time.Now()
-		if _, err := db.Exec("DELETE FROM mempool.transactions WHERE gasPrice < (SELECT gasPrice FROM mempool.transactions ORDER BY gasPrice LIMIT 1 OFFSET ?);", mempoolSlots); err != nil {
+		if _, err := db.Exec("DELETE FROM mempool.transactions WHERE gasPrice < (SELECT gasPrice FROM mempool.transactions ORDER BY gasPrice DESC LIMIT 1 OFFSET ?);", mempoolSlots); err != nil {
 			log.Error("Error pruning", "err", err.Error())
 		}
 		log.Debug("Pruned transactions from mempool", "transaction count", (txCount - mempoolSlots), "time", time.Since(pstart))
 	}
 }
 
-func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[types.Hash]struct{}, tx *evm.Transaction) []string {
+func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}, tx *evm.Transaction) []string {
 	txHash := tx.Hash()
-	if _, ok := txDedup[txHash]; !ok {
-		log.Warn("Failed to dedup transaction", "transaction", tx)
+	if _, ok := txDedup[txHash]; ok {
+		return []string{}
 	}
 	var signer evm.Signer
 	var accessListRLP []byte
@@ -80,19 +81,11 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txCount int, txDedup map[type
 		sender,
 		tx.Nonce(),
 	))
-	if txCount > (11 * mempoolSlots / 10) {
-		// More than 10% above mempool limit, prune some.
-		statements = append(statements, ApplyParameters(
-			"DELETE FROM mempool.transactions WHERE gasPrice < (SELECT gasPrice FROM mempool.transactions ORDER BY gasPrice LIMIT 1 OFFSET %v)",
-			mempoolSlots,
-		))
-		txCount = mempoolSlots
-	}
 	if _, err := db.Exec(strings.Join(statements, " ; ") + ";"); err != nil {
 		log.Error("Error on insert:", strings.Join(statements, " ; "), "err", err.Error())
+		return []string{}
 	}
-	txCount++
-	db.QueryRow("SELECT count(*) FROM mempool.transactions;").Scan(&txCount)
+	txDedup[txHash] = struct{}{}
 
 	return statements
 }

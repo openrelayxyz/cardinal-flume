@@ -11,9 +11,9 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type LogsAPI struct {
@@ -86,9 +86,11 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		return *logs, nil
 	}
 
-	log.Debug("eth_getLogs served from flume light")
-	hitMeter.Mark(1)
-	glgHitMeter.Mark(1)
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("eth_getLogs served from flume light")
+		hitMeter.Mark(1)
+		glgHitMeter.Mark(1)
+	}
 
 	addressClause := []string{}
 	for _, address := range crit.Addresses {

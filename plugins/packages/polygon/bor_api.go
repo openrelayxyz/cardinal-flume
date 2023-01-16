@@ -7,17 +7,18 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	// "reflect"
+	"encoding/json"
 
 	"github.com/xsleonard/go-merkle"
 	log "github.com/inconshreveable/log15"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
-	// "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
 	"golang.org/x/crypto/sha3"
 
 )
@@ -27,18 +28,40 @@ type PolygonBorService struct {
 	cfg *config.Config
 }
 
+var (
+	bgaHitMeter  = metrics.NewMinorMeter("/flume/polygon/bga/hit")
+	bgaMissMeter = metrics.NewMinorMeter("/flume/polygon/bga/miss")
+)
+
 
 func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber plugins.BlockNumber) (*common.Address, error) {
-	
+
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNumber, service.cfg, service.db) {
+		log.Debug("bor_getAuthor sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgaMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[*common.Address](ctx, service.cfg.HeavyServer, "bor_getAuthor", blockNumber)
+		if err != nil {
+			return nil, err
+		}
+		return *response, nil
+	}
+
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getAuthor served from flume light")
+		polygonHitMeter.Mark(1)
+		bgaHitMeter.Mark(1)
+	}
+
 	var signerBytes []byte
 	err := service.db.QueryRowContext(ctx, "SELECT coinbase FROM blocks.blocks where number = ?;", hexutil.Uint64(blockNumber)).Scan(&signerBytes)
 	if err != nil {
-		log.Info("GetAuthor error", "err", err.Error())
+		log.Error("GetAuthor error", "err", err.Error())
 		return nil, err
 	}
-	
+
 	signer := plugins.BytesToAddress(signerBytes)
-	
+
 	return &signer, nil
 }
 
@@ -126,14 +149,36 @@ func appendBytes32(data ...[]byte) []byte {
 	return result
 }
 
+var (
+	bgrhHitMeter  = metrics.NewMinorMeter("/flume/polygon/bgrh/hit")
+	bgrhMissMeter = metrics.NewMinorMeter("/flume/polygon/bgrh/miss")
+)
+
 func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64, end uint64) (string, error) {
-	
+
+	if len(service.cfg.HeavyServer) > 0 && start < service.cfg.EarliestBlock {
+		log.Debug("bor_getRootHash sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgrhMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[string](ctx, service.cfg.HeavyServer, "bor_getRootHash", start, end)
+		if err != nil {
+			return "", err
+		}
+		return *response, nil
+	}
+
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getRootHash served from flume light")
+		polygonHitMeter.Mark(1)
+		bgrhHitMeter.Mark(1)
+	}
+
 	length := end - start + 1
-	
+
 	if length > MaxCheckpointLength {
 		return "", &MaxCheckpointLengthExceededError{start, end}
 	}
-	
+
 	var currentNumber uint64
 	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&currentNumber)
 	if err != nil {
@@ -145,7 +190,6 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 		return "", &InvalidStartEndBlockError{Start: start, End: end, CurrentHeader: currentNumber}
 	}
 
-	// var blockHeaders []*evm.Header
 	blockHeaders := make([]*evm.Header, 0, end-start+1)
 
 	rows, _ := service.db.QueryContext(context.Background(), "SELECT number, txRoot, receiptRoot, `time` FROM blocks.blocks WHERE number >= ? AND number <= ? ;", start, end)
@@ -194,14 +238,35 @@ func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64,
 	}
 
 	root := hex.EncodeToString(tree.Root().Hash)
-	// api.rootHashCache.Add(key, root)
 
 	return root, nil
 
 
 }
 
+var (
+	bgshHitMeter  = metrics.NewMinorMeter("/flume/polygon/bgrh/hit")
+	bgshMissMeter = metrics.NewMinorMeter("/flume/polygon/bgrh/miss")
+)
+
 func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]common.Address, error) {
+
+	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNrOrHash, service.cfg, service.db) {
+		log.Debug("bor_getSignersAtHash sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgshMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[[]common.Address](ctx, service.cfg.HeavyServer, "bor_getSignersAtHash", blockNrOrHash)
+		if err != nil {
+			return nil, err
+		}
+		return *response, nil
+	}
+
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getSignersAtHash served from flume light")
+		polygonHitMeter.Mark(1)
+		bgshHitMeter.Mark(1)
+	}
 
 	var result []common.Address
 
@@ -215,63 +280,64 @@ func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrO
 		result = append(result, validator.Address)
 	}
 
-	return result, nil 
+	return result, nil
 
 }
 
 func (service *PolygonBorService) GetCurrentValidators(ctx context.Context) ([]*Validator, error) {
 
-	var blockNumber *plugins.BlockNumber
+	var snapshotBytes []byte
 
-	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
 	if err != nil {
-		log.Info("GetCurentValidators error", "err", err.Error())
+		log.Error("GetCurentValidators sql error", "err", err.Error())
 		return nil, err
 	}
 
-	bkNrOrHsh := plugins.BlockNumberOrHash {
-		BlockNumber: blockNumber,
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentValidators", "err", err.Error())
+		return nil, err
 	}
+
+	var snapshot *Snapshot
+
+	err = json.Unmarshal(ssb, &snapshot)
 
 	var result []*Validator
 
-	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
-	if err != nil {
-		log.Error("Error fetching snapshot GetCurrentValidators", "err", err.Error())
-		return nil, err
-	}
-
-	for _, validator := range snap.ValidatorSet.Validators {
+	for _, validator := range snapshot.ValidatorSet.Validators {
 		result = append(result, validator)
 	}
 
-	return result, nil 
+	return result, nil
 
 }
 
 func (service *PolygonBorService) GetCurrentProposer(ctx context.Context) (*common.Address, error) {
 
+	var snapshotBytes []byte
+
+	err := service.db.QueryRowContext(ctx, "SELECT snapshot FROM bor_snapshots ORDER BY block DESC LIMIT 1;").Scan(&snapshotBytes)
+	if err != nil {
+		log.Error("GetCurentValidators sql error", "err", err.Error())
+		return nil, err
+	}
+
+	ssb, err := plugins.Decompress(snapshotBytes)
+	if err != nil {
+		log.Error("sql snapshot decompress error GetCurrentProposer", "err", err.Error())
+		return nil, err
+	}
+
+	var snapshot *Snapshot
+
+	err = json.Unmarshal(ssb, &snapshot)
+
 	var result *common.Address
 
-	var blockNumber *plugins.BlockNumber
-	err := service.db.QueryRowContext(ctx, "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
-	if err != nil {
-		log.Info("GetCurentPropser error", "err", err.Error())
-		return nil, err
-	}
+	result = &snapshot.ValidatorSet.Proposer.Address
 
-	bkNrOrHsh := plugins.BlockNumberOrHash {
-		BlockNumber: blockNumber,
-	}
-
-	snap, err := service.GetSnapshot(context.Background(), bkNrOrHsh)
-	if err != nil {
-		log.Error("Error fetching snapshot GetCurrentProposer", "err", err.Error())
-		return nil, err
-	}
-
-	result = &snap.ValidatorSet.Proposer.Address
-
-	return result, nil 
+	return result, nil
 
 }

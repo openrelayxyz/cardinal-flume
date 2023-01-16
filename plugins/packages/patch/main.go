@@ -8,9 +8,9 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	
 	// "github.com/openrelayxyz/cardinal-types"
 	// evm "github.com/openrelayxyz/cardinal-evm/types"

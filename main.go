@@ -10,12 +10,12 @@ import (
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
-	"github.com/openrelayxyz/flume/api"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/migrations"
-	"github.com/openrelayxyz/flume/plugins"
-	"github.com/openrelayxyz/flume/txfeed"
+	"github.com/openrelayxyz/cardinal-flume/api"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/migrations"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/txfeed"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -27,6 +27,7 @@ func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
+	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -47,7 +48,7 @@ func main() {
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range cfg.Databases {
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ;", path, name, name, name), nil)
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 2147483646 ;", path, name, name, name, name, name), nil)
 				}
 				return nil
 			},
@@ -141,15 +142,13 @@ func main() {
 	quit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
-	// func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64)
-	consumer, _ := AquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
 		indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid))
 	}
 	if hasTx {
-		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock))
+		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool))
 	}
 	if hasLogs {
 		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
@@ -165,6 +164,16 @@ func main() {
 		idx := fn(cfg)
 		if idx != nil {
 			indexes = append(indexes, fn(cfg))
+		}
+	}
+
+	if *genesisIndex {
+		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut)
+		if err != nil {
+			log.Error("Failed to index genesis block", "err", err.Error())
+			panic(err)
+		} else {
+			log.Info("genesis block indexed")
 		}
 	}
 
@@ -187,9 +196,16 @@ func main() {
 		return
 	}
 
-	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes) //[]indexer
+	consumer, err := AcquireConsumer(logsdb, cfg, *resumptionTimestampMs, !*ignoreBlockTime, pl)
+	if err != nil {
+		log.Error("error establishing consumer", "err", err.Error())
+	}
+
+	hc := &indexer.HealthCheck{}
+	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.RegisterHealthCheck(hc)
 	tm.AddHTTPServer(cfg.Port)
 
 	pluginAPIs := pl.Lookup("RegisterAPI", func(v interface{}) bool {
@@ -226,7 +242,7 @@ func main() {
 	<-consumer.Ready()
 	var minBlock int
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(block) FROM event_logs;").Scan(&minBlock)
+	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {

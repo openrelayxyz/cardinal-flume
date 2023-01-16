@@ -8,12 +8,13 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/openrelayxyz/flume/txfeed"
+	"github.com/openrelayxyz/cardinal-flume/txfeed"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
@@ -146,8 +147,22 @@ func ApplyParameters(query string, params ...interface{}) string {
 	return fmt.Sprintf(query, preparedParams...)
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer) {
+type HealthCheck struct {
+	lastBlockTime time.Time
+	processedCount uint
+}
 
+func (hc *HealthCheck) Healthy() rpc.HealthStatus {
+	switch {
+	case time.Since(hc.lastBlockTime) > 60 * time.Second:
+		return rpc.Warning
+	case hc.processedCount == 0:
+		return rpc.Unavailable
+	}
+	return rpc.Healthy
+}
+
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -165,7 +180,6 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 	}
 	processed := false
 	pruneTicker := time.NewTicker(5 * time.Second)
-	txCount := 0
 	txDedup := make(map[types.Hash]struct{})
 	defer txSub.Unsubscribe()
 	db.Exec("DELETE FROM mempool.transactions WHERE 1;")
@@ -180,9 +194,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				return
 			}
 		case <-pruneTicker.C:
-			mempool_dropLowestPrice(db, mempoolSlots, txCount, txDedup)
+			mempool_dropLowestPrice(db, mempoolSlots, txDedup)
 		case tx := <-txCh:
-			mempool_indexer(db, mempoolSlots, txCount, txDedup, tx)
+			mempool_indexer(db, mempoolSlots, txDedup, tx)
 		case chainUpdate := <-csCh:
 			var lastBatch *delivery.PendingBatch
 		UPDATELOOP:
@@ -250,6 +264,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				}
 				mut.Unlock()
 				processed = true
+				hc.lastBlockTime = time.Now()
+				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
 				// completionFeed.Send(chainEvent.Block.Hash)
 				// log.Printf("Spent %v on commit", time.Since(cstart))

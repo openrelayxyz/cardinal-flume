@@ -7,7 +7,7 @@ import (
 	// "strings"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/config"
 )
 
 type pluginDetails struct {

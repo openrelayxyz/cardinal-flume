@@ -1,4 +1,4 @@
-module github.com/openrelayxyz/flume
+module github.com/openrelayxyz/cardinal-flume
 
 go 1.18
 
@@ -8,8 +8,8 @@ require (
 	github.com/klauspost/compress v1.15.9
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/openrelayxyz/cardinal-evm v1.1.3
-	github.com/openrelayxyz/cardinal-rpc v1.0.0
-	github.com/openrelayxyz/cardinal-streams v1.1.0-init-memory-leak-0
+	github.com/openrelayxyz/cardinal-rpc v1.0.3
+	github.com/openrelayxyz/cardinal-streams v1.2.0
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	github.com/xsleonard/go-merkle v1.1.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
@@ -27,13 +27,11 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/hamba/avro v1.6.6 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
-	github.com/holiman/uint256 v1.2.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -41,8 +39,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/openrelayxyz/cardinal-storage v1.1.1 // indirect
-	github.com/openrelayxyz/drumline v0.4.0 // indirect
+	github.com/openrelayxyz/drumline v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect

@@ -17,8 +17,8 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 
@@ -47,7 +47,7 @@ func (pg *PolygonIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	snapshotBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/bs", pg.Chainid, pb.Hash.Bytes())]
 
 	if len(snapshotBytes) > 0 {
-		log.Error("found bor snapshot on block", "block", pb.Number)
+		log.Debug("found bor snapshot on block", "block", pb.Number)
 		statements = append(statements, indexer.ApplyParameters(
 			"INSERT INTO bor_snapshots(block, blockHash, snapshot) VALUES (%v, %v, %v)",
 			pb.Number, 

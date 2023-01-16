@@ -2,20 +2,19 @@ package main
 
 import (
 	"database/sql"
-
 	"io"
-
 	"golang.org/x/crypto/sha3"
 	"regexp"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/indexer"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 )
 
@@ -91,7 +90,7 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 
 	pubkey, err := crypto.Ecrecover(sealHash(header).Bytes(), signature)
 	if err != nil {
-		log.Info("pubkey error", "err", err.Error())
+		log.Error("pubkey error", "err", err.Error())
 	}
 
 	var signer common.Address
@@ -99,4 +98,50 @@ func getBlockAuthor(header *evm.Header) (common.Address, error) {
 	copy(signer[:], crypto.Keccak256(pubkey[1:])[12:])
 
 	return signer, nil
+}
+
+var (
+	polygonHitMeter  = metrics.NewMajorMeter("/flume/polygon/hit")
+	polygonMissMeter = metrics.NewMajorMeter("/flume/polygon/miss")
+)
+
+func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
+	present := true
+	switch input.(type) {
+	case plugins.BlockNumber:
+		if uint64(input.(plugins.BlockNumber).Int64()) < cfg.EarliestBlock {
+			present = false
+			return present
+		}
+	case types.Hash:
+		blockHash := input.(types.Hash)
+		var response int
+		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+		db.QueryRow(statement, plugins.TrimPrefix(blockHash.Bytes())).Scan(&response)
+		if response == 0 {
+			present = false
+			return present
+		}
+	case plugins.BlockNumberOrHash:
+		bNumOrHsh := input.(plugins.BlockNumberOrHash)
+		blockNumber, numOk := bNumOrHsh.Number()
+		blockHash, hshOk := bNumOrHsh.Hash()
+
+		if numOk{
+			if uint64(blockNumber) < cfg.EarliestBlock {
+				present = false
+				return present
+			}
+		}
+		if hshOk{
+			var response int
+			statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
+			db.QueryRow(statement, plugins.TrimPrefix(blockHash.Bytes())).Scan(&response)
+			if response == 0 {
+				present = false
+				return present
+			}
+		}
+	}
+	return present
 }

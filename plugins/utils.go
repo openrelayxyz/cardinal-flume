@@ -92,7 +92,7 @@ func Compress(data []byte) []byte {
 	return compressionBuffer.Bytes()
 }
 
-func GetLogs(db *sql.DB, blockNumber uint64, bkHash types.Hash, txIndex uint64) ([]*logType, error) {
+func GetLogs(db *sql.DB, blockNumber uint64, bkHash types.Hash, txIndex uint64) (SortLogs, error) {
 
 	logRows, err := db.QueryContext(context.Background(), "SELECT DISTINCT transactionHash, address, topic0, topic1, topic2, topic3, data, logIndex from bor.bor_logs WHERE block = ?;", blockNumber)
 	if err != nil {
@@ -100,7 +100,7 @@ func GetLogs(db *sql.DB, blockNumber uint64, bkHash types.Hash, txIndex uint64) 
 		return nil, err
 	} 
 
-		txLogs := sortLogs{}
+		txLogs := SortLogs{}
 		for logRows.Next() {
 			var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 			var logIndex uint
@@ -127,7 +127,7 @@ func GetLogs(db *sql.DB, blockNumber uint64, bkHash types.Hash, txIndex uint64) 
 			if err != nil {
 				return nil, err
 			}
-			txLogs = append(txLogs, &logType{
+			txLogs = append(txLogs, &LogType{
 				Address:     BytesToAddress(address),
 				Topics:      topics,
 				Data:        hexutil.Bytes(input),
@@ -185,7 +185,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		log.Error("Error selecting logs", "query", query, "err", err.Error())
 		return nil, err
 	}
-	txLogs := make(map[types.Hash]sortLogs)
+	txLogs := make(map[types.Hash]SortLogs)
 	for logRows.Next() {
 		var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 		var logIndex uint
@@ -197,7 +197,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		}
 		txHash := BytesToHash(txHashBytes)
 		if _, ok := txLogs[txHash]; !ok {
-			txLogs[txHash] = sortLogs{}
+			txLogs[txHash] = SortLogs{}
 		}
 		topics := []types.Hash{}
 		if len(topic0) > 0 {
@@ -216,7 +216,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		if err != nil {
 			return nil, err
 		}
-		txLogs[txHash] = append(txLogs[txHash], &logType{
+		txLogs[txHash] = append(txLogs[txHash], &LogType{
 			Address:     BytesToAddress(address),
 			Topics:      topics,
 			Data:        hexutil.Bytes(input),
@@ -289,7 +289,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		}
 		logs, ok := txLogs[txh]
 		if !ok {
-			logs = sortLogs{}
+			logs = SortLogs{}
 		}
 		sort.Sort(logs)
 		fields["logs"] = logs

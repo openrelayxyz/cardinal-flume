@@ -6,14 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
 )
 
@@ -80,15 +80,19 @@ func removeDuplicateValues(addressSlice []common.Address) []common.Address {
 }
 
 func TestTransactionAPI(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestTransactionAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	tx := NewTransactionAPI(db, 1, pl, cfg)
 	blockObject, _ := blocksDecompress()
@@ -103,7 +107,10 @@ func TestTransactionAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			for k, v := range actual {
+			if len(*actual) != len(transactions[i]) {
+				t.Fatalf("length error GetTransactionByHash on hash %v", hash)
+			}
+			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
 					t.Errorf("marshalling error gtbh on key: %v", k)
@@ -115,7 +122,10 @@ func TestTransactionAPI(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
 			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
-			for k, v := range actual {
+			if len(*actual) != len(receiptsMap[i]) {
+				t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
+			}
+			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
 					t.Errorf(err.Error())
@@ -133,7 +143,10 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["hash"], &h)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
-				for k, v := range actual {
+				if len(*actual) != len(transactionLists[i][j]) {
+					t.Fatalf("length error GetTransactionByBlockHashAndIndex on blockHash %v, index %v", h, j)
+				}
+				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
@@ -145,11 +158,14 @@ func TestTransactionAPI(t *testing.T) {
 			}
 		})
 		t.Run(fmt.Sprintf("GetTransactionByBlockNumberAndIndex %v", i), func(t *testing.T) {
-			var n vm.BlockNumber
+			var n plugins.BlockNumber
 			json.Unmarshal(block["number"], &n)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
-				for k, v := range actual {
+				if len(*actual) != len(transactionLists[i][j]) {
+					t.Fatalf("length error GetTransactionByBlockNumberAndIndex on blockNumber %v, index %v", n, j)
+				}
+				for k, v := range *actual {
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
@@ -167,13 +183,17 @@ func TestTransactionAPI(t *testing.T) {
 	for _, tx := range transactions {
 		var sender common.Address
 		json.Unmarshal(tx["from"], &sender)
-		nonces[sender]++
+		var nonce hexutil.Uint64
+		json.Unmarshal(tx["nonce"], nonce)
+		if nonces[sender] < nonce {
+			nonces[sender] = nonce
+		}
 	}
 
 	for sender, nonce := range nonces {
 		t.Run(fmt.Sprintf("GetTransactionCount"), func(t *testing.T) {
 			actual, _ := tx.GetTransactionCount(context.Background(), sender)
-			if actual != nonce {
+			if *actual != nonce {
 				t.Fatalf("GetTransactionCountError %v %v", actual, nonce)
 			}
 		})

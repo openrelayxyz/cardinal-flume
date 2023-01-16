@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "reflect"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -11,13 +10,12 @@ import (
 	"strings"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 var trackedPrefixes = []*regexp.Regexp{
@@ -42,7 +40,7 @@ func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption s
 	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, tp, nil)
 }
 
-func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool, pl *plugins.PluginLoader) (streamsTransports.Consumer, error) {
+func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool, pl *plugins.PluginLoader) (streamsTransports.Consumer, error) {
 	brokerParams := cfg.BrokerParams
 	reorgThreshold := cfg.ReorgThreshold
 	var err error
@@ -87,7 +85,7 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlo
 	var lastNumber, timestamp int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
-		highestBlock, err := heavy.CallHeavy[vm.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+		highestBlock, err := heavy.CallHeavy[plugins.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
 			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
@@ -113,13 +111,13 @@ func AquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlo
 		var lW hexutil.Bytes
 
 		if err := json.Unmarshal(rb["totalDifficulty"], &lW); err != nil {
-			log.Warn("Json unmarshalling error, totoal difficulty", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition totoal difficulty", "err", err)
 		}
 		if err := json.Unmarshal(rb["hash"], &lH); err != nil {
-			log.Warn("Json unmarshalling error, hash", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition hash", "err", err)
 		}
 		if err := json.Unmarshal(rb["timestamp"], &rT); err != nil {
-			log.Warn("Json unmarshalling error, timestamp", "err", err)
+			log.Warn("Json unmarshalling error AcquireConsumer, lightserver condition timestamp", "err", err)
 		}
 
 		lastWeight = lW

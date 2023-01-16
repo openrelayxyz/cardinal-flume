@@ -6,6 +6,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
 	_ "github.com/mattn/go-sqlite3"
+	"os"
 	"io"
 	"io/ioutil"
 	"reflect"
@@ -28,15 +29,18 @@ func decompress(data []byte) ([]byte, error) {
 }
 
 func TestTransactionIndexer(t *testing.T) {
-
+	
 	test_dbs := make(map[string]string)
 	test_dbs["control"] = "../testing-resources/transactions.sqlite"
 	test_dbs["transactions"] = "../testing-resources/test.sqlite"
-
+	
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+	defer os.Remove(test_dbs["control"] + "-wal")
+	defer os.Remove(test_dbs["control"] + "-shm")
+	defer os.Remove("../testing-resources/test.sqlite")
 	defer controlDB.Close()
 	_, err = controlDB.Exec(`CREATE TABLE transactions.transactions (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +75,7 @@ func TestTransactionIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	ti := NewTxIndexer(1, 2675000, 1150000)
+	ti := NewTxIndexer(1, 2675000, 1150000, false)
 	log.Info("Transaciton indexer test", "Decompressing batches of length:", len(batches))
 	statements := []string{}
 	for _, pb := range batches {

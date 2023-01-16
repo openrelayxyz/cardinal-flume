@@ -4,16 +4,36 @@ import (
 	"errors"
 	"math/big"
 	"encoding/json"
+	"strings"
+	"strconv"
+	// "reflect"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type DecimalOrHex uint64
+
+func (dh *DecimalOrHex) UnmarshalJSON(data []byte) error {
+	input := strings.TrimSpace(string(data))
+	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
+		input = input[1 : len(input)-1]
+	}
+
+	value, err := strconv.ParseUint(input, 10, 64)
+	if err != nil {
+		value, err = hexutil.DecodeUint64(input)
+	}
+	if err != nil {
+		return err
+	}
+	*dh = DecimalOrHex(value)
+	return nil
+}
 
 type bigList []*big.Int
 
@@ -70,6 +90,81 @@ func (ms sortLogs) Less(i, j int) bool {
 }
 
 func (ms sortLogs) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
+}
+
+type sortTxMap []map[string]interface{}
+
+func (ms sortTxMap) Len() int {
+	return len(ms)
+}
+
+func (ms sortTxMap) Less(i, j int) bool {
+	if ibni, ok := ms[i]["blockNumber"]; ok {
+		jbni, ok := ms[j]["blockNumber"]
+		if !ok {
+			log.Warn("blockNumber not found")
+			return false
+		}
+		switch ibn := ibni.(type) {
+		case *hexutil.Big:
+			jbn, ok := jbni.(*hexutil.Big)
+			if !ok {
+				log.Warn("blockNumber type mismatch")
+				return false
+			}
+			if v := ibn.ToInt().Cmp(jbn.ToInt()); v != 0 {
+				return v < 0
+			}
+		case hexutil.Uint64:
+			jbn, ok := jbni.(hexutil.Uint64)
+			if !ok {
+				log.Warn("blockNumber type mismatch")
+				return false
+			}
+			if jbn != ibn {
+				return ibn < jbn
+			}
+		default:
+			log.Warn("unknown BLOCK NUMBER type")
+		}
+	} else {
+		log.Warn("Block number not found")
+		return false
+	}
+	if itxi, ok := ms[i]["transactionIndex"]; ok {
+		jtxi, ok := ms[j]["transactionIndex"]
+		if !ok {
+			log.Warn("transactionIndex not found")
+			return false
+		}
+		switch itx := itxi.(type) {
+		case *hexutil.Uint64:
+			jtx, ok := jtxi.(*hexutil.Uint64)
+			if !ok {
+				log.Warn("transactionIndex type mismatch")
+				return false
+			}
+			return *itx < *jtx
+		case hexutil.Uint64:
+			jtx, ok := jtxi.(hexutil.Uint64)
+			if !ok {
+				log.Warn("transactionIndex type mismatch")
+			}
+			return itx < jtx
+		default:
+			log.Warn("unknown tx index type")
+			return false
+		}
+	} else {
+		log.Warn("No tx index")
+		return false
+	}
+	log.Warn("Sort mismatch")
+	return false
+}
+
+func (ms sortTxMap) Swap(i, j int) {
 	ms[i], ms[j] = ms[j], ms[i]
 }
 
@@ -152,12 +247,36 @@ type FilterQuery struct {
 	Topics [][]types.Hash
 }
 
+func (args FilterQuery) MarshalJSON() ([]byte, error) {
+	type output struct {
+		BlockHash *types.Hash     `json:"blockHash,omitempty"`
+		FromBlock *plugins.BlockNumber `json:"fromBlock,omitempty"`
+		ToBlock   *plugins.BlockNumber `json:"toBlock,omitempty"`
+		Addresses []common.Address `json:"address,omitempty"`
+		Topics    [][]types.Hash   `json:"topics,omitempty"`
+	}
+	out := output{
+		BlockHash: args.BlockHash,
+		Addresses: args.Addresses,
+		Topics: args.Topics,
+	}
+	if args.FromBlock != nil {
+		fromBlock := plugins.BlockNumber(args.FromBlock.Int64())
+		out.FromBlock = &fromBlock
+	}
+	if args.ToBlock != nil {
+		toBlock := plugins.BlockNumber(args.ToBlock.Int64())
+		out.ToBlock = &toBlock
+	}
+	return json.Marshal(out)
+}
+
 // UnmarshalJSON sets *args fields with given data.
 func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 	type input struct {
 		BlockHash *types.Hash     `json:"blockHash"`
-		FromBlock *vm.BlockNumber `json:"fromBlock"`
-		ToBlock   *vm.BlockNumber `json:"toBlock"`
+		FromBlock *plugins.BlockNumber `json:"fromBlock"`
+		ToBlock   *plugins.BlockNumber `json:"toBlock"`
 		Addresses interface{}      `json:"address"`
 		Topics    []interface{}    `json:"topics"`
 	}
@@ -194,19 +313,19 @@ func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 					addr, err := decodeAddress(strAddr)
 					if err != nil {
 						log.Error("invalid address at index %d: %v", i, err)
-						return errors.New("invalid address") 
+						return errors.New("invalid address")
 					}
 					args.Addresses = append(args.Addresses, addr)
 				} else {
 					log.Error("non-string address at index %d", i)
-					return errors.New("non-string address") 
+					return errors.New("non-string address")
 				}
 			}
 		case string:
 			addr, err := decodeAddress(rawAddr)
 			if err != nil {
 				log.Error("invalid address: %v", err)
-				return errors.New("invalid address") 
+				return errors.New("invalid address")
 			}
 			args.Addresses = []common.Address{addr}
 		default:
@@ -262,7 +381,7 @@ func decodeAddress(s string) (common.Address, error) {
 	b, err := hexutil.Decode(s)
 	if err == nil && len(b) != common.AddressLength {
 		log.Error("hex has invalid length %d after decoding; expected %d for address", len(b), common.AddressLength)
-		err = errors.New("hex has invalid length, for address") 
+		err = errors.New("hex has invalid length, for address")
 	}
 	return bytesToAddress(b), err
 }
@@ -271,7 +390,7 @@ func decodeTopic(s string) (types.Hash, error) {
 	b, err := hexutil.Decode(s)
 	if err == nil && len(b) != types.HashLength {
 		log.Error("hex has invalid length %d after decoding; expected %d for topic", len(b), types.HashLength)
-		err = errors.New("hex has invalid length, for topic") 
+		err = errors.New("hex has invalid length, for topic")
 	}
 	return bytesToHash(b), err
 }

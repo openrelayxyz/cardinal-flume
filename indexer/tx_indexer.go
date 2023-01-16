@@ -34,13 +34,15 @@ type TxIndexer struct {
 	chainid        uint64
 	eip155Block    uint64
 	homesteadBlock uint64
+	hasMempool     bool
 }
 
-func NewTxIndexer(chainid, eip155block, homesteadblock uint64) Indexer {
+func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool) Indexer {
 	return &TxIndexer{
 		chainid:        chainid,
 		eip155Block:    eip155block,
 		homesteadBlock: homesteadblock,
+		hasMempool: hasMempool,
 	}
 }
 
@@ -143,6 +145,13 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			trimPrefix(transaction.GasFeeCap().Bytes()),
 			trimPrefix(transaction.GasTipCap().Bytes()),
 		))
+		if indexer.hasMempool {
+			statements = append(statements, ApplyParameters(
+				"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions.transactions INDEXED BY senderNonce)",
+				sender,
+				transaction.Nonce(),
+			))
+		}
 	}
 	return statements, nil
 }

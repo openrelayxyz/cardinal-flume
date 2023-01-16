@@ -9,9 +9,9 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/heavy"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type FlumeTokensAPI struct {
@@ -30,12 +30,16 @@ func NewFlumeTokensAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 	}
 }
 
-func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
+func (api *FlumeTokensAPI) Erc20ByAccount(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
+	
+	if offset == nil {
+		offset = new(int)
+	}
 
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("flume_getERC20ByAccount sent to flume heavy by default")
+		log.Debug("flume_erc20ByAccount sent to flume heavy by default")
 		missMeter.Mark(1)
-		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20ByAccount", addr, offset)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_erc20ByAccount", addr, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -68,17 +72,21 @@ func (api *FlumeTokensAPI) GetERC20ByAccount(ctx context.Context, addr common.Ad
 	}
 	result := paginator[common.Address]{Items: addresses}
 	if len(addresses) == 1000 {
-		result.Token = offset + len(addresses)
+		result.Token = *offset + len(addresses)
 	}
 	return &result, nil
 }
 
-func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Address, offset int) (*paginator[common.Address], error) {
-
+func (api *FlumeTokensAPI) Erc20Holders(ctx context.Context, addr common.Address, offset *int) (*paginator[common.Address], error) {
+	
+	if offset == nil {
+		offset = new(int)
+	}
+	
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("flume_getERC20Holders sent to flume heavy by default")
+		log.Debug("flume_erc20Holders sent to flume heavy by default")
 		missMeter.Mark(1)
-		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_getERC20Holders", addr, offset)
+		address, err := heavy.CallHeavy[*paginator[common.Address]](ctx, api.cfg.HeavyServer, "flume_erc20Holders", addr, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -87,6 +95,7 @@ func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Addr
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 
 	topic0 := types.HexToHash("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
 	// topic0 must match ERC20, topic3 must be empty (to exclude ERC721) and topic2 is the recipient address
@@ -112,7 +121,7 @@ func (api *FlumeTokensAPI) GetERC20Holders(ctx context.Context, addr common.Addr
 	}
 	result := paginator[common.Address]{Items: addresses}
 	if len(addresses) == 1000 {
-		result.Token = offset + len(addresses)
+		result.Token = *offset + len(addresses)
 	}
 	return &result, nil
 }

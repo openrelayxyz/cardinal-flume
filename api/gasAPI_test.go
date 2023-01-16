@@ -9,10 +9,10 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+	"os"
 
-	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/flume/config"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
 )
 
@@ -38,15 +38,19 @@ func getRewardsList(jsonObject json.RawMessage) []json.RawMessage {
 }
 
 func TestGasAPI(t *testing.T) {
-	db, err := connectToDatabase()
+	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
+	if err != nil {
+		t.Fatal("Error parsing config TestGasAPI", "err", err.Error())
+	}
+	db, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	defer db.Close()
-	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
-	if err != nil {
-		t.Fatal("Error parsing config", "err", err.Error())
+	for _, path := range cfg.Databases {
+		defer os.Remove(path + "-wal")
+		defer os.Remove(path + "-shm")
 	}
+	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	g := NewGasAPI(db, 1, pl, cfg)
 
@@ -69,7 +73,7 @@ func TestGasAPI(t *testing.T) {
 	feeData, _ := feeDataDecompress()
 	t.Run(fmt.Sprintf("FeeHistory"), func(t *testing.T) {
 		var blockCount DecimalOrHex = 0x15
-		var lastBlock vm.BlockNumber = 0xd59f95
+		var lastBlock plugins.BlockNumber = 0xd59f95
 		percentiles := []float64{.1, .5, .9}
 
 		actual, _ := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles)
