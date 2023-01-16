@@ -9,12 +9,12 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
-	// "github.com/openrelayxyz/flume/flumeserver/tokens"
+	"github.com/openrelayxyz/cardinal-flume/plugins/packages/compat/tokens"
 	"github.com/NYTimes/gziphandler"
-	"github.com/openrelayxyz/flume/plugins"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/flume/config"
+	"github.com/openrelayxyz/cardinal-flume/config"
 	"log"
 	"strings"
 	"time"
@@ -41,30 +41,6 @@ type txResponse struct {
 	Confirmations     string         `json:"confirmations"`
 }
 
-type Token struct {
-	Symbol     string         `json:"symbol"`
-	Address    common.Address `json:"address"`
-	Decimals   json.Number    `json:"decimals"`
-	Name       string         `json:"name"`
-	Type       string         `json:"type"`
-	EnsAddress string         `json:"ens_address"`
-	Website    string         `json:"website"`
-	Logo       struct {
-		Src      string          `json:"src"`
-		Width    json.RawMessage `json:"width"`
-		Height   json.RawMessage `json:"height"`
-		IpfsHash string          `json:"ipfs_hash"`
-	} `json:"logo"`
-	Support struct {
-		Email string `json:"email"`
-		URL   string `json:"url"`
-	} `json:"support"`
-	Social map[string]string `json:"social"`
-}
-
-var tokens = struct {
-	Tokens map[uint64]map[common.Address]Token
-}{}
 
 type apiResult struct {
 	Status  string      `json:"status"`
@@ -134,7 +110,7 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 		chainTokens, ok := tokens.Tokens[network]
 		if !ok {
 			log.Printf("No tokens for network %v - making empty map", network)
-			chainTokens = make(map[common.Address]Token)
+			chainTokens = make(map[common.Address]tokens.Token)
 		}
 		switch query.Get("module") + query.Get("action") {
 		case "accounttxlist":
@@ -275,15 +251,15 @@ type tokenTransfer struct {
 	Confirmations     string         `json:"confirmations"`
 }
 
-func accountERC20TransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]Token) {
+func accountERC20TransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]tokens.Token) {
 	accountTokenTransferList(w, r, db, chainTokens, false)
 }
 
-func accountERC721TransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]Token) {
+func accountERC721TransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]tokens.Token) {
 	accountTokenTransferList(w, r, db, chainTokens, true)
 }
 
-func accountTokenTransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]Token, nft bool) {
+func accountTokenTransferList(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]tokens.Token, nft bool) {
 	query := r.URL.Query()
 	if query.Get("address") == "" {
 		handleApiResponse(w, 0, "NOTOK-missing arguments", "Error! Missing account address", 400, false)
@@ -550,7 +526,7 @@ type tokenInfo struct {
 	Whitepaper      string      `json:"whitepaper"`
 }
 
-func getTokenInfo(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]Token) {
+func getTokenInfo(w http.ResponseWriter, r *http.Request, db *sql.DB, chainTokens map[common.Address]tokens.Token) {
 	// TODO: Query for total supply
 	query := r.URL.Query()
 	if query.Get("contractaddress") == "" {
