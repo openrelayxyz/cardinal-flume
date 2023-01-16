@@ -299,7 +299,7 @@ func accountTokenTransferList(w http.ResponseWriter, r *http.Request, db *sql.DB
       blocks.number, blocks.time, transactions.hash, transactions.nonce, blocks.hash, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.address, event_logs.data, transactions.transactionIndex, transactions.gas, transactions.gasPrice, transactions.input, transactions.cumulativeGasUsed, transactions.gasUsed
     FROM event_logs NOT INDEXED
     INNER JOIN blocks on blocks.number = event_logs.block
-    INNER JOIN transactions.transactions on event_logs.tx = transactions.id
+    INNER JOIN transactions.transactions on event_logs.transactionHash = transactions.hash
     WHERE
       event_logs.rowid IN (
         SELECT rowid FROM event_logs INDEXED BY topic1_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic1 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
