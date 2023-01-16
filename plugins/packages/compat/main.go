@@ -167,12 +167,12 @@ func accountTxList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		r.Context(),
 		fmt.Sprintf(`SELECT
       transactions.block, blocks.time, transactions.hash, transactions.nonce, blocks.hash, transactions.transactionIndex, transactions.recipient, transactions.sender, transactions.value, transactions.gas, transactions.gasPrice, transactions.status, transactions.input, transactions.contractAddress, transactions.cumulativeGasUsed, transactions.gasUsed
-    FROM transactions
+    FROM transactions.transactions
     INNER JOIN blocks on blocks.number = transactions.block
     WHERE transactions.rowid in (
-      SELECT rowid FROM transactions WHERE sender = ? AND (block >= ? AND block <= ?)
-      UNION SELECT rowid FROM transactions WHERE recipient = ? AND (block >= ? AND block <= ?)
-      UNION SELECT rowid FROM transactions WHERE contractAddress = ? AND (block >= ? AND block <= ?)
+      SELECT rowid FROM transactions.transactions WHERE sender = ? AND (block >= ? AND block <= ?)
+      UNION SELECT rowid FROM transactions.transactions WHERE recipient = ? AND (block >= ? AND block <= ?)
+      UNION SELECT rowid FROM transactions.transactions WHERE contractAddress = ? AND (block >= ? AND block <= ?)
       ORDER BY rowid %v LIMIT ? OFFSET ?
     ) ORDER BY transactions.block %v, transactions.transactionIndex %v;`, sort, sort, sort),
 		plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
@@ -299,7 +299,7 @@ func accountTokenTransferList(w http.ResponseWriter, r *http.Request, db *sql.DB
       blocks.number, blocks.time, transactions.hash, transactions.nonce, blocks.hash, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.address, event_logs.data, transactions.transactionIndex, transactions.gas, transactions.gasPrice, transactions.input, transactions.cumulativeGasUsed, transactions.gasUsed
     FROM event_logs NOT INDEXED
     INNER JOIN blocks on blocks.number = event_logs.block
-    INNER JOIN transactions on event_logs.tx = transactions.id
+    INNER JOIN transactions.transactions on event_logs.tx = transactions.id
     WHERE
       event_logs.rowid IN (
         SELECT rowid FROM event_logs INDEXED BY topic1_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic1 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
@@ -397,7 +397,7 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB) {
         blocks.number, blocks.time, issuance.value, GROUP_CONCAT(transactions.gasUsed), GROUP_CONCAT(transactions.gasPrice)
       FROM blocks INDEXED BY coinbase
       INNER JOIN issuance on blocks.number > issuance.startBlock AND blocks.number < issuance.endBlock
-      INNER JOIN transactions on transactions.block = blocks.number
+      INNER JOIN transactions.transactions on transactions.block = blocks.number
       WHERE coinbase = ? AND (blocks.number >= ? AND blocks.number <= ?) GROUP BY blocks.number ORDER BY blocks.number %v LIMIT ? OFFSET ?;`, sort),
 		plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
 	if handleApiError(err, w, "database error", "Error! Database error", "Error querying", 500) {
