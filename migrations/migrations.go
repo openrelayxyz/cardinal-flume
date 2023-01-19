@@ -44,9 +44,9 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		      baseFee varchar(32))`)
 
 		db.Exec(`CREATE TABLE blocks.cardinal_offsets (
-			partition INT, 
-			offset BIGINT, 
-			topic STRING, 
+			partition INT,
+			offset BIGINT,
+			topic STRING,
 			PRIMARY KEY (topic, partition))`)
 
 		db.Exec(`CREATE TABLE blocks.issuance (
@@ -74,6 +74,18 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 			return nil
 		}
 		db.Exec("UPDATE blocks.migrations SET version = 2;")
+	}
+	if schemaVersion < 3 {
+		log.Info("Applying blocks v3 migration")
+		if _, err := db.Exec(`CREATE INDEX blocks.coinbaseCompound ON blocks(coinbase, number)`); err != nil {
+			log.Error("Migrate Blocks CREATE INDEX error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`DROP INDEX blocks.coinbase;`); err != nil {
+			log.Error("Migrate Blocks DROP INDEX error", "err", err.Error())
+			return nil
+		}
+		db.Exec("UPDATE blocks.migrations SET version = 3;")
 		log.Info("blocks migrations done")
 	}
 

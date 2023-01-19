@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 	"github.com/NYTimes/gziphandler"
-	
+
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/plugins/packages/compat/tokens"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -397,7 +397,7 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 	rows, err := db.QueryContext(r.Context(),
 	fmt.Sprintf(`SELECT
 	blocks.number, blocks.time, blocks.baseFee, blocks.gasUsed, blocks.uncles, issuance.value, (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasUsed) ELSE 0 END), (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasPrice) ELSE 0 END)
-	FROM blocks INDEXED BY coinbase
+	FROM blocks
 	INNER JOIN issuance on blocks.number > issuance.startBlock AND blocks.number < issuance.endBlock
 	LEFT JOIN transactions.transactions on transactions.block = blocks.number
 	WHERE coinbase = ? AND (blocks.number >= ? AND blocks.number <= ?) GROUP BY blocks.number ORDER BY blocks.number %v LIMIT ? OFFSET ?;`, sort),
@@ -434,7 +434,7 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 		result = append(result, &minersBlock{
 			BlockNumber: fmt.Sprintf("%d", blockNumber),
 			TimeStamp:   blockTime,
-			BlockReward: reward.String(), 
+			BlockReward: reward.String(),
 		})
 	}
 	if handleApiError(rows.Err(), w, "database error", "Error! Database error", "Error processing", 500) {
