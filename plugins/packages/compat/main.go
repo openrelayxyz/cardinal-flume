@@ -5,21 +5,21 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/openrelayxyz/cardinal-evm/common"
 	"math/big"
 	"net/http"
 	"strconv"
-	"github.com/openrelayxyz/cardinal-flume/plugins/packages/compat/tokens"
+	"log"
+	"strings"
+	"time"
 	"github.com/NYTimes/gziphandler"
+	
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-flume/plugins/packages/compat/tokens"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
-	"log"
-	"strings"
-	"time"
-	logger "github.com/inconshreveable/log15"
 )
 
 const (
@@ -428,7 +428,6 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
 		uncleReward := new(big.Int).Mul(uncleFee, big.NewInt(int64(len(unclesList))))
-		logger.Error(uncleReward.String(), "uc", len(uncles), "bn", blockNumber)
 		reward.Add(reward, uncleReward)
 		for i := 0; i < len(gasUsedList); i++ {
 			gasUsed, _ := new(big.Int).SetString(gasUsedList[i], 10)
