@@ -414,11 +414,11 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 	}
 	result := []*minersBlock{}
 	for rows.Next() {
-		var baseFeeBytes, gasUsedBytes, uncles []byte
+		var baseFeeBytes, uncles []byte
 		var blockNumber uint64
-		var issuance int64
+		var issuance, gasUsed int64
 		var blockTime, gasUsedConcat, gasPriceConcat string
-		if handleApiError(rows.Scan(&blockNumber, &blockTime, &baseFeeBytes, &gasUsedBytes, &uncles, &issuance, &gasUsedConcat, &gasPriceConcat), w, "database error", "Error! Database error", "Error processing", 500) {
+		if handleApiError(rows.Scan(&blockNumber, &blockTime, &baseFeeBytes, &gasUsed, &uncles, &issuance, &gasUsedConcat, &gasPriceConcat), w, "database error", "Error! Database error", "Error processing", 500) {
 			return
 		}
 		gasUsedList := strings.Split(gasUsedConcat, ",")
@@ -436,8 +436,8 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 			reward.Add(reward, new(big.Int).Mul(gasUsed, gasPrice))
 		}
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
-		gasUsed := new(big.Int).SetBytes(gasUsedBytes)
-		reward.Sub(reward, new(big.Int).Mul(baseFee, gasUsed))
+		gasUsedBlock := big.NewInt(gasUsed)
+		reward.Sub(reward, new(big.Int).Mul(baseFee, gasUsedBlock))
 
 		result = append(result, &minersBlock{
 			BlockNumber: fmt.Sprintf("%d", blockNumber),
