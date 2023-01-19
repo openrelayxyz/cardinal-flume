@@ -119,8 +119,6 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 			chainTokens = make(map[common.Address]tokens.Token)
 		}
 		switch query.Get("module") + query.Get("action") {
-		case "testapi":
-			testCompatAPI(w)
 		case "accounttxlist":
 			accountTxList(w, r, db)
 		case "accounttokentx":
@@ -139,11 +137,6 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 			handleApiResponse(w, 0, "NOTOK-invalid action", "Error! Missing or invalid action name", 404, false)
 		}
 	}
-}
-
-func testCompatAPI(w http.ResponseWriter) {
-	handleApiResponse(w, 0, "test", "goodbye horses", 200, false)
-	return 
 }
 
 func accountTxList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
