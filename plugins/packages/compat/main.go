@@ -403,7 +403,7 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, netw
 	// TODO: Use GROUP_CONCAT to avoid separate queries for gas usage
 	rows, err := db.QueryContext(r.Context(),
 	fmt.Sprintf(`SELECT
-	blocks.number, blocks.time, blocks.baseFee, blocks.gasUsed, (blocks.uncles), issuance.value, (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasUsed) ELSE 0 END), (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasPrice) ELSE 0 END)
+	blocks.number, blocks.time, blocks.baseFee, blocks.gasUsed, blocks.uncles, issuance.value, (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasUsed) ELSE 0 END), (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasPrice) ELSE 0 END)
 	FROM blocks INDEXED BY coinbase
 	INNER JOIN issuance on blocks.number > issuance.startBlock AND blocks.number < issuance.endBlock
 	LEFT JOIN transactions.transactions on transactions.block = blocks.number
