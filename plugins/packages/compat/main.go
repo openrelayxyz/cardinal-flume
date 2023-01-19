@@ -15,9 +15,11 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"log"
 	"strings"
 	"time"
+	logger "github.com/inconshreveable/log15"
 )
 
 const (
@@ -117,6 +119,8 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 			chainTokens = make(map[common.Address]tokens.Token)
 		}
 		switch query.Get("module") + query.Get("action") {
+		case "testapi":
+			testCompatAPI(w)
 		case "accounttxlist":
 			accountTxList(w, r, db)
 		case "accounttokentx":
@@ -124,7 +128,7 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 		case "accounttokennfttx":
 			accountERC721TransferList(w, r, db, chainTokens)
 		case "accountgetminedblocks":
-			accountBlocksMined(w, r, db)
+			accountBlocksMined(w, r, db, network)
 		case "blockgetblockcountdown":
 			blockCountdown(w, r, db)
 		case "blockgetblocknobytime":
@@ -135,6 +139,11 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 			handleApiResponse(w, 0, "NOTOK-invalid action", "Error! Missing or invalid action name", 404, false)
 		}
 	}
+}
+
+func testCompatAPI(w http.ResponseWriter) {
+	handleApiResponse(w, 0, "test", "goodbye horses", 200, false)
+	return 
 }
 
 func accountTxList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
@@ -365,7 +374,7 @@ type minersBlock struct {
 	BlockReward string `json:"blockReward"`
 }
 
-func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB, network uint64) {
 	query := r.URL.Query()
 	if query.Get("address") == "" {
 		handleApiResponse(w, 0, "NOTOK-missing arguments", "Error! Missing account address", 400, false)
@@ -393,36 +402,47 @@ func accountBlocksMined(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 	// TODO: Use GROUP_CONCAT to avoid separate queries for gas usage
 	rows, err := db.QueryContext(r.Context(),
-		fmt.Sprintf(`SELECT
-        blocks.number, blocks.time, issuance.value, GROUP_CONCAT(transactions.gasUsed), GROUP_CONCAT(transactions.gasPrice)
-      FROM blocks INDEXED BY coinbase
-      INNER JOIN issuance on blocks.number > issuance.startBlock AND blocks.number < issuance.endBlock
-      INNER JOIN transactions.transactions on transactions.block = blocks.number
-      WHERE coinbase = ? AND (blocks.number >= ? AND blocks.number <= ?) GROUP BY blocks.number ORDER BY blocks.number %v LIMIT ? OFFSET ?;`, sort),
-		plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
+	fmt.Sprintf(`SELECT
+	blocks.number, blocks.time, blocks.baseFee, blocks.gasUsed, (blocks.uncles), issuance.value, (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasUsed) ELSE 0 END), (CASE WHEN COUNT(transactions.gasUsed) > 0 THEN GROUP_CONCAT(transactions.gasPrice) ELSE 0 END)
+	FROM blocks INDEXED BY coinbase
+	INNER JOIN issuance on blocks.number > issuance.startBlock AND blocks.number < issuance.endBlock
+	LEFT JOIN transactions.transactions on transactions.block = blocks.number
+	WHERE coinbase = ? AND (blocks.number >= ? AND blocks.number <= ?) GROUP BY blocks.number ORDER BY blocks.number %v LIMIT ? OFFSET ?;`, sort),
+	plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
 	if handleApiError(err, w, "database error", "Error! Database error", "Error querying", 500) {
 		return
 	}
 	result := []*minersBlock{}
 	for rows.Next() {
+		var baseFeeBytes, gasUsedBytes, uncles []byte
 		var blockNumber uint64
 		var issuance int64
 		var blockTime, gasUsedConcat, gasPriceConcat string
-		if handleApiError(rows.Scan(&blockNumber, &blockTime, &issuance, &gasUsedConcat, &gasPriceConcat), w, "database error", "Error! Database error", "Error processing", 500) {
+		if handleApiError(rows.Scan(&blockNumber, &blockTime, &baseFeeBytes, &gasUsedBytes, &uncles, &issuance, &gasUsedConcat, &gasPriceConcat), w, "database error", "Error! Database error", "Error processing", 500) {
 			return
 		}
 		gasUsedList := strings.Split(gasUsedConcat, ",")
 		gasPriceList := strings.Split(gasPriceConcat, ",")
 		reward := big.NewInt(issuance)
+		uncleFee := new(big.Int).Div(big.NewInt(issuance), big.NewInt(32))
+		unclesList := []types.Hash{}
+		rlp.DecodeBytes(uncles, &unclesList)
+		uncleReward := new(big.Int).Mul(uncleFee, big.NewInt(int64(len(unclesList))))
+		logger.Error(uncleReward.String(), "uc", len(uncles), "bn", blockNumber)
+		reward.Add(reward, uncleReward)
 		for i := 0; i < len(gasUsedList); i++ {
 			gasUsed, _ := new(big.Int).SetString(gasUsedList[i], 10)
 			gasPrice, _ := new(big.Int).SetString(gasPriceList[i], 10)
 			reward.Add(reward, new(big.Int).Mul(gasUsed, gasPrice))
 		}
+		baseFee := new(big.Int).SetBytes(baseFeeBytes)
+		gasUsed := new(big.Int).SetBytes(gasUsedBytes)
+		reward.Sub(reward, new(big.Int).Mul(baseFee, gasUsed))
+
 		result = append(result, &minersBlock{
 			BlockNumber: fmt.Sprintf("%d", blockNumber),
 			TimeStamp:   blockTime,
-			BlockReward: reward.String(),
+			BlockReward: reward.String(), 
 		})
 	}
 	if handleApiError(rows.Err(), w, "database error", "Error! Database error", "Error processing", 500) {
