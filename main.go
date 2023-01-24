@@ -220,6 +220,11 @@ func main() {
 		}
 	}
 
+	startFns := pl.Lookup("Start", func(v interface{}) bool {
+		_, ok := v.(func(*sql.DB, *config.Config) func())
+		return ok
+	})
+
 	if hasLogs {
 		tm.Register("eth", api.NewLogsAPI(logsdb, cfg.Chainid, pl, cfg))
 		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl, cfg))
@@ -251,13 +256,26 @@ func main() {
 		if cfg.CloudWatch != nil {
 			publishers.CloudWatch(cfg.CloudWatch.Namespace, cfg.CloudWatch.Dimensions, int64(cfg.Chainid), time.Duration(cfg.CloudWatch.Interval), cfg.CloudWatch.Percentiles, cfg.CloudWatch.Minor)
 		}
+		stopFns := make([]func(), 0, len(startFns))
+		for _, v := range startFns {
+			if fn, ok := v.(func(*sql.DB, *config.Config) func()); ok {
+				stopFns = append(stopFns, fn(logsdb, cfg))
+			}
+		}
+		stop := func() {
+			for _, fn := range stopFns {
+				fn()
+			}
+		}
 		if err := tm.Run(cfg.HealthcheckPort); err != nil {
 			log.Error(err.Error())
+			stop()
 			quit <- struct{}{}
 			logsdb.Close()
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
+		stop()
 	}
 	quit <- struct{}{}
 	logsdb.Close()

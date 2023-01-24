@@ -3,6 +3,7 @@ module github.com/openrelayxyz/cardinal-flume
 go 1.18
 
 require (
+	github.com/NYTimes/gziphandler v1.1.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/klauspost/compress v1.15.9
@@ -17,7 +18,6 @@ require (
 )
 
 require (
-	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/Shopify/sarama v1.29.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.36 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect

@@ -29,6 +29,9 @@ jobs:
             sudo apt install gcc-aarch64-linux-gnu libc6-dev-arm64-cross
             mkdir -p /home/circleci/go/src
             go get
+            pushd plugins/packages/compat/tokens
+            go generate
+            popd
       - run:
           name: build image
           command: |
@@ -38,6 +41,8 @@ jobs:
             CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flume-arm64
             go build -buildmode=plugin -o ./polygon-amd64.so plugins/packages/polygon/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./polygon-arm64.so plugins/packages/polygon/*.go
+            go build -buildmode=plugin -o ./compat-amd64.so plugins/packages/compat/*.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./compat-arm64.so plugins/packages/compat/*.go
       - run:
           name: test api
           command: go test ./api/
@@ -60,6 +65,8 @@ jobs:
             aws s3 cp ./flume-arm64 s3://ethercattle-binaries/flume/$CIRCLE_TAG/flume-arm64 --acl=public-read
             aws s3 cp ./polygon-amd64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/polygon-amd64.so --acl=public-read
             aws s3 cp ./polygon-arm64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/polygon-arm64.so --acl=public-read
+            aws s3 cp ./compat-amd64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/compat-amd64.so --acl=public-read
+            aws s3 cp ./compat-arm64.so s3://ethercattle-binaries/flume/$CIRCLE_TAG/compat-arm64.so --acl=public-read
       - run:
           name: Message Slack
           command: |
