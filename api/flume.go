@@ -3,11 +3,13 @@ package api
 import (
 	"context"
 	"database/sql"
+	"runtime"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/cardinal-flume/build"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -28,6 +30,33 @@ func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 		cfg:     cfg,
 	}
 }
+
+
+func (api *FlumeAPI) ClientVersion(ctx context.Context) string {
+	version := build.Version
+	if version == "" {
+		version = "unset-use-make-to-build"
+	}
+	name := "Cardinal-Flume"
+	name += "/" + version
+	name += "/" + runtime.GOOS + "-" + runtime.GOARCH
+	name += "/" + runtime.Version()
+	return name
+}
+
+func (api *FlumeAPI) HeavyClientVersion(ctx context.Context) (string, error) {
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_heavyClientVersion sent to flume heavy by default")
+		name, err := heavy.CallHeavy[string](ctx, api.cfg.HeavyServer, "flume_clientVersion")
+		if err != nil {
+			return "", err
+		}
+		return *name, nil
+	}
+	name := api.ClientVersion(ctx)
+	return name, nil
+}
+
 
 func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 

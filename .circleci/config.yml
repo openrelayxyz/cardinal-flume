@@ -34,8 +34,8 @@ jobs:
           command: |
             export GOPATH=$HOME/go
             export GOARCH=amd64
-            go build -o flume-amd64
-            CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flume-arm64
+            go build -o flume-amd64 -ldflags="-X 'github.com/openrelayxyz/cardinal-flume/build.Version=${CIRCLE_TAG}'"
+            CC=aarch64-linux-gnu-gcc  CGO_ENABLED=1 GOARCH=arm64 go build -o flume-arm64 -ldflags="-X 'github.com/openrelayxyz/cardinal-flume/build.Version=${CIRCLE_TAG}'"
             go build -buildmode=plugin -o ./polygon-amd64.so plugins/packages/polygon/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./polygon-arm64.so plugins/packages/polygon/*.go
       - run:
