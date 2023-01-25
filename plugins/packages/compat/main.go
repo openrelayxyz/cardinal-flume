@@ -115,7 +115,6 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 		query := r.URL.Query()
 		chainTokens, ok := tokens.Tokens[network]
 		if !ok {
-			log.Printf("No tokens for network %v - making empty map", network)
 			chainTokens = make(map[common.Address]tokens.Token)
 		}
 		switch query.Get("module") + query.Get("action") {
