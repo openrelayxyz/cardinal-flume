@@ -88,6 +88,34 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		db.Exec("UPDATE blocks.migrations SET version = 3;")
 		log.Info("blocks migrations done")
 	}
+	if schemaVersion < 4 {
+		// {"index": uint64, "validatorIndex": uint64, "recipient": address, "amount": uint256"}
+		log.Info("Applying blocks v4 migration")
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN withdrawalHash VARCHAR(32)`); err != nil {
+				log.Error("Migrate Blocks ALTER TABLE blocks", "err", err.Error())
+				return nil
+			}
+		if _, err := db.Exec(`CREATE TABLE blocks.withdrawals (
+				wtdrlIndex MEDIUMINT,
+				vldtrIndex MEDIUMINT,
+				recipient VARCHAR(20),
+				amount    blob,
+				block     BIGINT,
+				PRIMARY KEY (block, wtdrlIndex))`); err != nil {
+					log.Error("Migrate Blocks CREATE TABLE blocks.withdrawals", "err", err.Error())
+					return nil
+				}
+		if _, err := db.Exec(`CREATE INDEX blocks.recipientBlock ON withdrawals(recipient, block)`); err != nil {
+			log.Error("Migrate blocks CREATE INDEX recipientBlock error", "err", err.Error())
+			return nil
+			//for some reason the following code is not working. The tables and indexes are made but the migration version never shows up??
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 4;"); err != nil {
+			log.Error("Migrate blocks UPDATE migration v4 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks migrations done")
+	}
+	}
 
 	log.Info("blocks migration up to date")
 	return nil

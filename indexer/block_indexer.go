@@ -4,9 +4,12 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	// utils "github.com/openrelayxyz/plugeth-utils/restricted/types"
+	wd "github.com/openrelayxyz/cardinal-flume/withdrawals"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
 	"golang.org/x/crypto/sha3"
@@ -41,6 +44,7 @@ type extblock struct {
 	Header *evm.Header
 	Txs    []evm.Transaction
 	Uncles []rlpData
+	Withdrawals  wd.Withdrawals
 }
 
 func NewBlockIndexer(chainid uint64) Indexer {
@@ -48,6 +52,13 @@ func NewBlockIndexer(chainid uint64) Indexer {
 }
 
 func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
+	var withdrawals wd.Withdrawals 
+    if withdrawalBytes, ok := pb.Values[fmt.Sprintf("c/%x/b/%x/w", indexer.chainid, pb.Hash.Bytes())]; ok {
+		if err := rlp.DecodeBytes(withdrawalBytes, &withdrawals); err != nil {
+			log.Error("Rlp decoding error on withdrawls", "block", pb.Number)
+			// panic(err.Error()) Do we need to panic here?
+		}
+	}
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
 	tdBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/d", indexer.chainid, pb.Hash.Bytes())]
 	td := new(big.Int).SetBytes(tdBytes)
@@ -60,6 +71,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		Header: header,
 		Txs:    []evm.Transaction{},
 		Uncles: []rlpData{},
+		Withdrawals:  wd.Withdrawals{},
 	}
 
 	uncleHashes := make(map[int64]types.Hash)
@@ -82,6 +94,9 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		default:
 		}
 	}
+	if withdrawals.Len() > 0 {
+		eblock.Withdrawals = withdrawals
+	} 
 	eblock.Txs = make([]evm.Transaction, len(txData))
 	for i, v := range txData {
 		eblock.Txs[int(i)] = v
@@ -98,10 +113,22 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	}
 	uncleRLP, _ := rlp.EncodeToBytes(uncles)
 	statements := []string{
-		ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number),
+		ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number), ApplyParameters("DELETE FROM withdrawals WHERE number >= %v", pb.Number),
+	}
+	
+	if withdrawals.Len() > 0 {
+		for _, wtdrl := range withdrawals {
+			statements = append(statements, ApplyParameters(
+			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, recipient, amount, block) VALUES (%v, %v, %v, %v, %v)",
+			wtdrl.Index,
+			wtdrl.Validator,
+			wtdrl.Address,
+			wtdrl.Amount,
+			pb.Number))
+		}
 	}
 	statements = append(statements, ApplyParameters(
-		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
 		pb.Hash,
 		pb.ParentHash,
@@ -122,6 +149,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		size,
 		td.Bytes(),
 		header.BaseFee,
+		header.WithdrawalsHash,
 	))
 	return statements, nil
 }
