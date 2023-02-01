@@ -282,6 +282,7 @@ func TestPolygonApi(t *testing.T) {
 			statements = append(statements, group...)
 		}
 	}
+	log.Error("megastatements", "ms", statements[0])
 	megaStatement := strings.Join(statements, ";")
 	_, err = db.Exec(megaStatement)
 	if err != nil {
@@ -512,7 +513,7 @@ func TestPolygonApi(t *testing.T) {
 						t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", testBlock["number"], k)
 					}
 					if !bytes.Equal(data, testBlocks[i][k]) {
-						t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", testBlock["number"], k)
+						t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", testBlock, k)
 					}
 				}
 			}

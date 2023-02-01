@@ -258,16 +258,26 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		var withdrawals []map[string]interface{}
 		switch {
 		case len(withdrawalHashBytes) == 0:
-			continue
+		// This empty case is used to account for blocks before withdrawals were included
 		case len(withdrawalHashBytes) > 0 && bytesToHash(withdrawalHashBytes) == emptyStateTrieHash:
 			withdrawals = make([]map[string]interface{}, 0)
 		default:
-			withdrawals, err = getWithdrawals(ctx, db, number)
+			withdrawals, err = getWithdrawals(ctx, db, "withdrawals.block = ?", number)
 			if err != nil {
 				log.Error("Error fetching withdrawals", "err", err.Error())
 				return nil, err
 			}
 		}
+
+		// switch {
+		// case len(withdrawalHashBytes) == 0:
+		// 	log.Error("nothing here")
+		// case len(withdrawalHashBytes) > 0 && bytesToHash(withdrawalHashBytes) == emptyStateTrieHash:
+		// 	log.Error("empty state trie hash")
+		// default:
+		// 	log.Error("default case")
+		// }
+		
 		
 		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
@@ -295,7 +305,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"uncles":           unclesList,
 		}
 		if withdrawals != nil {
-			fields["withdrawls"] = withdrawals
+			fields["withdrawals"] = withdrawals
 		}
 		if includeTxs {
 			fields["transactions"], err = getTransactionsBlock(ctx, db, 0, 100000, chainid, "transactions.block = ?", number)
@@ -875,9 +885,9 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 // block     BIGINT
 // PRIMARY KEY (block, wtdrlIndex)
 
-func getWithdrawals(ctx context.Context, db *sql.DB, block uint64) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT withdrawls.wtdrlIndex, withdrawls.vldtrIndex, withdrawls.recipient, withdrawls.amount WHERE withdrawls.block = %v;", block)
-	rows, err := db.QueryContext(ctx, query)
+func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.recipient, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
+	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -896,10 +906,9 @@ func getWithdrawals(ctx context.Context, db *sql.DB, block uint64) ([]map[string
 			log.Error("Error retrieving withdrawal data", "err", err.Error())
 			return nil, err
 		}
-		// {"index": uint64, "validatorIndex": uint64, "recipient": address, "amount": uint256"}
 		item := map[string]interface{}{
-			"index":            wtdrlIdx,
-			"validatorIndex":   vldtrIdx,
+			"index":            hexutil.Uint64(wtdrlIdx),
+			"validatorIndex":   hexutil.Uint64(vldtrIdx),
 			"recipient":        bytesToAddress(receipientBytes),
 			"amount":           bytesToHexBig(amountBytes),
 		}
