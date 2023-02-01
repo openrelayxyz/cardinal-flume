@@ -258,7 +258,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		var withdrawals []map[string]interface{}
 		switch {
 		case len(withdrawalHashBytes) == 0:
-		// This empty case is used to account for blocks before withdrawals were included
+			// This empty case is used to account for blocks before withdrawals were included
 		case len(withdrawalHashBytes) > 0 && bytesToHash(withdrawalHashBytes) == emptyStateTrieHash:
 			withdrawals = make([]map[string]interface{}, 0)
 		default:
@@ -269,16 +269,6 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			}
 		}
 
-		// switch {
-		// case len(withdrawalHashBytes) == 0:
-		// 	log.Error("nothing here")
-		// case len(withdrawalHashBytes) > 0 && bytesToHash(withdrawalHashBytes) == emptyStateTrieHash:
-		// 	log.Error("empty state trie hash")
-		// default:
-		// 	log.Error("default case")
-		// }
-		
-		
 		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
 		var bn [8]byte

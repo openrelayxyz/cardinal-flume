@@ -43,7 +43,7 @@ type extblock struct {
 	Header *evm.Header
 	Txs    []evm.Transaction
 	Uncles []rlpData
-	Withdrawals  evm.Withdrawals
+	Withdrawals  evm.Withdrawals `rlp:"optional"`
 }
 
 func NewBlockIndexer(chainid uint64) Indexer {
@@ -55,7 +55,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
     if withdrawalBytes, ok := pb.Values[fmt.Sprintf("c/%x/b/%x/w", indexer.chainid, pb.Hash.Bytes())]; ok {
 		if err := rlp.DecodeBytes(withdrawalBytes, &withdrawals); err != nil {
 			log.Error("Rlp decoding error on withdrawls", "block", pb.Number)
-			// panic(err.Error()) Do we need to panic here?
+			return nil, err
 		}
 	}
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
@@ -63,14 +63,14 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	td := new(big.Int).SetBytes(tdBytes)
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
 	eblock := &extblock{
 		Header: header,
 		Txs:    []evm.Transaction{},
 		Uncles: []rlpData{},
-		Withdrawals:  evm.Withdrawals{},
+		Withdrawals: withdrawals,
 	}
 
 	uncleHashes := make(map[int64]types.Hash)
@@ -93,9 +93,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		default:
 		}
 	}
-	if withdrawals.Len() > 0 {
-		eblock.Withdrawals = withdrawals
-	} 
 	eblock.Txs = make([]evm.Transaction, len(txData))
 	for i, v := range txData {
 		eblock.Txs[int(i)] = v
@@ -127,7 +124,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			pb.Hash,))
 		}
 	}
-	// log.Error("type of wH", "type", reflect.TypeOf(header.WithdrawalsHash), "lenPB", reflect.TypeOf(pb.Hash), "lenWH", header.WithdrawalsHash)
 	if header.WithdrawalsHash != nil {
 		statements = append(statements, ApplyParameters("INSERT INTO block(withdrawalHash) VALUES (%v);", *header.WithdrawalsHash))
 	}

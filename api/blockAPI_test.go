@@ -340,6 +340,9 @@ func TestBlockAPI(t *testing.T) {
 			for k, v := range *actual {
 				if k == "withdrawals" {
 					wthdrls := v.([]map[string]interface{})
+					if len(wthdrls) > 0 {
+						log.Info("withdrawls list greater than zero")
+					}
 					for j, item := range wthdrls {
 						for key, value := range item {
 							d, err := json.Marshal(value)
