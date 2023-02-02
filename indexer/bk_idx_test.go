@@ -23,10 +23,12 @@ import (
 func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 	registrar := filepath.Base(dbs["control"])
 	i := strings.LastIndex(registrar, ".sqlite")
+	log.Error("db crap", "regis", registrar, "i", i, "ri", registrar[:i])
 	sql.Register(fmt.Sprintf("sqlite3_%v", registrar[:i]),
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range dbs {
+					log.Error("name path", "name", name, "path", path)
 					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v';", path, name), nil)
 				}
 				return nil
@@ -65,7 +67,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 func TestBlockIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../testing-resources/blocks.sqlite"
+	test_dbs["control"] = "../testing-resources/test-blocks.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
@@ -95,7 +97,8 @@ func TestBlockIndexer(t *testing.T) {
 				uncles      blob,
 				size        BIGINT,
 				td          varchar(32),
-				baseFee varchar(32))`)
+				baseFee varchar(32),
+				withdrawalHash varchar(32))`)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -121,6 +124,8 @@ func TestBlockIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
+
+	log.Warn("The test database does not reflect changes post Shanghai and so will need to be altered")
 
 	query := "SELECT b.number = blocks.number, b.hash = blocks.hash, b.parentHash = blocks.parentHash, b.uncleHash = blocks.uncleHash, b.coinbase = blocks.coinbase, b.root = blocks.root, b.txRoot = blocks.txRoot, b.receiptRoot = blocks.receiptRoot, b.bloom IS blocks.bloom, b.difficulty = blocks.difficulty, b.gasLimit = blocks.gasLimit, b.gasUsed = blocks.gasUsed, b.time = blocks.time, b.extra = blocks.extra, b.mixDigest = blocks.mixDigest, b.nonce = blocks.Nonce, b.uncles = blocks.uncles, b.size =  blocks.size, b.td = blocks.td, b.baseFee IS blocks.baseFee FROM blocks INNER JOIN control.blocks as b on blocks.number = b.number"
 	results := make([]any, 20)

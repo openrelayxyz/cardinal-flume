@@ -341,7 +341,7 @@ func TestBlockAPI(t *testing.T) {
 				if k == "withdrawals" {
 					wthdrls := v.([]map[string]interface{})
 					if len(wthdrls) > 0 {
-						log.Info("withdrawls list greater than zero")
+						log.Info("withdrawls list greater than zero", "len", len(wthdrls))
 					}
 					for j, item := range wthdrls {
 						for key, value := range item {
