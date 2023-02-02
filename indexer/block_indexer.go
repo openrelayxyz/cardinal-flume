@@ -125,7 +125,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		}
 	}
 	if header.WithdrawalsHash != nil {
-		statements = append(statements, ApplyParameters("INSERT INTO block(withdrawalHash) VALUES (%v);", *header.WithdrawalsHash))
+		statements = append(statements, ApplyParameters("INSERT INTO blocks(withdrawalHash) VALUES (%v);", *header.WithdrawalsHash))
 	}
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",

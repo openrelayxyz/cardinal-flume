@@ -23,12 +23,12 @@ import (
 func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 	registrar := filepath.Base(dbs["control"])
 	i := strings.LastIndex(registrar, ".sqlite")
-	log.Error("db crap", "regis", registrar, "i", i, "ri", registrar[:i])
+	log.Error("control database stuff", "registrar", registrar, "i", i, "ri", registrar[:i])
 	sql.Register(fmt.Sprintf("sqlite3_%v", registrar[:i]),
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range dbs {
-					log.Error("name path", "name", name, "path", path)
+					log.Error("inside loop", "name", name, "path", path)
 					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v';", path, name), nil)
 				}
 				return nil
@@ -67,7 +67,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 func TestBlockIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../testing-resources/test-blocks.sqlite"
+	test_dbs["control"] = "../testing-resources/blocks.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
@@ -77,7 +77,7 @@ func TestBlockIndexer(t *testing.T) {
 	defer os.Remove(test_dbs["control"] + "-wal")
 	defer os.Remove(test_dbs["control"] + "-shm")
 	defer controlDB.Close()
-	_, err = controlDB.Exec(`CREATE TABLE blocks (
+	if _, err = controlDB.Exec(`CREATE TABLE blocks (
 				number      BIGINT PRIMARY KEY,
 				hash        varchar(32) UNIQUE,
 				parentHash  varchar(32),
@@ -98,8 +98,18 @@ func TestBlockIndexer(t *testing.T) {
 				size        BIGINT,
 				td          varchar(32),
 				baseFee varchar(32),
-				withdrawalHash varchar(32))`)
-	if err != nil {
+				withdrawalHash varchar(32))`); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	if _, err := controlDB.Exec(`CREATE TABLE withdrawals (
+		wtdrlIndex MEDIUMINT,
+		vldtrIndex MEDIUMINT,
+		recipient VARCHAR(20),
+		amount    blob,
+		block     BIGINT,
+		blockHash VARCHAR(32),
+		PRIMARY KEY (block, wtdrlIndex))`); err != nil {
 		t.Fatalf(err.Error())
 	}
 
