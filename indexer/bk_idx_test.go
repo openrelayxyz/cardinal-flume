@@ -23,18 +23,19 @@ import (
 func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 	registrar := filepath.Base(dbs["control"])
 	i := strings.LastIndex(registrar, ".sqlite")
-	log.Error("control database stuff", "registrar", registrar, "i", i, "ri", registrar[:i])
 	sql.Register(fmt.Sprintf("sqlite3_%v", registrar[:i]),
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range dbs {
-					log.Error("inside loop", "name", name, "path", path)
 					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v';", path, name), nil)
 				}
 				return nil
 			},
 		})
 
+	// The following code opens an im memory database called blocks which has the tables written and data loaded onto it.
+	// the result is that the functions returns a sql instance with two databases one, control, 'blocks.sqlite' another in memory
+	// data base which is used for testing and persists only as long as the test runs. 
 	memDB, err := sql.Open(fmt.Sprintf("sqlite3_%v", registrar[:i]), ":memory:")
 	if err != nil {
 		log.Error(err.Error())
