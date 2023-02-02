@@ -109,7 +109,8 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	}
 	uncleRLP, _ := rlp.EncodeToBytes(uncles)
 	statements := []string{
-		ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number), ApplyParameters("DELETE FROM withdrawals WHERE block >= %v", pb.Number),
+		ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number), 
+		ApplyParameters("DELETE FROM withdrawals WHERE block >= %v", pb.Number),
 	}
 	
 	if withdrawals.Len() > 0 {
