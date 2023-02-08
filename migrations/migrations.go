@@ -272,5 +272,5 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 
 
 // *1: Previous versions of this migration had a UINIQUE constriant put on transaction hash. We found that this was redundant in practice when considered
-// alongside the txHash index, which is added below, and added considerable lag to block uptake. As of tag v1.3.0-txHash0 all newer databases will have the schema 
+// alongside the txHash index, which is added below, and added considerable lag to block uptake. As of tag v1.3.0-removing-uinique-txHash0 all newer databases will have the schema 
 // below while previously existing databases will retain the UNIQUE constraint but will be missing the txHash index.
