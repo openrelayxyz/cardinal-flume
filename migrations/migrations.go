@@ -105,11 +105,12 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 	db.QueryRow("SELECT version FROM transactions.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
 		log.Info("Applying transacitons v1 migration")
+		// See note 1 *below 
 		db.Exec(`CREATE TABLE transactions.transactions (
 		      id INTEGER PRIMARY KEY AUTOINCREMENT,
 		      gas BIGINT,
 		      gasPrice BIGINT,
-		      hash varchar(32) UNIQUE,
+		      hash varchar(32), 
 		      input blob,
 		      nonce BIGINT,
 		      recipient varchar(20),
@@ -268,3 +269,8 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 	log.Info("mempool migrations up to date")
 	return nil
 }
+
+
+// *1: Previous versions of this migration had a UINIQUE constriant put on transaction hash. We found that this was redundant in practice when considered
+// alongside the txHash index, which is added below, and added considerable lag to block uptake. As of tag v1.3.0-removing-uinique-txHash0 all newer databases will have the schema 
+// below while previously existing databases will retain the UNIQUE constraint but will be missing the txHash index.
