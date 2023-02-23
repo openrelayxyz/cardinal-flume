@@ -69,6 +69,7 @@ type Config struct {
 	EarliestBlock 	uint64 
 	LatestBlock   	uint64
 	BaseFeeChangeBlockHeight uint64
+	LightSeed       int64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
 }
 
