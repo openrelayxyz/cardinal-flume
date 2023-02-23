@@ -468,7 +468,7 @@ func blockCountdown(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 	var lastBlock, cumulativeDifference, count int64
 	if !rows.Next() {
-		log.Printf("Error: No blocks available: %v")
+		log.Printf("Error: No blocks available: %v", headBlockNumber)
 		handleApiResponse(w, 0, "NOTOK-database error", "Error! Database error", 500, false)
 		return
 	}
