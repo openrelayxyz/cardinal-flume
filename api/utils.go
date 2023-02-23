@@ -230,8 +230,11 @@ func getTransactionsBlock(ctx context.Context, db *sql.DB, offset, limit int, ch
 	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
+var emptyStateTrieHash types.Hash = types.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+
+
 func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee FROM blocks.blocks WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash FROM blocks.blocks WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -239,10 +242,10 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee []byte
+		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes []byte
 		var number, gasLimit, gasUsed, time, size, difficulty uint64
 		var nonce int64
-		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee)
+		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -251,6 +254,21 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			log.Error("Error decompressing data", "err", err.Error())
 			return nil, err
 		}
+
+		var withdrawals []map[string]interface{}
+		switch {
+		case len(withdrawalHashBytes) == 0:
+			// This empty case is used to account for blocks before withdrawals were included
+		case len(withdrawalHashBytes) > 0 && bytesToHash(withdrawalHashBytes) == emptyStateTrieHash:
+			withdrawals = make([]map[string]interface{}, 0)
+		default:
+			withdrawals, err = getWithdrawals(ctx, db, "withdrawals.block = ?", number)
+			if err != nil {
+				log.Error("Error fetching withdrawals", "err", err.Error())
+				return nil, err
+			}
+		}
+
 		unclesList := []types.Hash{}
 		rlp.DecodeBytes(uncles, &unclesList)
 		var bn [8]byte
@@ -275,6 +293,9 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"totalDifficulty":  bytesToHexBig(td),
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
+		}
+		if withdrawals != nil {
+			fields["withdrawals"] = withdrawals
 		}
 		if includeTxs {
 			fields["transactions"], err = getTransactionsBlock(ctx, db, 0, 100000, chainid, "transactions.block = ?", number)
@@ -850,4 +871,49 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 		);`, whereClause)
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 
+}
+
+// wtdrlIndex MEDIUMINT,
+// vldtrIndex MEDIUMINT,
+// recipient VARCHAR(20),
+// amount    blob,
+// block     BIGINT
+// PRIMARY KEY (block, wtdrlIndex)
+
+func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.recipient, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
+	rows, err := db.QueryContext(ctx, query, params...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var results []map[string]interface{}
+	for rows.Next() {
+		var receipientBytes, amountBytes []byte
+		var wtdrlIdx, vldtrIdx uint64
+		err := rows.Scan(
+			&wtdrlIdx,
+			&vldtrIdx,
+			&receipientBytes,
+			&amountBytes,
+		)
+		if err != nil {
+			log.Error("Error retrieving withdrawal data", "err", err.Error())
+			return nil, err
+		}
+		item := map[string]interface{}{
+			"index":            hexutil.Uint64(wtdrlIdx),
+			"validatorIndex":   hexutil.Uint64(vldtrIdx),
+			"recipient":        bytesToAddress(receipientBytes),
+			"amount":           bytesToHexBig(amountBytes),
+		}
+
+		results = append(results, item)
+
+		if err := rows.Err(); err != nil {
+			log.Error("Error loading withdrawal data", "err", err.Error())
+			return nil, err
+		}
+	}
+	return results, nil
 }

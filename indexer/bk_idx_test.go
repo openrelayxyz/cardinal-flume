@@ -33,6 +33,9 @@ func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 			},
 		})
 
+	// The following code opens an im memory database called blocks which has the tables written and data loaded onto it.
+	// the result is that the functions returns a sql instance with two databases one, control, 'blocks.sqlite' another in memory
+	// data base which is used for testing and persists only as long as the test runs. 
 	memDB, err := sql.Open(fmt.Sprintf("sqlite3_%v", registrar[:i]), ":memory:")
 	if err != nil {
 		log.Error(err.Error())
@@ -75,7 +78,7 @@ func TestBlockIndexer(t *testing.T) {
 	defer os.Remove(test_dbs["control"] + "-wal")
 	defer os.Remove(test_dbs["control"] + "-shm")
 	defer controlDB.Close()
-	_, err = controlDB.Exec(`CREATE TABLE blocks (
+	if _, err = controlDB.Exec(`CREATE TABLE blocks (
 				number      BIGINT PRIMARY KEY,
 				hash        varchar(32) UNIQUE,
 				parentHash  varchar(32),
@@ -95,8 +98,19 @@ func TestBlockIndexer(t *testing.T) {
 				uncles      blob,
 				size        BIGINT,
 				td          varchar(32),
-				baseFee varchar(32))`)
-	if err != nil {
+				baseFee varchar(32),
+				withdrawalHash varchar(32))`); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	if _, err := controlDB.Exec(`CREATE TABLE withdrawals (
+		wtdrlIndex MEDIUMINT,
+		vldtrIndex MEDIUMINT,
+		recipient VARCHAR(20),
+		amount    blob,
+		block     BIGINT,
+		blockHash VARCHAR(32),
+		PRIMARY KEY (block, wtdrlIndex))`); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -122,8 +136,9 @@ func TestBlockIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	query := "SELECT b.number = blocks.number, b.hash = blocks.hash, b.parentHash = blocks.parentHash, b.uncleHash = blocks.uncleHash, b.coinbase = blocks.coinbase, b.root = blocks.root, b.txRoot = blocks.txRoot, b.receiptRoot = blocks.receiptRoot, b.bloom IS blocks.bloom, b.difficulty = blocks.difficulty, b.gasLimit = blocks.gasLimit, b.gasUsed = blocks.gasUsed, b.time = blocks.time, b.extra = blocks.extra, b.mixDigest = blocks.mixDigest, b.nonce = blocks.Nonce, b.uncles = blocks.uncles, b.size =  blocks.size, b.td = blocks.td, b.baseFee IS blocks.baseFee FROM blocks INNER JOIN control.blocks as b on blocks.number = b.number"
+	log.Warn("The test database does not reflect changes post Shanghai and so will need to be altered")
 
+	query := "SELECT b.number = blocks.number, b.hash = blocks.hash, b.parentHash = blocks.parentHash, b.uncleHash = blocks.uncleHash, b.coinbase = blocks.coinbase, b.root = blocks.root, b.txRoot = blocks.txRoot, b.receiptRoot = blocks.receiptRoot, b.bloom IS blocks.bloom, b.difficulty = blocks.difficulty, b.gasLimit = blocks.gasLimit, b.gasUsed = blocks.gasUsed, b.time = blocks.time, b.extra = blocks.extra, b.mixDigest = blocks.mixDigest, b.nonce = blocks.Nonce, b.uncles = blocks.uncles, b.size =  blocks.size, b.td = blocks.td, b.baseFee IS blocks.baseFee FROM blocks INNER JOIN control.blocks as b on blocks.number = b.number"
 	results := make([]any, 20)
 	for i := 0; i < len(results); i++ {
 		var x bool
@@ -142,7 +157,7 @@ func TestBlockIndexer(t *testing.T) {
 				continue
 			}
 			if v, ok := item.(*bool); !*v || !ok {
-				t.Errorf("failed on index %v, %v, %v", i, *v, ok)
+				t.Errorf("failed on index %v, %v, %v, %v", i, *v, ok, item)
 			}
 		}
 	}

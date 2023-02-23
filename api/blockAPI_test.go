@@ -11,9 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
+	"reflect"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
@@ -116,6 +116,21 @@ func receiptsDecompress() ([]map[string]json.RawMessage, error) {
 	return receiptsObject, nil
 }
 
+func withdrawalsDecompress() ([][]map[string]json.RawMessage, error) {
+	file, _ := ioutil.ReadFile("../testing-resources/withdrawal_test_data.json.gz")
+	r, err := gzip.NewReader(bytes.NewReader(file))
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := ioutil.ReadAll(r)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		return nil, err
+	}
+	var withdrawalsObject [][]map[string]json.RawMessage
+	json.Unmarshal(raw, &withdrawalsObject)
+	return withdrawalsObject, nil
+}
+
 func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []plugins.BlockNumber {
 	result := []plugins.BlockNumber{}
 	for _, block := range jsonBlockObject {
@@ -183,13 +198,13 @@ func TestBlockAPI(t *testing.T) {
 	for i, block := range blockNumbers {
 		t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
 			actual, err := b.GetBlockByNumber(context.Background(), block, true)
-			if len(*actual) != len(blockObject[i]) {
-				t.Fatalf("length error GetBlockByNumber on blockNumber %v", block)
-			}
 			if err != nil {
 				t.Fatal(err.Error())
 			}
 			for k, v := range *actual {
+				if k == "withdrawals" {
+					continue // withdrawals have their own test data and test below
+				}
 				if k == "transactions" {
 					txs := v.([]map[string]interface{})
 					var blockTxs []map[string]json.RawMessage
@@ -217,9 +232,6 @@ func TestBlockAPI(t *testing.T) {
 					if !bytes.Equal(data, blockObject[i][k]) {
 						var generic interface{}
 						json.Unmarshal(blockObject[i][k], &generic)
-						log.Info("values", "data", v, "test", generic)
-						log.Info("pre marshal type", "type", reflect.TypeOf(v))
-
 						t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 					}
 				}
@@ -249,71 +261,102 @@ func TestBlockAPI(t *testing.T) {
 				t.Fatalf("uncle count by block %v %v", actual, hexutil.Uint64(len(uncleSlice)))
 			}
 		})
-		blockHashes := getBlockHashes(blockObject)
-		for i, hash := range blockHashes {
-			t.Run(fmt.Sprintf("GetBlockByHash %v", i), func(t *testing.T) {
-				actual, err := b.GetBlockByHash(context.Background(), hash, true)
-				if err != nil {
-					t.Fatal(err.Error())
+	}
+	blockHashes := getBlockHashes(blockObject)
+	for i, hash := range blockHashes {
+		t.Run(fmt.Sprintf("GetBlockByHash %v", i), func(t *testing.T) {
+			actual, err := b.GetBlockByHash(context.Background(), hash, true)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			for k, v := range *actual {
+				if k == "withdrawals" {
+					continue // withdrawals have their own test data and test below
 				}
-				if len(*actual) != len(blockObject[i]) {
-					t.Fatalf("length error GetBlockByHash on hash %v", hash)
-				}
-				for k, v := range *actual {
-					if k == "transactions" {
-						txs := v.([]map[string]interface{})
-						var blockTxs []map[string]json.RawMessage
-						json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
-						for j, item := range txs {
-							if len(item) != len(blockTxs[j]) {
-								t.Fatalf("length error GetBlockByHash, transactions, on hash %v, transaction %v", hash, j)
+				if k == "transactions" {
+					txs := v.([]map[string]interface{})
+					var blockTxs []map[string]json.RawMessage
+					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
+					for j, item := range txs {
+						if len(item) != len(blockTxs[j]) {
+							t.Fatalf("length error GetBlockByHash, transactions, on hash %v, transaction %v", hash, j)
+						}
+						for key, value := range item {
+							d, err := json.Marshal(value)
+							if err != nil {
+								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
-							for key, value := range item {
-								d, err := json.Marshal(value)
-								if err != nil {
-									t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
-								}
-								if !bytes.Equal(d, blockTxs[j][key]) {
-									t.Fatalf("didnt work")
-								}
+							if !bytes.Equal(d, blockTxs[j][key]) {
+								t.Fatalf("didnt work")
+							}
 
+						}
+					}
+				} else {
+					data, err := json.Marshal(v)
+					if err != nil {
+						t.Errorf("nope %v", k)
+					}
+					if !bytes.Equal(data, blockObject[i][k]) {
+						t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
+					}
+				}
+			}
+		})
+		t.Run("GetBlockTransactionCountByHash", func(t *testing.T) {
+			actual, err := b.GetBlockTransactionCountByHash(context.Background(), hash)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			var txSlice []map[string]interface{}
+			json.Unmarshal(blockObject[i]["transactions"], &txSlice)
+			if *actual != hexutil.Uint64(len(txSlice)) {
+				t.Fatalf("transaction count by hash %v %v", actual, hexutil.Uint64(len(txSlice)))
+			}
+		})
+
+		t.Run("GetUncleCountByBlockHash", func(t *testing.T) {
+			actual, err := b.GetUncleCountByBlockHash(context.Background(), hash)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			var uncleSlice []types.Hash
+			json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
+			if *actual != hexutil.Uint64(len(uncleSlice)) {
+				t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))
+			}
+		})
+	}
+	withdrawalObject, err := withdrawalsDecompress()
+	if err != nil {
+		log.Error(err.Error())
+	}
+	for i, block := range blockNumbers[(len(blockNumbers) - 7):] {
+		t.Run(fmt.Sprintf("GetBlockByNumber - withdrawls %v", i), func(t *testing.T) {
+			actual, err := b.GetBlockByNumber(context.Background(), block, false)
+			if err != nil {
+				t.Fatalf("Error fetching block, withdrawals test on block %v with error %v", i, err.Error())
+			}
+			for k, v := range *actual {
+				if k == "withdrawals" {
+					wthdrls := v.([]map[string]interface{})
+					if len(wthdrls) > 0 {
+						log.Info("withdrawls list greater than zero", "len", len(wthdrls))
+					}
+					for j, item := range wthdrls {
+						for key, value := range item {
+							d, err := json.Marshal(value)
+							if err != nil {
+								t.Fatalf("withdrawal key marshalling error on block %v", i)
 							}
-						}
-					} else {
-						data, err := json.Marshal(v)
-						if err != nil {
-							t.Errorf("nope %v", k)
-						}
-						if !bytes.Equal(data, blockObject[i][k]) {
-							log.Info("pre marshal type", "type", reflect.TypeOf(v))
-							t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
+							if !bytes.Equal(d, withdrawalObject[i][j][key]) {
+								t.Fatalf("value mismatch on withdrawals block %v, key %v", block, key)
+							}
+
 						}
 					}
 				}
-			})
-			t.Run("GetBlockTransactionCountByHash", func(t *testing.T) {
-				actual, err := b.GetBlockTransactionCountByHash(context.Background(), hash)
-				if err != nil {
-					t.Fatal(err.Error())
-				}
-				var txSlice []map[string]interface{}
-				json.Unmarshal(blockObject[i]["transactions"], &txSlice)
-				if *actual != hexutil.Uint64(len(txSlice)) {
-					t.Fatalf("transaction count by hash %v %v", actual, hexutil.Uint64(len(txSlice)))
-				}
-			})
-
-			t.Run("GetUncleCountByBlockHash", func(t *testing.T) {
-				actual, err := b.GetUncleCountByBlockHash(context.Background(), hash)
-				if err != nil {
-					t.Fatal(err.Error())
-				}
-				var uncleSlice []types.Hash
-				json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
-				if *actual != hexutil.Uint64(len(uncleSlice)) {
-					t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))
-				}
-			})
-		}
+			}
+		})
 	}
 }
