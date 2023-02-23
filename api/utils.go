@@ -586,12 +586,17 @@ func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address) (hex
 		return 0, err
 	}
 	if !nonce.Valid {
-		return hexutil.Uint64(count.Int64), nil
+		if !count.Valid {
+			return hexutil.Uint64(0), nil
+		}
+		return hexutil.Uint64(count.Int64 + 1), nil
 	}
-	if nonce.Int64 > count.Int64 {
-		return hexutil.Uint64(nonce.Int64), nil
+	if nonce.Int64 >= count.Int64 {
+		return hexutil.Uint64(nonce.Int64 + 1), nil
 	}
-	return hexutil.Uint64(count.Int64), nil
+	// It shouldn't happen that the mempool has a lower nonce than confirmed
+	// blocks, but just in case:
+	return hexutil.Uint64(count.Int64 + 1), nil
 }
 
 func returnSingleTransaction(txs []map[string]interface{}) map[string]interface{} {
