@@ -46,6 +46,20 @@ type extblock struct {
 	Withdrawals  evm.Withdrawals `rlp:"optional"`
 }
 
+type extblockA struct {
+	Header *evm.Header
+	Txs    []evm.Transaction
+	Uncles []rlpData
+	Withdrawals  evm.Withdrawals `rlp:"optional"`
+}
+
+type extblockB struct {
+	Header *evm.Header
+	Txs    []evm.Transaction
+	Uncles []rlpData
+	Withdrawals  evm.Withdrawals 
+}
+
 func NewBlockIndexer(chainid uint64) Indexer {
 	return &BlockIndexer{chainid: chainid}
 }
@@ -65,6 +79,24 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
 		return nil, err
 	}
+
+	// var eblock interface{}
+
+	// if indexer.chainid == 11155111 && pb.Number >= 2990907 {
+	// 	eblock = &extblockB{
+	// 		Header: header,
+	// 		Txs:    []evm.Transaction{},
+	// 		Uncles: []rlpData{},
+	// 		Withdrawals: withdrawals,
+	// 	}
+	// } else {
+	// 	eblock = &extblockA{
+	// 		Header: header,
+	// 		Txs:    []evm.Transaction{},
+	// 		Uncles: []rlpData{},
+	// 		Withdrawals: withdrawals,
+	// 	}
+	// }
 
 	eblock := &extblock{
 		Header: header,
@@ -124,6 +156,8 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			pb.Number,
 			pb.Hash,))
 		}
+	} else {
+		log.Error("no withdrawals", "number", pb.Number)
 	}
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",

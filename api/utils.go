@@ -294,6 +294,9 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
 		}
+		if len(withdrawalHashBytes) > 0 {
+			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
+		}
 		if withdrawals != nil {
 			fields["withdrawals"] = withdrawals
 		}
@@ -889,13 +892,13 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	defer rows.Close()
 	var results []map[string]interface{}
 	for rows.Next() {
-		var receipientBytes, amountBytes []byte
-		var wtdrlIdx, vldtrIdx uint64
+		var receipientBytes []byte
+		var wtdrlIdx, vldtrIdx, amount uint64
 		err := rows.Scan(
 			&wtdrlIdx,
 			&vldtrIdx,
 			&receipientBytes,
-			&amountBytes,
+			&amount,
 		)
 		if err != nil {
 			log.Error("Error retrieving withdrawal data", "err", err.Error())
@@ -904,8 +907,8 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 		item := map[string]interface{}{
 			"index":            hexutil.Uint64(wtdrlIdx),
 			"validatorIndex":   hexutil.Uint64(vldtrIdx),
-			"recipient":        bytesToAddress(receipientBytes),
-			"amount":           bytesToHexBig(amountBytes),
+			"address":        bytesToAddress(receipientBytes),
+			"amount":           hexutil.Uint64(amount),
 		}
 
 		results = append(results, item)
