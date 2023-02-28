@@ -8,10 +8,11 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
-	"log"
 	"strings"
 	"time"
 	"github.com/NYTimes/gziphandler"
+
+	log "github.com/inconshreveable/log15"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/plugins/packages/compat/tokens"
@@ -56,7 +57,7 @@ type apiResult struct {
 
 func handleApiError(err error, w http.ResponseWriter, msg, result, logMsg string, code int) bool {
 	if err != nil {
-		log.Printf("%v: %v", logMsg, err.Error())
+		log.Error("handleAPIError", "msg", logMsg, "err", err)
 		handleApiResponse(w, 0, fmt.Sprintf("NOTOK-%v", msg), result, code, false)
 		return true
 	}
@@ -115,7 +116,7 @@ func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.R
 		query := r.URL.Query()
 		chainTokens, ok := tokens.Tokens[network]
 		if !ok {
-			log.Printf("No tokens for network %v - making empty map", network)
+			log.Error("No tokens for network - making empty map", "network", network)
 			chainTokens = make(map[common.Address]tokens.Token)
 		}
 		switch query.Get("module") + query.Get("action") {
@@ -468,7 +469,7 @@ func blockCountdown(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	}
 	var lastBlock, cumulativeDifference, count int64
 	if !rows.Next() {
-		log.Printf("Error: No blocks available: %v", headBlockNumber)
+		log.Error("Error: No blocks available", "headBlockNumber", headBlockNumber)
 		handleApiResponse(w, 0, "NOTOK-database error", "Error! Database error", 500, false)
 		return
 	}
