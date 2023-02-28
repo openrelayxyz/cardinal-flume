@@ -116,7 +116,6 @@ func ApplyParameters(query string, params ...interface{}) string {
 				preparedParams[i] = fmt.Sprintf("X'%x'", b)
 			}
 		case common.Address:
-			log.Error("caught this case")
 			b := trimPrefix(value.Bytes())
 			if len(b) == 0 {
 				preparedParams[i] = "NULL"

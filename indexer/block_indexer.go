@@ -53,7 +53,6 @@ func NewBlockIndexer(chainid uint64) Indexer {
 func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	var withdrawals evm.Withdrawals 
     if withdrawalBytes, ok := pb.Values[fmt.Sprintf("c/%x/b/%x/w", indexer.chainid, pb.Hash.Bytes())]; ok {
-		log.Error("got a withdrawals", "number", )
 		if err := rlp.DecodeBytes(withdrawalBytes, &withdrawals); err != nil {
 			log.Error("Rlp decoding error on withdrawls", "block", pb.Number)
 			return nil, err
@@ -120,15 +119,12 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, recipient, amount, block, blockHash) VALUES (%v, %v, %v, %v, %v, %v)",
 			wtdrl.Index,
 			wtdrl.Validator,
-			wtdrl.Address,
+			trimPrefix(wtdrl.Address[:]),
 			wtdrl.Amount,
 			pb.Number,
 			pb.Hash,))
 		}
 	}
-	// if header.WithdrawalsHash != nil {
-	// 	statements = append(statements, ApplyParameters("INSERT INTO blocks(withdrawalHash) VALUES (%v);", *header.WithdrawalsHash))
-	// }
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
