@@ -3,7 +3,6 @@ package indexer
 import (
 	"encoding/binary"
 	"fmt"
-	// "reflect"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -43,17 +42,9 @@ type extblock struct {
 	Header *evm.Header
 	Txs    []evm.Transaction
 	Uncles []rlpData
-	Withdrawals  evm.Withdrawals `rlp:"optional"`
 }
 
-type extblockA struct {
-	Header *evm.Header
-	Txs    []evm.Transaction
-	Uncles []rlpData
-	Withdrawals  evm.Withdrawals `rlp:"optional"`
-}
-
-type extblockB struct {
+type extblockWithdrawals struct {
 	Header *evm.Header
 	Txs    []evm.Transaction
 	Uncles []rlpData
@@ -80,29 +71,10 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		return nil, err
 	}
 
-	// var eblock interface{}
-
-	// if indexer.chainid == 11155111 && pb.Number >= 2990907 {
-	// 	eblock = &extblockB{
-	// 		Header: header,
-	// 		Txs:    []evm.Transaction{},
-	// 		Uncles: []rlpData{},
-	// 		Withdrawals: withdrawals,
-	// 	}
-	// } else {
-	// 	eblock = &extblockA{
-	// 		Header: header,
-	// 		Txs:    []evm.Transaction{},
-	// 		Uncles: []rlpData{},
-	// 		Withdrawals: withdrawals,
-	// 	}
-	// }
-
 	eblock := &extblock{
 		Header: header,
 		Txs:    []evm.Transaction{},
 		Uncles: []rlpData{},
-		Withdrawals: withdrawals,
 	}
 
 	uncleHashes := make(map[int64]types.Hash)
@@ -133,8 +105,26 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	for i, v := range uncleData {
 		eblock.Uncles[int(i)] = v
 	}
-	ebd, _ := rlp.EncodeToBytes(eblock)
-	size := len(ebd)
+	if header.WithdrawalsHash != nil {
+		hs := *header.WithdrawalsHash
+		if hs.String() == "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421" {
+			log.Error("go a nil one on block", "number", pb.Number)
+		}
+	}
+	var size int
+	if header.WithdrawalsHash != nil {
+		eblockWithWithdrawals := &extblockWithdrawals{
+			Header: eblock.Header,
+			Txs:    eblock.Txs,
+			Uncles: eblock.Uncles,
+			Withdrawals: withdrawals,
+		}
+		ebwd, _ := rlp.EncodeToBytes(eblockWithWithdrawals)
+		size = len(ebwd)
+	} else {
+		ebd, _ := rlp.EncodeToBytes(eblock)
+		size = len(ebd)
+	}
 	uncles := make([]types.Hash, len(uncleHashes))
 	for i, v := range uncleHashes {
 		uncles[int(i)] = v
@@ -156,8 +146,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			pb.Number,
 			pb.Hash,))
 		}
-	} else {
-		log.Error("no withdrawals", "number", pb.Number)
 	}
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
