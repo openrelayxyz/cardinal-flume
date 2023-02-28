@@ -104,6 +104,25 @@ func ApplyParameters(query string, params ...interface{}) string {
 			} else {
 				preparedParams[i] = fmt.Sprintf("X'%x'", b)
 			}
+		case *types.Hash:
+			if value == nil {
+				preparedParams[i] = "NULL"
+				continue
+			}
+			b := trimPrefix(value.Bytes())
+			if len(b) == 0 {
+				preparedParams[i] = "NULL"
+			} else {
+				preparedParams[i] = fmt.Sprintf("X'%x'", b)
+			}
+		case common.Address:
+			log.Error("caught this case")
+			b := trimPrefix(value.Bytes())
+			if len(b) == 0 {
+				preparedParams[i] = "NULL"
+			} else {
+				preparedParams[i] = fmt.Sprintf("X'%x'", b)
+			}
 		case *big.Int:
 			if value == nil {
 				preparedParams[i] = "NULL"
