@@ -884,7 +884,7 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 // PRIMARY KEY (block, wtdrlIndex)
 
 func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.recipient, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.address, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -892,12 +892,12 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	defer rows.Close()
 	var results []map[string]interface{}
 	for rows.Next() {
-		var receipientBytes []byte
+		var addressBytes []byte
 		var wtdrlIdx, vldtrIdx, amount uint64
 		err := rows.Scan(
 			&wtdrlIdx,
 			&vldtrIdx,
-			&receipientBytes,
+			&addressBytes,
 			&amount,
 		)
 		if err != nil {
@@ -907,7 +907,7 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 		item := map[string]interface{}{
 			"index":            hexutil.Uint64(wtdrlIdx),
 			"validatorIndex":   hexutil.Uint64(vldtrIdx),
-			"address":        bytesToAddress(receipientBytes),
+			"address":        bytesToAddress(addressBytes),
 			"amount":           hexutil.Uint64(amount),
 		}
 

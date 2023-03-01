@@ -116,7 +116,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				wtdrlIndex MEDIUMINT,
 				vldtrIndex MEDIUMINT,
 				recipient VARCHAR(20),
-				amount    blob,
+				amount    MEDIUMINT,
 				block     BIGINT,
 				blockHash VARCHAR(32),
 				PRIMARY KEY (block, wtdrlIndex))`); err != nil {

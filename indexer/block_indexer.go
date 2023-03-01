@@ -105,12 +105,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	for i, v := range uncleData {
 		eblock.Uncles[int(i)] = v
 	}
-	if header.WithdrawalsHash != nil {
-		hs := *header.WithdrawalsHash
-		if hs.String() == "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421" {
-			log.Error("go a nil one on block", "number", pb.Number)
-		}
-	}
 	var size int
 	if header.WithdrawalsHash != nil {
 		eblockWithWithdrawals := &extblockWithdrawals{
@@ -138,7 +132,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	if withdrawals.Len() > 0 {
 		for _, wtdrl := range withdrawals {
 			statements = append(statements, ApplyParameters(
-			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, recipient, amount, block, blockHash) VALUES (%v, %v, %v, %v, %v, %v)",
+			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, address, amount, block, blockHash) VALUES (%v, %v, %v, %v, %v, %v)",
 			wtdrl.Index,
 			wtdrl.Validator,
 			trimPrefix(wtdrl.Address[:]),
