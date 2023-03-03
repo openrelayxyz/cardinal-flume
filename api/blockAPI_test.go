@@ -234,7 +234,6 @@ func TestBlockAPI(t *testing.T) {
 					if !bytes.Equal(data, blockObject[i][k]) {
 						var generic interface{}
 						json.Unmarshal(blockObject[i][k], &generic)
-						// t.Fatalf("not equal %v %v %v %v", i, k, reflect.TypeOf(data), reflect.TypeOf(blockObject[i][k]))
 						t.Fatalf("not equal on block %v, index %v, key %v", block, i, k,)
 					}
 				}
