@@ -115,7 +115,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		if _, err := db.Exec(`CREATE TABLE blocks.withdrawals (
 				wtdrlIndex MEDIUMINT,
 				vldtrIndex MEDIUMINT,
-				recipient VARCHAR(20),
+				address VARCHAR(20),
 				amount    MEDIUMINT,
 				block     BIGINT,
 				blockHash VARCHAR(32),
