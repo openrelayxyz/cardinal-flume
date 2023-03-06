@@ -123,8 +123,8 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations CREATE TABLE blocks.withdrawals", "err", err.Error())
 				return nil
 				}
-		if _, err := db.Exec(`CREATE INDEX blocks.recipientBlock ON withdrawals(recipient, block)`); err != nil {
-			log.Error("migrations CREATE INDEX blocks.recipientBlock error", "err", err.Error())
+		if _, err := db.Exec(`CREATE INDEX blocks.addressBlock ON withdrawals(address, block)`); err != nil {
+			log.Error("migrations CREATE INDEX blocks.addressBlock error", "err", err.Error())
 			return nil
 		}
 		if _, err := db.Exec(`CREATE INDEX blocks.blockHash ON withdrawals(blockHash)`); err != nil {
