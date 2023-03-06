@@ -49,6 +49,9 @@ jobs:
       - run:
           name: test indexer
           command: go test ./indexer/
+      - run:
+          name: test polygon
+          command: go test ./plugins/packages/polygon/
       # - run:
       #     name: build image
       #     command: |
