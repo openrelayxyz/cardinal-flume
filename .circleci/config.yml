@@ -78,17 +78,24 @@ jobs:
 
 workflows:
   version: 2
+  test:
+    jobs:
+      - test:
+          filters:
+            tags:
+              ignore: /^v.*/
   build_and_test:
     jobs:
-      # - test:
-      #     filters:  # required since `deploy` has tag filters AND requires `build`
-      #       tags:
-      #         only: /.*/
-      - build_push:
-          # requires:
-          #   - test
+      - test:
           filters:
             tags:
               only: /^v.*/
             branches:
               ignore: /.*/
+      - build_cardinal_push:
+          context: Rivet
+          requires:
+            - test
+          filters:
+            tags:
+              only: /^v.*/
