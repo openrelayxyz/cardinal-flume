@@ -86,7 +86,7 @@ workflows:
               only: /^v.*/
             branches:
               ignore: /.*/
-      - build_cardinal_push:
+      - build_push:
           context: Rivet
           requires:
             - test
