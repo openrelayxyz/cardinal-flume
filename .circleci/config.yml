@@ -4,17 +4,20 @@ orbs:
 version: 2.1
 jobs:
   # TODO: tests
-  # test:
-  #   docker:
-  #     - image: cimg/go:1.18
-  #   steps:
-  #     - checkout
-  #     - run:
-  #         name: Test ethdb/cdc
-  #         command: go test ./ethdb/cdc
-  #     - run:
-  #         name: Test replica
-  #         command: go test ./replica
+  test:
+    docker:
+      - image: cimg/go:1.18.6
+    steps:
+      - checkout
+      - run:
+          name: test api
+          command: go test ./api/
+      - run:
+          name: test indexer
+          command: go test ./indexer/
+      - run:
+          name: test polygon
+          command: go test ./plugins/packages/polygon/
   build_push:
     docker: # run the steps with Docker
       - image: cimg/go:1.18.6 # ...with this image as the primary container
@@ -43,15 +46,6 @@ jobs:
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./polygon-arm64.so plugins/packages/polygon/*.go
             go build -buildmode=plugin -o ./compat-amd64.so plugins/packages/compat/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./compat-arm64.so plugins/packages/compat/*.go
-      - run:
-          name: test api
-          command: go test ./api/
-      - run:
-          name: test indexer
-          command: go test ./indexer/
-      - run:
-          name: test polygon
-          command: go test ./plugins/packages/polygon/
       # - run:
       #     name: build image
       #     command: |
