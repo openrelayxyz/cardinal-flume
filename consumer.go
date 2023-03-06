@@ -25,6 +25,7 @@ var trackedPrefixes = []*regexp.Regexp{
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/t/"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/r/"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/l/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/w"),
 }
 
 func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte, tp []*regexp.Regexp) (streamsTransports.Consumer, error) { // brokerParams := cfg.BrokerParams

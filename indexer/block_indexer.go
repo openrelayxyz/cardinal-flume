@@ -3,7 +3,6 @@ package indexer
 import (
 	"encoding/binary"
 	"fmt"
-	// "reflect"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -43,7 +42,13 @@ type extblock struct {
 	Header *evm.Header
 	Txs    []evm.Transaction
 	Uncles []rlpData
-	Withdrawals  evm.Withdrawals `rlp:"optional"`
+}
+
+type extblockWithdrawals struct {
+	Header *evm.Header
+	Txs    []evm.Transaction
+	Uncles []rlpData
+	Withdrawals  evm.Withdrawals 
 }
 
 func NewBlockIndexer(chainid uint64) Indexer {
@@ -70,7 +75,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		Header: header,
 		Txs:    []evm.Transaction{},
 		Uncles: []rlpData{},
-		Withdrawals: withdrawals,
 	}
 
 	uncleHashes := make(map[int64]types.Hash)
@@ -101,8 +105,20 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	for i, v := range uncleData {
 		eblock.Uncles[int(i)] = v
 	}
-	ebd, _ := rlp.EncodeToBytes(eblock)
-	size := len(ebd)
+	var size int
+	if header.WithdrawalsHash != nil {
+		eblockWithWithdrawals := &extblockWithdrawals{
+			Header: eblock.Header,
+			Txs:    eblock.Txs,
+			Uncles: eblock.Uncles,
+			Withdrawals: withdrawals,
+		}
+		ebwd, _ := rlp.EncodeToBytes(eblockWithWithdrawals)
+		size = len(ebwd)
+	} else {
+		ebd, _ := rlp.EncodeToBytes(eblock)
+		size = len(ebd)
+	}
 	uncles := make([]types.Hash, len(uncleHashes))
 	for i, v := range uncleHashes {
 		uncles[int(i)] = v
@@ -116,20 +132,17 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	if withdrawals.Len() > 0 {
 		for _, wtdrl := range withdrawals {
 			statements = append(statements, ApplyParameters(
-			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, recipient, amount, block, blockHash) VALUES (%v, %v, %v, %v, %v, %v)",
+			"INSERT INTO withdrawals(wtdrlIndex, vldtrIndex, address, amount, block, blockHash) VALUES (%v, %v, %v, %v, %v, %v)",
 			wtdrl.Index,
 			wtdrl.Validator,
-			wtdrl.Address,
+			trimPrefix(wtdrl.Address[:]),
 			wtdrl.Amount,
 			pb.Number,
 			pb.Hash,))
 		}
 	}
-	if header.WithdrawalsHash != nil {
-		statements = append(statements, ApplyParameters("INSERT INTO blocks(withdrawalHash) VALUES (%v);", *header.WithdrawalsHash))
-	}
 	statements = append(statements, ApplyParameters(
-		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
 		pb.Hash,
 		pb.ParentHash,
@@ -150,6 +163,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		size,
 		td.Bytes(),
 		header.BaseFee,
+		header.WithdrawalsHash,
 	))
 	return statements, nil
 }

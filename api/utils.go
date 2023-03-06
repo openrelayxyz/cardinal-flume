@@ -294,6 +294,9 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
 		}
+		if len(withdrawalHashBytes) > 0 {
+			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
+		}
 		if withdrawals != nil {
 			fields["withdrawals"] = withdrawals
 		}
@@ -881,7 +884,7 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 // PRIMARY KEY (block, wtdrlIndex)
 
 func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.recipient, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.address, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -889,13 +892,13 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	defer rows.Close()
 	var results []map[string]interface{}
 	for rows.Next() {
-		var receipientBytes, amountBytes []byte
-		var wtdrlIdx, vldtrIdx uint64
+		var addressBytes []byte
+		var wtdrlIdx, vldtrIdx, amount uint64
 		err := rows.Scan(
 			&wtdrlIdx,
 			&vldtrIdx,
-			&receipientBytes,
-			&amountBytes,
+			&addressBytes,
+			&amount,
 		)
 		if err != nil {
 			log.Error("Error retrieving withdrawal data", "err", err.Error())
@@ -904,8 +907,8 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 		item := map[string]interface{}{
 			"index":            hexutil.Uint64(wtdrlIdx),
 			"validatorIndex":   hexutil.Uint64(vldtrIdx),
-			"recipient":        bytesToAddress(receipientBytes),
-			"amount":           bytesToHexBig(amountBytes),
+			"address":        bytesToAddress(addressBytes),
+			"amount":           hexutil.Uint64(amount),
 		}
 
 		results = append(results, item)
