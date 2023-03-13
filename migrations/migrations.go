@@ -285,6 +285,15 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("logs migrations v1 done")
 	}
+	if schemaVersion < 2 {
+		if _, err := db.Exec(`CREATE TABLE logs.address_hints (
+			address varchar(20)
+		);`); err != nil {
+			log.Error("Migrate Logs CREATE ADDRESS address_hints error", "err", err.Error())
+			return nil
+		}
+		db.Exec(`UPDATE logs.migrations SET version = 2;`)
+	}
 
 	log.Info("logs migrations up to date")
 	return nil
