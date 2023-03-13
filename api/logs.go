@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"time"
 )
 
 type LogsAPI struct {
@@ -137,6 +138,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if highestTopic == 0 && len(topicsClause) > 0 && len(addressClause) > 0{
 		// If these conditions are met, we're stuck choosing between address and topic0 indexes. We want to find out which is better.
 		var addrCount, topicCount int
+		start := time.Now()
 		addrWhereClause := append(blockClause, strings.Join(addressClause, " OR "))
 		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(addrWhereClause, " AND ")), append(blockParams, addressParams...)...).Scan(&addrCount); err != nil {
 			log.Warn("Error getting address clause count", "err", err)
@@ -147,8 +149,10 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		if topicCount < addrCount {
 			indexClause = "INDEXED BY topic0_compound"
+			log.Debug("Selected topic0_compound index", "duration", time.Since(start))
 		} else {
 			indexClause = "INDEXED BY address_compound"
+			log.Debug("Selected address_compound index", "duration", time.Since(start))
 		}
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
