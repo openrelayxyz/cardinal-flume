@@ -216,6 +216,12 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		db.Exec(`UPDATE logs.migrations SET version = 1;`)
 		log.Info("logs migrations done")
 	}
+	if schemaVersion < 2 {
+		db.Exec(`CREATE TABLE logs.address_hints (
+			address varchar(20),
+		`)
+		db.Exec(`UPDATE logs.migrations SET version = 2;`)
+	}
 
 	log.Info("logs migrations up to date")
 	return nil

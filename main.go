@@ -117,6 +117,8 @@ func main() {
 		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
+		if err := api.LoadIndexHints(logsdb); err != nil {}
+		log.Warn("Failed to load index hints", "err", err.Error())
 	}
 	if hasMempool {
 		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
