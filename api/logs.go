@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"time"
 )
 
 type LogsAPI struct {
@@ -137,18 +138,27 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if highestTopic == 0 && len(topicsClause) > 0 && len(addressClause) > 0{
 		// If these conditions are met, we're stuck choosing between address and topic0 indexes. We want to find out which is better.
 		var addrCount, topicCount int
+		start := time.Now()
 		addrWhereClause := append(blockClause, strings.Join(addressClause, " OR "))
-		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(addrWhereClause, " AND ")), append(blockParams, addressParams...)...).Scan(&addrCount); err != nil {
+		addrQuery := fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(addrWhereClause, " AND "))
+		if err := api.db.QueryRowContext(ctx, addrQuery, append(blockParams, addressParams...)...).Scan(&addrCount); err != nil {
 			log.Warn("Error getting address clause count", "err", err)
 		}
 		topicWhereClause := append(blockClause, strings.Join(topic0Clause, " OR "))
-		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(topicWhereClause, " AND ")), append(blockParams, topic0Params...)...).Scan(&topicCount); err != nil {
+		topicQuery := fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(topicWhereClause, " AND "))
+		if err := api.db.QueryRowContext(ctx, topicQuery, append(blockParams, topic0Params...)...).Scan(&topicCount); err != nil {
 			log.Warn("Error getting topic clause count", "err", err)
 		}
 		if topicCount < addrCount {
 			indexClause = "INDEXED BY topic0_compound"
+			log.Debug("Selected topic0_compound index", "addrCount", addrCount, "topicCount", topicCount, "duration", time.Since(start))
+			log.Debug("AddrQuery", "q", addrQuery, "params", append(blockParams, addressParams...))
+			log.Debug("TopicQuery", "q", topicQuery, "params", append(blockParams, topic0Params...))
 		} else {
 			indexClause = "INDEXED BY address_compound"
+			log.Debug("Selected address_compound index", "addrCount", addrCount, "topicCount", topicCount, "duration", time.Since(start))
+			log.Debug("AddrQuery", "q", addrQuery, "params", append(blockParams, addressParams...))
+			log.Debug("TopicQuery", "q", topicQuery, "params", append(blockParams, topic0Params...))
 		}
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
