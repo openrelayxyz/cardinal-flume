@@ -45,16 +45,20 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		return nil, err
 	}
 
+	blockClause := []string{}
 	whereClause := []string{}
 	indexClause := ""
 	params := []interface{}{}
+	blockParams := []interface{}{}
 	var goHeavy bool
 	if crit.BlockHash != nil {
 		var num int64
 		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", crit.BlockHash.Bytes()).Scan(&num)
-		whereClause = append(whereClause, "blockHash = ? AND block = ?")
+		blockClause = append(blockClause, "blockHash = ? AND block = ?")
+		
 		goHeavy = (num == 0)
 		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
+		blockParams = append(blockParams, trimPrefix(crit.BlockHash.Bytes()), num)
 	} else {
 		var fromBlock, toBlock int64
 		if crit.FromBlock == nil || crit.FromBlock.Int64() < 0 {
@@ -64,16 +68,19 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		whereClause = append(whereClause, "block >= ?")
+		blockClause = append(blockClause, "block >= ?")
 		params = append(params, fromBlock)
+		blockParams = append(blockParams, fromBlock)
 		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
 			toBlock = latestBlock
 		} else {
 			toBlock = crit.ToBlock.Int64()
 		}
-		whereClause = append(whereClause, "block <= ?")
+		blockClause = append(blockClause, "block <= ?")
 		params = append(params, toBlock)
+		blockParams = append(params, toBlock)
 	}
+	whereClause = append(whereClause, blockClause...)
 
 	if goHeavy && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getLogs sent to flume heavy")
@@ -93,21 +100,32 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	}
 
 	addressClause := []string{}
+	addressParams := []interface{}{}
 	for _, address := range crit.Addresses {
-		addressClause = append(addressClause, fmt.Sprintf("%vaddress = ?", badAddressValues[address]))
+		addressClause = append(addressClause, "address = ?")
+		addressParams = append(addressParams, trimPrefix(address.Bytes()))
 		params = append(params, trimPrefix(address.Bytes()))
 	}
 	if len(addressClause) > 0 {
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(addressClause, " OR ")))
 	}
+	
+	var highestTopic int
+	topic0Clause := []string{}
+	topic0Params := []interface{}{}
 	topicsClause := []string{}
 	for i, topics := range crit.Topics {
 		topicClause := []string{}
 		for _, topic := range topics {
+			if i == 0 {
+				topic0Clause = append(topic0Clause, "topic0 = ?")
+				topic0Params = append(topic0Params, trimPrefix(topic.Bytes()))
+			}
 			topicClause = append(topicClause, fmt.Sprintf("topic%v = ?", i))
 			params = append(params, trimPrefix(topic.Bytes()))
 		}
 		if len(topicClause) > 0 {
+			highestTopic = i
 			topicsClause = append(topicsClause, fmt.Sprintf("(%v)", strings.Join(topicClause, " OR ")))
 		} else {
 			topicsClause = append(topicsClause, fmt.Sprintf("topic%v IS NOT NULL", i))
@@ -115,6 +133,23 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	}
 	if len(topicsClause) > 0 {
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
+	}
+	if highestTopic == 0 && len(topicsClause) > 0 && len(addressClause) > 0{
+		// If these conditions are met, we're stuck choosing between address and topic0 indexes. We want to find out which is better.
+		var addrCount, topicCount int
+		addrWhereClause := append(blockClause, strings.Join(addressClause, " OR "))
+		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(addrWhereClause, " AND ")), append(blockParams, addressParams)...).Scan(&addrCount); err != nil {
+			log.Warn("Error getting address clause count", "err", err)
+		}
+		topicWhereClause := append(blockClause, strings.Join(topic0Clause, " OR "))
+		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(topicWhereClause, " AND ")), append(blockParams, topic0Params)...).Scan(&topicCount); err != nil {
+			log.Warn("Error getting topic clause count", "err", err)
+		}
+		if topicCount < addrCount {
+			indexClause = "INDEXED BY topic0_compound"
+		} else {
+			indexClause = "INDEXED BY address_compound"
+		}
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
 	rows, err := api.db.QueryContext(ctx, query, params...)
