@@ -94,7 +94,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 
 	addressClause := []string{}
 	for _, address := range crit.Addresses {
-		addressClause = append(addressClause, "address = ?")
+		addressClause = append(addressClause, fmt.Sprintf("%vaddress = ?", badAddressValues[address]))
 		params = append(params, trimPrefix(address.Bytes()))
 	}
 	if len(addressClause) > 0 {
