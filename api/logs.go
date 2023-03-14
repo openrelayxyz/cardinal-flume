@@ -68,17 +68,20 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		blockClause = append(blockClause, "block >= ?")
-		params = append(params, fromBlock)
-		blockParams = append(blockParams, fromBlock)
 		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
 			toBlock = latestBlock
 		} else {
 			toBlock = crit.ToBlock.Int64()
 		}
-		blockClause = append(blockClause, "block <= ?")
-		params = append(params, toBlock)
-		blockParams = append(blockParams, toBlock)
+		if fromBlock == toBlock {
+			blockClause = append(blockClause, "block = ?")
+			params = append(params, fromBlock)
+			blockParams = append(blockParams, fromBlock)
+		} else {
+			blockClause = append(blockClause, "block >= ?", "block <= ?")
+			params = append(params, fromBlock, toBlock)
+			blockParams = append(blockParams, fromBlock, toBlock)
+		}
 	}
 	whereClause = append(whereClause, blockClause...)
 
