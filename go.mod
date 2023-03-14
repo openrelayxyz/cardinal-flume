@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/klauspost/compress v1.15.9
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/openrelayxyz/cardinal-evm v1.4.0
 	github.com/openrelayxyz/cardinal-rpc v1.0.3
 	github.com/openrelayxyz/cardinal-streams v1.2.1
