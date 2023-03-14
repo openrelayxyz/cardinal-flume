@@ -140,13 +140,13 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if highestTopic == 0 && len(topicsClause) > 0 && len(addressClause) > 0{
 		// If these conditions are met, we're stuck choosing between address and topic0 indexes. We want to find out which is better.
 		var addrCount, topicCount int
-		addrWhereClause := append(blockClause, strings.Join(addressClause, " OR "))
-		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(addrWhereClause, " AND ")), append(blockParams, addressParams...)...).Scan(&addrCount); err != nil {
-			log.Warn("Error getting address clause count", "err", err)
+		addrWhereClause := append(blockClause, fmt.Sprintf("(%v)", strings.Join(addressClause, " OR ")))
+		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE (%v)", strings.Join(addrWhereClause, " AND ")), append(blockParams, addressParams...)...).Scan(&addrCount); err != nil {
+			log.Warn("Error getting address clause count", "err", err, "where", addrWhereClause, "params", append(blockParams, addressParams...))
 		}
-		topicWhereClause := append(blockClause, strings.Join(topic0Clause, " OR "))
-		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE %v", strings.Join(topicWhereClause, " AND ")), append(blockParams, topic0Params...)...).Scan(&topicCount); err != nil {
-			log.Warn("Error getting topic clause count", "err", err)
+		topicWhereClause := append(blockClause, fmt.Sprintf("(%v)", strings.Join(topic0Clause, " OR ")))
+		if err := api.db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM event_logs WHERE (%v)", strings.Join(topicWhereClause, " AND ")), append(blockParams, topic0Params...)...).Scan(&topicCount); err != nil {
+			log.Warn("Error getting topic clause count", "err", err, "where", topicWhereClause, "params", append(blockParams, topic0Params...))
 		}
 		if topicCount < addrCount {
 			indexClause = "INDEXED BY topic0_compound"
