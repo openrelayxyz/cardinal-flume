@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
@@ -64,15 +65,19 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		whereClause = append(whereClause, "block >= ?")
 		params = append(params, fromBlock)
 		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
 			toBlock = latestBlock
 		} else {
 			toBlock = crit.ToBlock.Int64()
 		}
-		whereClause = append(whereClause, "block <= ?")
-		params = append(params, toBlock)
+		if fromBlock == toBlock {
+			whereClause = append(whereClause, "block = ?")
+			params = append(params, fromBlock)
+		} else {
+			whereClause = append(whereClause, "block >= ?", "block <= ?")
+			params = append(params, fromBlock, toBlock)
+		}
 	}
 
 	if goHeavy && len(api.cfg.HeavyServer) > 0 {
@@ -117,6 +122,15 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
+	doneCh := make(chan struct{})
+	defer func() { close(doneCh) }()
+	go func() {
+		select {
+		case <-doneCh:
+		case <-time.NewTimer(5 * time.Second).C:
+			log.Warn("Query taking > 5 seconds", "query", query, "params", params)
+		}
+	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		log.Error("Error selecting query", "query", query, "err", err.Error())
