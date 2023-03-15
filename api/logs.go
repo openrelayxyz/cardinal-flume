@@ -65,7 +65,6 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		params = append(params, fromBlock)
 		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
 			toBlock = latestBlock
 		} else {
