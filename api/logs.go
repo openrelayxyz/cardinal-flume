@@ -90,6 +90,8 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		return *logs, nil
 	}
 
+	justBlock := true
+
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getLogs served from flume light")
 		hitMeter.Mark(1)
@@ -102,6 +104,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		params = append(params, trimPrefix(address.Bytes()))
 	}
 	if len(addressClause) > 0 {
+		justBlock = false
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(addressClause, " OR ")))
 	}
 	topicsClause := []string{}
@@ -118,7 +121,12 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 	}
 	if len(topicsClause) > 0 {
+		justBlock = false
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
+	}
+	if justBlock {
+		// I *really* don't like that this is necessary, but the query planner is picking topic0_compound in these situations, which has awful performance.
+		indexClause = "INDEXED BY sqlite_autoindex_event_logs_1"
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
 	doneCh := make(chan struct{})
