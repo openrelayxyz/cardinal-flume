@@ -137,7 +137,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if len(topicsClause) > 0 {
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
 	}
-	if highestTopic == 0 && len(topicsClause) > 0 && len(addressClause) > 0{
+	if highestTopic == 0 && len(topic0Clause) > 0 && len(addressClause) > 0{
 		// If these conditions are met, we're stuck choosing between address and topic0 indexes. We want to find out which is better.
 		var addrCount, topicCount int
 		addrWhereClause := append(blockClause, fmt.Sprintf("(%v)", strings.Join(addressClause, " OR ")))
