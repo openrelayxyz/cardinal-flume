@@ -250,8 +250,15 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
+	if cfg.Brokers[0].URL != "null://" {
+		for {
+			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+				log.Debug("Earliest block set", "block", minBlock)
+				break
+			}
+		}
+	}
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
