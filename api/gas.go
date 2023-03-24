@@ -303,11 +303,18 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 
 	if pbs != nil {
 		result.GasUsedRatio[len(result.GasUsedRatio) -1] = pbs.gasUsedRatio
+
 		if len(rewardPercentiles) > 0 {
 			result.Reward[len(result.Reward) -1] = make([]*hexutil.Big, len(rewardPercentiles))
-			for i, p := range rewardPercentiles {
-				idx := int((p / 100) * float64(len(pbs.pendingTxns)))
-				result.Reward[len(result.Reward) -1][i] = (*hexutil.Big)(pbs.pendingTxns[idx].gasTipCap)
+			if len(pbs.pendingTxns) > 0 {
+				for i, p := range rewardPercentiles {
+					idx := int((p / 100) * float64(len(pbs.pendingTxns)))
+					result.Reward[len(result.Reward) -1][i] = (*hexutil.Big)(pbs.pendingTxns[idx].gasTipCap)
+				}
+			} else {
+				for i, _ := range rewardPercentiles {
+					result.Reward[len(result.Reward) -1][i] = (*hexutil.Big)(new(big.Int))
+				}
 			}
 		}
 		result.BaseFee[len(result.BaseFee) -2] = result.BaseFee[len(result.BaseFee) -1]
@@ -390,14 +397,12 @@ func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock plugins.
 		}
 	}
 
-	if len(truncPendingTxns) > 0 {
-		result := &pendingBlockSimulator{
-			baseFee: nbf,
-			gasUsedRatio: float64(gasUsed) / float64(gasLimit),
-			pendingTxns: truncPendingTxns,
-		}
-		return result, nil
-	}
 
-	return nil, nil
+	return &pendingBlockSimulator{
+		baseFee: nbf,
+		gasUsedRatio: float64(gasUsed) / float64(gasLimit),
+		pendingTxns: truncPendingTxns,
+	}, nil
+
+	
 }
