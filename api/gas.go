@@ -232,6 +232,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 
+	log.Error("block query parameters", "bqp", int64(lastBlock)-int64(blockCount), "lastblock", lastBlock, "blockcount", blockCount)
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
 		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
@@ -285,22 +286,6 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		eh.Check(rows.Err())
 	}
 
-	gasTarget := lastGasLimit / 2
-	if lastGasUsed == gasTarget {
-		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(lastBaseFee)
-	} else if lastGasUsed > gasTarget {
-		delta := lastGasUsed - gasTarget
-		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), baseFeeDenominator)
-		if baseFeeDelta.Cmp(new(big.Int)) == 0 {
-			baseFeeDelta = big.NewInt(1)
-		}
-		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Add(lastBaseFee, baseFeeDelta))
-	} else {
-		delta := gasTarget - lastGasUsed
-		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), baseFeeDenominator)
-		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Sub(lastBaseFee, baseFeeDelta))
-	}
-
 	if pbs != nil {
 		result.GasUsedRatio[len(result.GasUsedRatio) -1] = pbs.gasUsedRatio
 
@@ -317,8 +302,25 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 				}
 			}
 		}
-		result.BaseFee[len(result.BaseFee) -2] = result.BaseFee[len(result.BaseFee) -1]
-		result.BaseFee[len(result.BaseFee) -1] = (*hexutil.Big)(pbs.baseFee) 
+		result.BaseFee[len(result.BaseFee) -2] = (*hexutil.Big)(pbs.baseFee)
+		lastBaseFee = pbs.baseFee
+		lastGasUsed = pbs.gasUsed
+	}
+
+	gasTarget := lastGasLimit / 2
+	if lastGasUsed == gasTarget {
+		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(lastBaseFee)
+	} else if lastGasUsed > gasTarget {
+		delta := lastGasUsed - gasTarget
+		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), baseFeeDenominator)
+		if baseFeeDelta.Cmp(new(big.Int)) == 0 {
+			baseFeeDelta = big.NewInt(1)
+		}
+		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Add(lastBaseFee, baseFeeDelta))
+	} else {
+		delta := gasTarget - lastGasUsed
+		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), baseFeeDenominator)
+		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Sub(lastBaseFee, baseFeeDelta))
 	}
 
 	return result, nil
@@ -327,6 +329,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 type pendingBlockSimulator struct {
 	baseFee *big.Int
 	gasUsedRatio float64
+	gasUsed int64
 	pendingTxns  []pendingTransaction
 }
 
@@ -401,8 +404,10 @@ func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock plugins.
 	return &pendingBlockSimulator{
 		baseFee: nbf,
 		gasUsedRatio: float64(gasUsed) / float64(gasLimit),
+		gasUsed: int64(gasUsed),
 		pendingTxns: truncPendingTxns,
 	}, nil
 
 	
 }
+ 
