@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/config"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	eh "github.com/openrelayxyz/cardinal-flume/errhandle"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -67,7 +68,6 @@ func (api *GasAPI) gasTip(ctx context.Context) (*big.Int, error) {
 }
 
 func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
-	
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time. 
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
 
@@ -176,30 +176,44 @@ var (
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 
-func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, lastBlock plugins.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
-	
+func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock plugins.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
 	
 	defer eh.HandleErr(&err)
-
+	
 	if blockCount > 128 {
 		blockCount = DecimalOrHex(128)
 	} else if blockCount == 0 {
 		blockCount = DecimalOrHex(20)
 	}
 
-	if int64(lastBlock) < 0 {
+	var lastBlock plugins.BlockNumber
+	var pbs *pendingBlockSimulator
+
+	if int64(terminalBlock) < 0 {
+
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
 		lastBlock = plugins.BlockNumber(latestBlock)
+
+		if terminalBlock == plugins.PendingBlockNumber { 
+			pbs, err = api.constructPendingBlock(ctx, lastBlock)
+			if err != nil {
+				log.Error("Error retrieving pending block", "err", err)
+			}
+			lastBlock++
+		}
+
+	} else {
+		lastBlock = terminalBlock
 	}
 
 	earliestBlockInCall := (int64(lastBlock) - int64(blockCount) + 1)
 
-	if earliestBlockInCall < int64(api.cfg.EarliestBlock) {
+	if (earliestBlockInCall) < int64(api.cfg.EarliestBlock) {
 		log.Debug("eth_feeHistory sent to flume heavy")
 		missMeter.Mark(1)
 		gfhMissMeter.Mark(1)
@@ -218,15 +232,15 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 
+	log.Error("block query parameters", "bqp", int64(lastBlock)-int64(blockCount), "lastblock", lastBlock, "blockcount", blockCount)
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
-		BaseFee:      make([]*hexutil.Big, int(blockCount)+1),
+		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
 		GasUsedRatio: make([]float64, int(blockCount)),
 	}
 	if len(rewardPercentiles) > 0 {
 		result.Reward = make([][]*hexutil.Big, int(blockCount))
 	}
-	// TODO: Add next base fee to baseFeeList
 	var lastBaseFee *big.Int
 	var lastGasUsed, lastGasLimit int64
 	for i := 0; rows.Next(); i++ {
@@ -272,6 +286,27 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		eh.Check(rows.Err())
 	}
 
+	if pbs != nil {
+		result.GasUsedRatio[len(result.GasUsedRatio) -1] = pbs.gasUsedRatio
+
+		if len(rewardPercentiles) > 0 {
+			result.Reward[len(result.Reward) -1] = make([]*hexutil.Big, len(rewardPercentiles))
+			if len(pbs.pendingTxns) > 0 {
+				for i, p := range rewardPercentiles {
+					idx := int((p / 100) * float64(len(pbs.pendingTxns)))
+					result.Reward[len(result.Reward) -1][i] = (*hexutil.Big)(pbs.pendingTxns[idx].gasTipCap)
+				}
+			} else {
+				for i, _ := range rewardPercentiles {
+					result.Reward[len(result.Reward) -1][i] = (*hexutil.Big)(new(big.Int))
+				}
+			}
+		}
+		result.BaseFee[len(result.BaseFee) -2] = (*hexutil.Big)(pbs.baseFee)
+		lastBaseFee = pbs.baseFee
+		lastGasUsed = pbs.gasUsed
+	}
+
 	gasTarget := lastGasLimit / 2
 	if lastGasUsed == gasTarget {
 		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(lastBaseFee)
@@ -287,5 +322,92 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, last
 		baseFeeDelta := new(big.Int).Div(new(big.Int).Div(new(big.Int).Mul(lastBaseFee, new(big.Int).SetInt64(delta)), new(big.Int).SetInt64(gasTarget)), baseFeeDenominator)
 		result.BaseFee[len(result.BaseFee)-1] = (*hexutil.Big)(new(big.Int).Sub(lastBaseFee, baseFeeDelta))
 	}
+
 	return result, nil
 }
+
+type pendingBlockSimulator struct {
+	baseFee *big.Int
+	gasUsedRatio float64
+	gasUsed int64
+	pendingTxns  []pendingTransaction
+}
+
+type pendingTransaction struct {
+	gas uint64
+	gasPrice uint64
+	gasFeeCap uint64 
+	gasTipCap *big.Int
+}
+
+func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock plugins.BlockNumber) (*pendingBlockSimulator, error) {
+
+	var gasLimit uint64
+	if err := api.db.QueryRowContext(ctx, "SELECT gasLimit FROM blocks.blocks WHERE number = ?;", int64(lastBlock)).Scan(&gasLimit); err != nil {
+		log.Error("dq query error", "err", err)
+	}
+
+	nbf, err := api.nextBaseFee(ctx)
+	if err != nil {
+		log.Error("Error calculating next base fee while constructing pending block", "err", err)
+		return nil, err
+	}
+	baseFee := nbf.Uint64()
+	
+	txRows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT gas, gasPrice, type, gasFeeCap, gasTipCap FROM mempool.transactions WHERE gasPrice > ? ORDER BY gasPrice DESC;", baseFee))
+	
+	defer txRows.Close()
+	
+	var pendingTxns []pendingTransaction
+	for txRows.Next() {
+		var gas, gasPrice uint64
+		var gasFeeCapBytes, gasTipCapBytes []byte
+		var txTypeRaw sql.NullInt32
+
+		eh.Check(txRows.Scan(&gas, &gasPrice, &txTypeRaw, &gasFeeCapBytes, &gasTipCapBytes))
+		
+		txType := uint8(txTypeRaw.Int32)
+		pt := pendingTransaction{}
+		switch txType {
+			case evm.DynamicFeeTxType:
+				pt.gas = gas
+				pt.gasPrice = gasPrice
+				pt.gasFeeCap = new(big.Int).SetBytes(gasFeeCapBytes).Uint64()
+				pt.gasTipCap = new(big.Int).SetBytes(gasTipCapBytes)
+			default:
+				pt.gas = gas
+				pt.gasPrice = gasPrice
+				pt.gasFeeCap = gasPrice
+				pt.gasTipCap = new(big.Int).SetUint64(gasPrice)
+		}
+		eh.Check(txRows.Err())
+		pendingTxns = append(pendingTxns, pt)
+	}
+
+	sort.Slice(pendingTxns, func(i, j int) bool {return pendingTxns[i].gasTipCap.Cmp(pendingTxns[j].gasTipCap) > 0})
+	
+	truncPendingTxns := []pendingTransaction{}
+
+	var gasUsed uint64
+	for _, ptx := range pendingTxns {
+		if gasUsed + ptx.gas > gasLimit {
+			continue
+		}
+		gasUsed += ptx.gas
+		truncPendingTxns = append(truncPendingTxns, ptx)
+		if gasUsed + 21000 >= gasLimit {
+			break
+		}
+	}
+
+
+	return &pendingBlockSimulator{
+		baseFee: nbf,
+		gasUsedRatio: float64(gasUsed) / float64(gasLimit),
+		gasUsed: int64(gasUsed),
+		pendingTxns: truncPendingTxns,
+	}, nil
+
+	
+}
+ 
