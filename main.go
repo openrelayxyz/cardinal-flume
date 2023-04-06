@@ -5,8 +5,15 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	log "github.com/inconshreveable/log15"
+	"os"
+	"sync"
+	"time"
+	"net/http"
+	_ "net/http/pprof"
+	
 	"github.com/mattn/go-sqlite3"
+	log "github.com/inconshreveable/log15"
+	
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
@@ -16,11 +23,6 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/migrations"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/txfeed"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"sync"
-	"time"
 )
 
 func main() {
@@ -250,8 +252,16 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
+	if cfg.Brokers[0].URL != "null://" {
+		for {
+			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+				log.Debug("Earliest block set", "block", minBlock)
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
