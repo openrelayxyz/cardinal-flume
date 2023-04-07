@@ -232,7 +232,6 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 
-	log.Error("block query parameters", "bqp", int64(lastBlock)-int64(blockCount), "lastblock", lastBlock, "blockcount", blockCount)
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
 		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
