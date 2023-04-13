@@ -3,6 +3,7 @@ package indexer
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -70,6 +71,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
 		return nil, err
 	}
+	*blockTime = time.Unix(int64(header.Time), 0)
 
 	eblock := &extblock{
 		Header: header,
