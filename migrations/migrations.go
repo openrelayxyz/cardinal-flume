@@ -351,6 +351,23 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 		log.Info("mempool migrations v1 done")
 	}
 
+	if schemaVersion < 2 {
+		log.Info("Applying mempool v2 migration")
+
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD time BIGINT;`); err != nil {
+			log.Error("migrations, mempool ALTER TABLE ADD time error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE INDEX mempool.time ON transactions(time);`); err != nil {
+			log.Error("migrations CREATE INDEX mempool.time error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE mempool.migrations SET version = 2;"); err != nil {
+			log.Error("migrations UPDATE mempool.migrations v2 error", "err", err.Error())
+		}
+		log.Info("mempool v2 migrations done")
+	}
+
 	log.Info("mempool migrations up to date")
 	return nil
 }

@@ -213,7 +213,7 @@ func main() {
 	}
 
 	hc := &indexer.HealthCheck{}
-	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc)
+	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
 	tm.RegisterHealthCheck(hc)

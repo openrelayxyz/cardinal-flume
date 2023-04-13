@@ -180,7 +180,7 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 	return rpc.Healthy
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck) {
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold time.Duration) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -212,7 +212,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				return
 			}
 		case <-pruneTicker.C:
-			mempool_dropLowestPrice(db, mempoolSlots, txDedup)
+			prune_mempool(db, mempoolSlots, txDedup, memTxThreshold)
 		case tx := <-txCh:
 			mempool_indexer(db, mempoolSlots, txDedup, tx)
 		case chainUpdate := <-csCh:
