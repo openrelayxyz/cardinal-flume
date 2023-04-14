@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-func prune_mempool(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}, memTxThreshold time.Duration) {
+func prune_mempool(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}, memTxThreshold int64) {
 	pstart := time.Now() 
-	threshold :=  pstart.Add(-memTxThreshold * time.Minute).Unix()
+	threshold :=  pstart.Add(-time.Duration(memTxThreshold) * time.Minute).Unix()
 	if _, err := db.Exec("DELETE FROM mempool.transactions WHERE time < ?;", threshold); err != nil {
 		log.Error("Error time pruning mempool", "err", err.Error())
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 	"math/big"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
@@ -57,7 +56,7 @@ type Config struct {
 	BlocksDb        string            `yaml:"blocksDB"`
 	LogsDb          string            `yaml:"logsDB"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
-	MemTxTimeThreshold time.Duration           `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
+	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
 	Concurrency     int               `yaml:"concurrency"`
 	LogLevel        string            `yaml:"loggingLevel"`
 	Plugins         []string          `yaml:"plugins"`
