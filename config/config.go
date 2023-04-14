@@ -54,9 +54,9 @@ type Config struct {
 	Databases       map[string]string `yaml:"databases"`
 	MempoolDb       string            `yaml:"mempoolDB"`
 	BlocksDb        string            `yaml:"blocksDB"`
-	TxDb            string            `yaml:"transactionsDB"`
 	LogsDb          string            `yaml:"logsDB"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
+	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
 	Concurrency     int               `yaml:"concurrency"`
 	LogLevel        string            `yaml:"loggingLevel"`
 	Plugins         []string          `yaml:"plugins"`
@@ -211,11 +211,17 @@ func LoadConfig(fname string) (*Config, error) {
 			Rollback: cfg.Brokers[i].Rollback,
 		}
 	}
+	
 	if cfg.CloudWatch != nil {
 		if cfg.CloudWatch.Namespace == "" {
 			cfg.CloudWatch.Namespace = "Flume"
 		}
 	}
+	
+	if cfg.MemTxTimeThreshold == 0 {
+		cfg.MemTxTimeThreshold = 60
+	}
+	
 	return &cfg, nil
 }
 
