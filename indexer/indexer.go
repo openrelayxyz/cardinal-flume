@@ -39,6 +39,8 @@ func trimPrefix(data []byte) []byte {
 
 var compressor *zlib.Writer
 var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
+var blockAgeTimer = metrics.NewMajorTimer("/flume/age")
+var blockTime *time.Time
 
 func compress(data []byte) []byte {
 	if len(data) == 0 {
@@ -232,7 +234,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 						megaStatement = append(megaStatement, s...)
 					}
 					lastBatch = pb
-
+					if blockTime != nil { blockAgeTimer.UpdateSince(*blockTime) }
 					resumption := pb.Resumption()
 					if resumption != "" {
 						tokens := strings.Split(resumption, ";")
@@ -287,7 +289,11 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				heightGauge.Update(lastBatch.Number)
 				// completionFeed.Send(chainEvent.Block.Hash)
 				// log.Printf("Spent %v on commit", time.Since(cstart))
-				log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) // TODO: Figure out a simple way to get age
+				if blockTime != nil && time.Since(*blockTime) > time.Minute {
+					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start), "age", time.Since(*blockTime))
+					break
+				}
+				log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) 
 				break
 			}
 		}
