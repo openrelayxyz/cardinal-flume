@@ -40,6 +40,8 @@ var (
 
 func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
 
+	log.Debug("filter query", "fq", crit)
+
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		log.Error("Error retrieving latest block, call.ID, 500", "err", err.Error())
@@ -129,6 +131,17 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		indexClause = "INDEXED BY sqlite_autoindex_event_logs_1"
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
+	pluginMethods := api.pl.Lookup("AppendBorLogs", func(v interface{}) bool {
+		_, ok := v.(func(string, string, []interface{}) (string, []interface{}))
+		return ok
+	})
+	for _, fni := range pluginMethods {
+		fn := fni.(func(string, string, []interface{}) (string, []interface{}))
+		borQuery, borParams := fn(indexClause, strings.Join(whereClause, " AND "), params) 
+			query = borQuery
+			params = borParams
+			log.Debug("bor query getLogs", "query", borQuery, "borParams", borParams)
+	}
 	doneCh := make(chan struct{})
 	defer func() { close(doneCh) }()
 	go func() {
@@ -139,6 +152,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
+	log.Debug("params", "params", params)
 	if err != nil {
 		log.Error("Error selecting query", "query", query, "err", err.Error())
 		return nil, err

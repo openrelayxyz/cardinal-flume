@@ -341,3 +341,22 @@ func (service *PolygonBorService) GetCurrentProposer(ctx context.Context) (*comm
 	return result, nil
 
 }
+
+func AppendBorLogs(indexClause, whereClause string, params []interface{}) (string, []interface{}) {
+	var borIndexClause string
+	if indexClause == "INDEXED BY sqlite_autoindex_event_logs_1" {
+		borIndexClause = "INDEXED BY sqlite_autoindex_bor_logs_1"
+	} else {
+		borIndexClause = indexClause
+	}
+
+	paramsDoubled := make([]interface{}, 0, len(params)*2)
+	paramsDoubled = append(paramsDoubled, params...)
+	paramsDoubled = append(paramsDoubled, params...)
+	
+	standardQuery := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v", indexClause, whereClause)
+	borQuery := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM bor_logs %v WHERE %v;", borIndexClause, whereClause)
+	unifiedQuery := standardQuery + " UNION ALL " + borQuery
+	
+	return unifiedQuery, paramsDoubled
+}
