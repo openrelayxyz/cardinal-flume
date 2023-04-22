@@ -12,6 +12,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
@@ -86,7 +87,7 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 	var lastNumber, timestamp int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
-		highestBlock, err := heavy.CallHeavy[plugins.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+		highestBlock, err := heavy.CallHeavy[rpc.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
 			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
@@ -96,9 +97,9 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 			}
 			return consumer, nil
 		}
-		log.Debug("Current block aquired from heavy", "block", highestBlock.Int64())
+		log.Debug("Current block aquired from heavy", "block", int64(*highestBlock))
 
-		resumptionBlockNumber := highestBlock.Int64() - reorgThreshold
+		resumptionBlockNumber := int64(*highestBlock) - reorgThreshold
 
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/build"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -279,7 +280,7 @@ var (
 	gtrbnMissMeter = metrics.NewMinorMeter("/flume/gtrbn/miss")
 )
 
-func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber plugins.BlockNumber) ([]map[string]interface{}, error) {
+func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber rpc.BlockNumber) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("flume_getTransactionReceiptsByBlockNumber sent to flume heavy")
@@ -299,15 +300,15 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		gtrbnHitMeter.Mark(1)
 	}
 
-	if blockNumber.Int64() < 0 {
+	if int64(blockNumber) < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = plugins.BlockNumber(latestBlock)
+		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber.Int64()))
+	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
 	if err != nil {
 		log.Error("Error getting receipts", "err", err.Error())
 		return nil, err
