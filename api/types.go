@@ -229,8 +229,8 @@ type rpcTransaction struct {
 
 type FilterQuery struct {
 	BlockHash *types.Hash      // used by eth_getLogs, return logs only from block with this hash
-	FromBlock *big.Int        // beginning of the queried range, nil means genesis block
-	ToBlock   *big.Int         // end of the range, nil means latest block
+	FromBlock *rpc.BlockNumber       // beginning of the queried range, nil means genesis block
+	ToBlock   *rpc.BlockNumber       // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
 
 	// The Topic list restricts matches to particular event topics. Each event has a list
@@ -261,12 +261,12 @@ func (args FilterQuery) MarshalJSON() ([]byte, error) {
 		Topics: args.Topics,
 	}
 	if args.FromBlock != nil {
-		fromBlock := rpc.BlockNumber(args.FromBlock.Int64())
-		out.FromBlock = &fromBlock
+		fromBlock := args.FromBlock
+		out.FromBlock = fromBlock
 	}
 	if args.ToBlock != nil {
-		toBlock := rpc.BlockNumber(args.ToBlock.Int64())
-		out.ToBlock = &toBlock
+		toBlock := args.ToBlock
+		out.ToBlock = toBlock
 	}
 	return json.Marshal(out)
 }
@@ -295,12 +295,12 @@ func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 	} else {
 		if raw.FromBlock != nil {
 			fromBlock := raw.FromBlock
-			args.FromBlock = big.NewInt(int64(*fromBlock))
+			args.FromBlock = fromBlock
 		}
 
 		if raw.ToBlock != nil {
 			toBlock := raw.ToBlock
-			args.ToBlock = big.NewInt(int64(*toBlock))
+			args.ToBlock = toBlock
 		}
 	}
 

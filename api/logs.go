@@ -60,17 +60,17 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
 	} else {
 		var fromBlock, toBlock int64
-		if crit.FromBlock == nil || crit.FromBlock.Int64() < 0 {
+		if crit.FromBlock == nil || int64(*crit.FromBlock) < 0 {
 			fromBlock = latestBlock
 		} else {
-			fromBlock = crit.FromBlock.Int64()
+			fromBlock = int64(*crit.FromBlock)
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
+		if crit.ToBlock == nil || int64(*crit.ToBlock) < 0 {
 			toBlock = latestBlock
 		} else {
-			toBlock = crit.ToBlock.Int64()
+			toBlock = int64(*crit.ToBlock)
 		}
 		if fromBlock == toBlock {
 			whereClause = append(whereClause, "block = ?")
