@@ -20,6 +20,7 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/migrations"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
+	"github.com/openrelayxyz/cardinal-rpc"
 	_ "net/http/pprof"
 )
 
@@ -130,10 +131,10 @@ func withdrawalsDecompress() ([][]map[string]json.RawMessage, error) {
 	return withdrawalsObject, nil
 }
 
-func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []plugins.BlockNumber {
-	result := []plugins.BlockNumber{}
+func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []rpc.BlockNumber {
+	result := []rpc.BlockNumber{}
 	for _, block := range jsonBlockObject {
-		var x plugins.BlockNumber
+		var x rpc.BlockNumber
 		json.Unmarshal(block["number"], &x)
 		result = append(result, x)
 	}

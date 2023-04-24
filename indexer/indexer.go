@@ -182,7 +182,7 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 	return rpc.Healthy
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64) {
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan int64) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -285,6 +285,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				mut.Unlock()
 				processed = true
 				hc.lastBlockTime = time.Now()
+				rhf <- lastBatch.Number
 				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
 				// completionFeed.Send(chainEvent.Block.Hash)

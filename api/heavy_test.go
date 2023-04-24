@@ -8,6 +8,7 @@ import (
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -34,7 +35,7 @@ func TestCallHeavy(t *testing.T) {
 
 	b := NewBlockAPI(db, 1, pl, cfg)
 
-	testBlockNumber := plugins.BlockNumber(0)
+	testBlockNumber := rpc.BlockNumber(0)
 
 	testHash := types.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 
@@ -77,7 +78,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getBlockTransactionCountByNumber" {
 		t.Fatal("GetBlockTransactionCountByNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(rpc.BlockNumber) != testBlockNumber {
 		t.Fatal("GetBlockTransactionCountByNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 
@@ -99,7 +100,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getUncleCountByBlockNumber" {
 		t.Fatal("GetUncleCountByBlockNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(rpc.BlockNumber) != testBlockNumber {
 		t.Fatal("GetUncleCountByBlockNumber did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 
@@ -148,7 +149,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_getTransactionByBlockNumberAndIndex" {
 		t.Fatal("GetTransactionByBlockNumberAndIndex did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(rpc.BlockNumber) != testBlockNumber {
 		t.Fatal("GetTransactionByBlockNumberAndIndex did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 	if err.(*heavy.MockError).Params[1].(hexutil.Uint64) != testUint64 {
@@ -213,7 +214,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(DecimalOrHex) != blockCount {
 		t.Fatal("FeeHistory did not return expected parameter blockCount, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[1].(plugins.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[1].(rpc.BlockNumber) != testBlockNumber {
 		t.Fatal("FeeHistory did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 	for i, p := range err.(*heavy.MockError).Params[2].([]float64) {
@@ -326,7 +327,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "flume_getTransactionReceiptsByBlockNumber" {
 		t.Fatal("GetTransactionReceiptsByBlockNumber did not return expected method name, heavy test", "err", err.Error())
 	}
-	if err.(*heavy.MockError).Params[0].(plugins.BlockNumber) != testBlockNumber {
+	if err.(*heavy.MockError).Params[0].(rpc.BlockNumber) != testBlockNumber {
 		t.Fatal("GetTransactionReceiptsByBlockNumber did not return expected parameter BlockNumber, heavy test", "err", err.Error())
 	}
 

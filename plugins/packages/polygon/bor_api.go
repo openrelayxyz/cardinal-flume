@@ -12,6 +12,7 @@ import (
 	"github.com/xsleonard/go-merkle"
 	log "github.com/inconshreveable/log15"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
@@ -34,7 +35,7 @@ var (
 )
 
 
-func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber plugins.BlockNumber) (*common.Address, error) {
+func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber rpc.BlockNumber) (*common.Address, error) {
 
 	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNumber, service.cfg, service.db) {
 		log.Debug("bor_getAuthor sent to flume heavy")

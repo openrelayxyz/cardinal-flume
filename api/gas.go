@@ -11,6 +11,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	eh "github.com/openrelayxyz/cardinal-flume/errhandle"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -176,7 +177,7 @@ var (
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 
-func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock plugins.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
+func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
 	
@@ -188,7 +189,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		blockCount = DecimalOrHex(20)
 	}
 
-	var lastBlock plugins.BlockNumber
+	var lastBlock rpc.BlockNumber
 	var pbs *pendingBlockSimulator
 
 	if int64(terminalBlock) < 0 {
@@ -197,9 +198,9 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		if err != nil {
 			return nil, err
 		}
-		lastBlock = plugins.BlockNumber(latestBlock)
+		lastBlock = rpc.BlockNumber(latestBlock)
 
-		if terminalBlock == plugins.PendingBlockNumber { 
+		if terminalBlock == rpc.PendingBlockNumber { 
 			pbs, err = api.constructPendingBlock(ctx, lastBlock)
 			if err != nil {
 				log.Error("Error retrieving pending block", "err", err)
@@ -217,7 +218,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		log.Debug("eth_feeHistory sent to flume heavy")
 		missMeter.Mark(1)
 		gfhMissMeter.Mark(1)
-		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, plugins.BlockNumber(earliestBlockInCall), rewardPercentiles)
+		responseShell, err := heavy.CallHeavy[*feeHistoryResult](ctx, api.cfg.HeavyServer, "eth_feeHistory", blockCount, rpc.BlockNumber(earliestBlockInCall), rewardPercentiles)
 		if err != nil {
 			return nil, err
 		}
@@ -339,7 +340,7 @@ type pendingTransaction struct {
 	gasTipCap *big.Int
 }
 
-func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock plugins.BlockNumber) (*pendingBlockSimulator, error) {
+func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock rpc.BlockNumber) (*pendingBlockSimulator, error) {
 
 	var gasLimit uint64
 	if err := api.db.QueryRowContext(ctx, "SELECT gasLimit FROM blocks.blocks WHERE number = ?;", int64(lastBlock)).Scan(&gasLimit); err != nil {
