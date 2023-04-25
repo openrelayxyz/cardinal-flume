@@ -217,6 +217,7 @@ func main() {
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitDuration) * time.Millisecond)
 	tm.RegisterHeightFeed(rhf)
 	tm.RegisterHealthCheck(hc)
 	tm.AddHTTPServer(cfg.Port)
