@@ -140,7 +140,6 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		borQuery, borParams := fn(indexClause, strings.Join(whereClause, " AND "), params) 
 			query = borQuery
 			params = borParams
-			log.Debug("bor query getLogs", "query", borQuery, "borParams", borParams)
 	}
 	doneCh := make(chan struct{})
 	defer func() { close(doneCh) }()
@@ -152,7 +151,6 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
-	log.Debug("params", "params", params)
 	if err != nil {
 		log.Error("Error selecting query", "query", query, "err", err.Error())
 		return nil, err
