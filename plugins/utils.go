@@ -312,13 +312,13 @@ func DeriveBlockNumberOrHash(db *sql.DB, blockNrOrHash BlockNumberOrHash) (*uint
 	switch {
 
 		case numOk:
-			if err := db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(bkNumber.Int64())).Scan(&hashBytes);
+			if err := db.QueryRowContext(context.Background(), "SELECT hash FROM blocks.blocks WHERE number = ?;", uint64(bkNumber)).Scan(&hashBytes);
 			err != nil {
 				log.Error("DeriveBlockNumberOrHash fetch hash error", "err", err)
 				return nil, nil, err
 			}
 			blockHash = BytesToHash(hashBytes)
-			blockNumber = uint64(bkNumber.Int64())
+			blockNumber = uint64(int64(bkNumber))
 
 		case hashOk:
 			if err := db.QueryRowContext(context.Background(), "SELECT number FROM blocks.blocks WHERE hash = ?;", bkHash).Scan(&blockNumber);

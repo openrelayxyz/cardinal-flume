@@ -6,6 +6,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -61,7 +62,7 @@ var (
 	gbbnMissMeter = metrics.NewMinorMeter("/flume/gbbn/miss")
 )
 
-func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber plugins.BlockNumber, includeTxns bool) (*map[string]interface{}, error) {
+func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber, includeTxns bool) (*map[string]interface{}, error) {
 
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
@@ -86,12 +87,12 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber plugins.B
 		return ok
 	})
 
-	if blockNumber.Int64() < 0 {
+	if int64(blockNumber) < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = plugins.BlockNumber(latestBlock)
+		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
 	blocks, err := getBlocks(ctx, api.db, includeTxns, api.network, "number = ?", blockNumber)
@@ -181,7 +182,7 @@ var (
 	gtcbnMissMeter = metrics.NewMinorMeter("/flume/gtcbn/miss")
 )
 
-func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber plugins.BlockNumber) (*hexutil.Uint64, error) {
+func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getBlockTransactionCountByNumber sent to flume heavy")
@@ -203,12 +204,12 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 	var err error
 	var count hexutil.Uint64
 
-	if blockNumber.Int64() < 0 {
+	if int64(blockNumber) < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = plugins.BlockNumber(latestBlock)
+		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
 	count, err = txCount(ctx, api.db, "block = ?", blockNumber)
@@ -253,7 +254,7 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 	}
 	blockNumber := int64(blockVal["number"].(hexutil.Uint64))
 
-	count, err = txCount(ctx, api.db, "block = ?", plugins.BlockNumber(blockNumber))
+	count, err = txCount(ctx, api.db, "block = ?", rpc.BlockNumber(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +266,7 @@ var (
 	gucbnMissMeter = metrics.NewMinorMeter("/flume/gucbn/miss")
 )
 
-func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber plugins.BlockNumber) (*hexutil.Uint64, error) {
+func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("eth_getetUncleCountByBlockNumber sent to flume heavy")
@@ -287,12 +288,12 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 	var uncles []byte
 	unclesList := []types.Hash{}
 
-	if blockNumber.Int64() < 0 {
+	if int64(blockNumber) < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = plugins.BlockNumber(latestBlock)
+		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 	if err := api.db.QueryRowContext(ctx, "SELECT uncles FROM blocks WHERE number = ?", blockNumber).Scan(&uncles); err != nil {
 		return nil, err

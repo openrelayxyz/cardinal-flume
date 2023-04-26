@@ -12,8 +12,8 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
 
 type DecimalOrHex uint64
@@ -229,8 +229,8 @@ type rpcTransaction struct {
 
 type FilterQuery struct {
 	BlockHash *types.Hash      // used by eth_getLogs, return logs only from block with this hash
-	FromBlock *big.Int        // beginning of the queried range, nil means genesis block
-	ToBlock   *big.Int         // end of the range, nil means latest block
+	FromBlock *rpc.BlockNumber       // beginning of the queried range, nil means genesis block
+	ToBlock   *rpc.BlockNumber       // end of the range, nil means latest block
 	Addresses []common.Address // restricts matches to events created by specific contracts
 
 	// The Topic list restricts matches to particular event topics. Each event has a list
@@ -250,8 +250,8 @@ type FilterQuery struct {
 func (args FilterQuery) MarshalJSON() ([]byte, error) {
 	type output struct {
 		BlockHash *types.Hash     `json:"blockHash,omitempty"`
-		FromBlock *plugins.BlockNumber `json:"fromBlock,omitempty"`
-		ToBlock   *plugins.BlockNumber `json:"toBlock,omitempty"`
+		FromBlock *rpc.BlockNumber `json:"fromBlock,omitempty"`
+		ToBlock   *rpc.BlockNumber `json:"toBlock,omitempty"`
 		Addresses []common.Address `json:"address,omitempty"`
 		Topics    [][]types.Hash   `json:"topics,omitempty"`
 	}
@@ -261,12 +261,12 @@ func (args FilterQuery) MarshalJSON() ([]byte, error) {
 		Topics: args.Topics,
 	}
 	if args.FromBlock != nil {
-		fromBlock := plugins.BlockNumber(args.FromBlock.Int64())
-		out.FromBlock = &fromBlock
+		fromBlock := args.FromBlock
+		out.FromBlock = fromBlock
 	}
 	if args.ToBlock != nil {
-		toBlock := plugins.BlockNumber(args.ToBlock.Int64())
-		out.ToBlock = &toBlock
+		toBlock := args.ToBlock
+		out.ToBlock = toBlock
 	}
 	return json.Marshal(out)
 }
@@ -275,8 +275,8 @@ func (args FilterQuery) MarshalJSON() ([]byte, error) {
 func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 	type input struct {
 		BlockHash *types.Hash     `json:"blockHash"`
-		FromBlock *plugins.BlockNumber `json:"fromBlock"`
-		ToBlock   *plugins.BlockNumber `json:"toBlock"`
+		FromBlock *rpc.BlockNumber `json:"fromBlock"`
+		ToBlock   *rpc.BlockNumber `json:"toBlock"`
 		Addresses interface{}      `json:"address"`
 		Topics    []interface{}    `json:"topics"`
 	}
@@ -294,11 +294,13 @@ func (args *FilterQuery) UnmarshalJSON(data []byte) error {
 		args.BlockHash = raw.BlockHash
 	} else {
 		if raw.FromBlock != nil {
-			args.FromBlock = big.NewInt(raw.FromBlock.Int64())
+			fromBlock := raw.FromBlock
+			args.FromBlock = fromBlock
 		}
 
 		if raw.ToBlock != nil {
-			args.ToBlock = big.NewInt(raw.ToBlock.Int64())
+			toBlock := raw.ToBlock
+			args.ToBlock = toBlock
 		}
 	}
 

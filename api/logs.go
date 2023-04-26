@@ -40,6 +40,8 @@ var (
 
 func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
 
+	log.Debug("filter query", "fq", crit)
+
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		log.Error("Error retrieving latest block, call.ID, 500", "err", err.Error())
@@ -58,17 +60,17 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
 	} else {
 		var fromBlock, toBlock int64
-		if crit.FromBlock == nil || crit.FromBlock.Int64() < 0 {
+		if crit.FromBlock == nil || int64(*crit.FromBlock) < 0 {
 			fromBlock = latestBlock
 		} else {
-			fromBlock = crit.FromBlock.Int64()
+			fromBlock = int64(*crit.FromBlock)
 		}
 		goHeavy = (uint64(fromBlock) < api.cfg.EarliestBlock)
 
-		if crit.ToBlock == nil || crit.ToBlock.Int64() < 0 {
+		if crit.ToBlock == nil || int64(*crit.ToBlock) < 0 {
 			toBlock = latestBlock
 		} else {
-			toBlock = crit.ToBlock.Int64()
+			toBlock = int64(*crit.ToBlock)
 		}
 		if fromBlock == toBlock {
 			whereClause = append(whereClause, "block = ?")
@@ -129,6 +131,16 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		indexClause = "INDEXED BY sqlite_autoindex_event_logs_1"
 	}
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
+	pluginMethods := api.pl.Lookup("AppendBorLogs", func(v interface{}) bool {
+		_, ok := v.(func(string, string, []interface{}) (string, []interface{}))
+		return ok
+	})
+	for _, fni := range pluginMethods {
+		fn := fni.(func(string, string, []interface{}) (string, []interface{}))
+		borQuery, borParams := fn(indexClause, strings.Join(whereClause, " AND "), params) 
+			query = borQuery
+			params = borParams
+	}
 	doneCh := make(chan struct{})
 	defer func() { close(doneCh) }()
 	go func() {

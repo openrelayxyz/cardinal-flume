@@ -57,6 +57,7 @@ type Config struct {
 	LogsDb          string            `yaml:"logsDB"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
 	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
+	BlockWaitDuration int64           `yaml:"blockWaitDuration"` // number of miliseconds to wait for a block from charon
 	Concurrency     int               `yaml:"concurrency"`
 	LogLevel        string            `yaml:"loggingLevel"`
 	Plugins         []string          `yaml:"plugins"`
@@ -220,6 +221,12 @@ func LoadConfig(fname string) (*Config, error) {
 	
 	if cfg.MemTxTimeThreshold == 0 {
 		cfg.MemTxTimeThreshold = 60
+	}
+
+	if cfg.BlockWaitDuration == 0 {
+		cfg.BlockWaitDuration = 200
+		// this value was calculated as roughly the 95th percentile of block processing times on flume light. Heavey instances
+		// will need to be adjusted higher. 
 	}
 	
 	return &cfg, nil

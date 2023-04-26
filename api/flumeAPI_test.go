@@ -10,6 +10,7 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -33,13 +34,13 @@ func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMes
 	return result
 }
 
-func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[plugins.BlockNumber][]map[string]json.RawMessage {
+func getBlockReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[rpc.BlockNumber][]map[string]json.RawMessage {
 	bkNumbers := getBlockNumbers(jsonBlockObject)
-	result := map[plugins.BlockNumber][]map[string]json.RawMessage{}
+	result := map[rpc.BlockNumber][]map[string]json.RawMessage{}
 	for _, number := range bkNumbers {
 		receipts := []map[string]json.RawMessage{}
 		for _, receipt := range jsonReceiptObject {
-			var n plugins.BlockNumber
+			var n rpc.BlockNumber
 			json.Unmarshal(receipt["blockNumber"], &n)
 			if number == n {
 				receipts = append(receipts, receipt)
