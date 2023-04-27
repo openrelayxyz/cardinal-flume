@@ -52,9 +52,6 @@ type Config struct {
 	KafkaRollback   int64             `yaml:"kafkaRollback"`
 	ReorgThreshold  int64             `yaml:"reorgThreshold"`
 	Databases       map[string]string `yaml:"databases"`
-	MempoolDb       string            `yaml:"mempoolDB"`
-	BlocksDb        string            `yaml:"blocksDB"`
-	LogsDb          string            `yaml:"logsDB"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
 	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
 	BlockWaitDuration int64           `yaml:"blockWaitDuration"` // number of miliseconds to wait for a block from charon
@@ -84,11 +81,6 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 
 	cfg.PluginDir = cfg.PluginDir + "plugins"
-
-	// cfg.BlocksDb = cfg.Databases["blocks"]
-	// cfg.BlocksDb = cfg.Databases["transactions"]
-	// cfg.BlocksDb = cfg.Databases["logs"]
-	// cfg.BlocksDb = cfg.Databases["mempool"]
 
 	switch cfg.Network {
 	case "mainnet", "eth":
