@@ -11,6 +11,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 type statsdOpts struct {
@@ -49,6 +50,7 @@ type Config struct {
 	HomesteadBlock  uint64            `yaml:"homesteadBlock"`
 	Eip155Block     uint64            `yaml:"eip155Block"`
 	TxTopic         string            `yaml:"mempoolTopic"`
+	whitelist       map[uint64]string `yaml:"whitelist"`
 	KafkaRollback   int64             `yaml:"kafkaRollback"`
 	ReorgThreshold  int64             `yaml:"reorgThreshold"`
 	Databases       map[string]string `yaml:"databases"`
@@ -68,6 +70,7 @@ type Config struct {
 	LatestBlock   	uint64
 	BaseFeeChangeBlockHeight uint64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
+	Whitelist map[uint64]types.Hash
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -219,6 +222,11 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.BlockWaitDuration = 200
 		// this value was calculated as roughly the 95th percentile of block processing times on flume light. Heavey instances
 		// will need to be adjusted higher. 
+	}
+
+	cfg.Whitelist = make(map[uint64]types.Hash)
+	for k, v := range cfg.whitelist {
+		cfg.Whitelist[k] = types.HexToHash(v)
 	}
 	
 	return &cfg, nil
