@@ -50,7 +50,7 @@ type Config struct {
 	HomesteadBlock  uint64            `yaml:"homesteadBlock"`
 	Eip155Block     uint64            `yaml:"eip155Block"`
 	TxTopic         string            `yaml:"mempoolTopic"`
-	WhitelistInternal       map[uint64]string `yaml:"whitelist"`
+	WhitelistInternal map[uint64]string `yaml:"whitelist"`
 	KafkaRollback   int64             `yaml:"kafkaRollback"`
 	ReorgThreshold  int64             `yaml:"reorgThreshold"`
 	Databases       map[string]string `yaml:"databases"`
@@ -70,7 +70,7 @@ type Config struct {
 	LatestBlock   	uint64
 	BaseFeeChangeBlockHeight uint64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
-	Whitelist map[uint64]types.Hash
+	WhitelistExternal map[uint64]types.Hash
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -224,9 +224,9 @@ func LoadConfig(fname string) (*Config, error) {
 		// will need to be adjusted higher. 
 	}
 
-	cfg.Whitelist = make(map[uint64]types.Hash)
+	cfg.WhitelistExternal = make(map[uint64]types.Hash)
 	for k, v := range cfg.WhitelistInternal {
-		cfg.Whitelist[k] = types.HexToHash(v)
+		cfg.WhitelistExternal[k] = types.HexToHash(v)
 	}
 	
 	return &cfg, nil
