@@ -30,6 +30,7 @@ func main() {
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
+	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -140,10 +141,26 @@ func main() {
 			log.Error("Unable to migrate from plugin", "err", err.Error())
 		}
 	}
+
 	
 	var maxBlock int
-	logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&maxBlock)
+	if err := logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks;").Scan(&maxBlock); err != nil {
+		log.Warn("sql max block query error", "err", err.Error())
+		// If starting with empty databases the above will return an error which can be ignored
+	}
 	cfg.LatestBlock = uint64(maxBlock)
+
+	if *blockRollback != 0 {
+		rollback := *blockRollback 
+		if *blockRollback < 0 {
+			rollback = int64(maxBlock) + *blockRollback
+		}
+		if _, err := logsdb.Exec(fmt.Sprintf("DELETE FROM blocks.blocks WHERE number >= %v;", rollback)); err != nil {
+			log.Error("blockRollBack error", "err", err.Error())
+		}
+		cfg.LatestBlock = uint64(rollback)
+	}
+
 	log.Debug("latest block config", "number", cfg.LatestBlock)
 
 	txFeed, err := txfeed.ResolveTransactionFeed(cfg.BrokerParams[0].URL, cfg.TxTopic)
