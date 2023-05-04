@@ -155,7 +155,7 @@ func main() {
 		if *blockRollback < 0 {
 			rollback = int64(maxBlock) + *blockRollback
 		}
-		if _, err := logsdb.Exec(fmt.Sprintf("DELETE FROM blocks.blocks WHERE number >= %v;", rollback)); err != nil {
+		if _, err := logsdb.Exec("DELETE FROM blocks.blocks WHERE number >= ?;", rollback); err != nil {
 			log.Error("blockRollBack error", "err", err.Error())
 		}
 		cfg.LatestBlock = uint64(rollback)
