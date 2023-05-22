@@ -31,6 +31,7 @@ func main() {
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
+	blastIndex := flag.Bool("fastIndex", false, "utilize sqlite blaster to expidite indexing")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -38,6 +39,10 @@ func main() {
 	if err != nil {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
+	}
+
+	if *blastIndex {
+		blast(cfg)
 	}
 
 	pl, err := plugins.NewPluginLoader(cfg)

@@ -1,5 +1,9 @@
 package api
 
+// #cgo CXXFLAGS: -std=c++11
+// #cgo LDFLAGS: -lstdc++
+// #include "hello.h"
+import "C"
 import (
 	"context"
 	"database/sql"
@@ -36,6 +40,12 @@ func NewBlockAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 		cfg:     cfg,
 	}
 }
+
+func (api *BlockAPI) HelloWorld(ctx context.Context) string {
+	helloMessage := C.getHelloMessage()
+    message := C.GoString(helloMessage)
+    return message
+} 
 
 func (api *BlockAPI) ChainId(ctx context.Context) hexutil.Uint64 {
 
