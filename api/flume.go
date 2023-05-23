@@ -315,3 +315,45 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 	}
 	return receipts, nil
 }
+
+var (
+	gbthHitMeter  = metrics.NewMinorMeter("/flume/gbth/hit")
+	gbthMissMeter = metrics.NewMinorMeter("/flume/gbth/miss")
+)
+
+func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
+	// this function is not included in the api test but needs to be. 
+	
+	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
+		log.Debug("eth_getTransactionReceipt sent to flume heavy")
+		missMeter.Mark(1)
+		gbthMissMeter.Mark(1)
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockByTransactionHash", txHash)
+		if err != nil {
+			return nil, err
+		}
+		return responseShell, nil
+	}
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getBlockByTransactionHash served from flume light")
+		hitMeter.Mark(1)
+		gbthHitMeter.Mark(1)
+	}
+
+	var blockNumber int64
+	if err := api.db.QueryRowContext(ctx, "SELECT block FROM transactions.transactions WHERE hash = ?;", txHash).Scan(&blockNumber); err != nil {
+		log.Error("GetBlockByTransactionHash returned an error", "err", err.Error())
+	}
+
+	blocks, err := getBlocks(ctx, api.db, true, api.network, "number = ?", blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	var blockVal *map[string]interface{}
+	if len(blocks) > 0 {
+		blockVal = &blocks[0]
+	}
+
+	return blockVal, nil
+}
