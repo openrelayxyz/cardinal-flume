@@ -325,7 +325,7 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 	// this function is not included in the api test but needs to be. 
 	
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
-		log.Debug("eth_getTransactionReceipt sent to flume heavy")
+		log.Debug("eth_getBlockByTransactionHash sent to flume heavy")
 		missMeter.Mark(1)
 		gbthMissMeter.Mark(1)
 		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockByTransactionHash", txHash)
