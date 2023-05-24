@@ -6,12 +6,12 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
-	"github.com/openrelayxyz/cardinal-rpc"
 )
 
 type PolygonEthService struct {

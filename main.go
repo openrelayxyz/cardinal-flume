@@ -5,8 +5,15 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	log "github.com/inconshreveable/log15"
+	"os"
+	"sync"
+	"time"
+	"net/http"
+	_ "net/http/pprof"
+	
 	"github.com/mattn/go-sqlite3"
+	log "github.com/inconshreveable/log15"
+	
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
@@ -16,11 +23,6 @@ import (
 	"github.com/openrelayxyz/cardinal-flume/migrations"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	"github.com/openrelayxyz/cardinal-flume/txfeed"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"sync"
-	"time"
 )
 
 func main() {
@@ -29,6 +31,7 @@ func main() {
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
+	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -53,7 +56,7 @@ func main() {
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
 				for name, path := range cfg.Databases {
-					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 2147483646 ;", path, name, name, name, name, name), nil)
+					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 4294967294;", path, name, name, name, name, name), nil)
 				}
 				return nil
 			},
@@ -122,6 +125,9 @@ func main() {
 		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
+		if err := api.LoadIndexHints(logsdb); err != nil {
+			log.Warn("Failed to load index hints", "err", err.Error())
+		}
 	}
 	if hasMempool {
 		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
@@ -140,10 +146,26 @@ func main() {
 			log.Error("Unable to migrate from plugin", "err", err.Error())
 		}
 	}
+
 	
 	var maxBlock int
-	logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&maxBlock)
+	if err := logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks;").Scan(&maxBlock); err != nil {
+		log.Warn("sql max block query error", "err", err.Error())
+		// If starting with empty databases the above will return an error which can be ignored
+	}
 	cfg.LatestBlock = uint64(maxBlock)
+
+	if *blockRollback != 0 {
+		rollback := *blockRollback 
+		if *blockRollback < 0 {
+			rollback = int64(maxBlock) + *blockRollback
+		}
+		if _, err := logsdb.Exec("DELETE FROM blocks.blocks WHERE number >= ?;", rollback); err != nil {
+			log.Error("blockRollBack error", "err", err.Error())
+		}
+		cfg.LatestBlock = uint64(rollback)
+	}
+
 	log.Debug("latest block config", "number", cfg.LatestBlock)
 
 	txFeed, err := txfeed.ResolveTransactionFeed(cfg.BrokerParams[0].URL, cfg.TxTopic)
@@ -213,9 +235,12 @@ func main() {
 	}
 
 	hc := &indexer.HealthCheck{}
-	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc)
+	rhf := make(chan int64, 1024)
+	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
+	tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitDuration) * time.Millisecond)
+	tm.RegisterHeightFeed(rhf)
 	tm.RegisterHealthCheck(hc)
 	tm.AddHTTPServer(cfg.Port)
 
@@ -252,8 +277,16 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
+	if cfg.Brokers[0].URL != "null://" {
+		for {
+			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+				log.Debug("Earliest block set", "block", minBlock)
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
 	//if this > 0 then this is a light server
-	logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock)
 	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {

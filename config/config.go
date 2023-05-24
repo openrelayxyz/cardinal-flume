@@ -11,6 +11,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 type statsdOpts struct {
@@ -49,14 +50,13 @@ type Config struct {
 	HomesteadBlock  uint64            `yaml:"homesteadBlock"`
 	Eip155Block     uint64            `yaml:"eip155Block"`
 	TxTopic         string            `yaml:"mempoolTopic"`
+	WhitelistInternal map[uint64]string `yaml:"whitelist"`
 	KafkaRollback   int64             `yaml:"kafkaRollback"`
 	ReorgThreshold  int64             `yaml:"reorgThreshold"`
 	Databases       map[string]string `yaml:"databases"`
-	MempoolDb       string            `yaml:"mempoolDB"`
-	BlocksDb        string            `yaml:"blocksDB"`
-	TxDb            string            `yaml:"transactionsDB"`
-	LogsDb          string            `yaml:"logsDB"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
+	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
+	BlockWaitDuration int64           `yaml:"blockWaitDuration"` // number of miliseconds to wait for a block from charon
 	Concurrency     int               `yaml:"concurrency"`
 	LogLevel        string            `yaml:"loggingLevel"`
 	Plugins         []string          `yaml:"plugins"`
@@ -71,6 +71,7 @@ type Config struct {
 	BaseFeeChangeBlockHeight uint64
 	LightSeed       int64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
+	WhitelistExternal map[uint64]types.Hash
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -84,11 +85,6 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 
 	cfg.PluginDir = cfg.PluginDir + "plugins"
-
-	// cfg.BlocksDb = cfg.Databases["blocks"]
-	// cfg.BlocksDb = cfg.Databases["transactions"]
-	// cfg.BlocksDb = cfg.Databases["logs"]
-	// cfg.BlocksDb = cfg.Databases["mempool"]
 
 	switch cfg.Network {
 	case "mainnet", "eth":
@@ -212,11 +208,28 @@ func LoadConfig(fname string) (*Config, error) {
 			Rollback: cfg.Brokers[i].Rollback,
 		}
 	}
+	
 	if cfg.CloudWatch != nil {
 		if cfg.CloudWatch.Namespace == "" {
 			cfg.CloudWatch.Namespace = "Flume"
 		}
 	}
+	
+	if cfg.MemTxTimeThreshold == 0 {
+		cfg.MemTxTimeThreshold = 60
+	}
+
+	if cfg.BlockWaitDuration == 0 {
+		cfg.BlockWaitDuration = 200
+		// this value was calculated as roughly the 95th percentile of block processing times on flume light. Heavey instances
+		// will need to be adjusted higher. 
+	}
+
+	cfg.WhitelistExternal = make(map[uint64]types.Hash)
+	for k, v := range cfg.WhitelistInternal {
+		cfg.WhitelistExternal[k] = types.HexToHash(v)
+	}
+	
 	return &cfg, nil
 }
 

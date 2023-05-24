@@ -39,6 +39,8 @@ func trimPrefix(data []byte) []byte {
 
 var compressor *zlib.Writer
 var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
+var blockAgeTimer = metrics.NewMajorTimer("/flume/age")
+var blockTime *time.Time
 
 func compress(data []byte) []byte {
 	if len(data) == 0 {
@@ -104,6 +106,24 @@ func ApplyParameters(query string, params ...interface{}) string {
 			} else {
 				preparedParams[i] = fmt.Sprintf("X'%x'", b)
 			}
+		case *types.Hash:
+			if value == nil {
+				preparedParams[i] = "NULL"
+				continue
+			}
+			b := trimPrefix(value.Bytes())
+			if len(b) == 0 {
+				preparedParams[i] = "NULL"
+			} else {
+				preparedParams[i] = fmt.Sprintf("X'%x'", b)
+			}
+		case common.Address:
+			b := trimPrefix(value.Bytes())
+			if len(b) == 0 {
+				preparedParams[i] = "NULL"
+			} else {
+				preparedParams[i] = fmt.Sprintf("X'%x'", b)
+			}
 		case *big.Int:
 			if value == nil {
 				preparedParams[i] = "NULL"
@@ -162,7 +182,7 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 	return rpc.Healthy
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck) {
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan int64) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -194,7 +214,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				return
 			}
 		case <-pruneTicker.C:
-			mempool_dropLowestPrice(db, mempoolSlots, txDedup)
+			prune_mempool(db, mempoolSlots, txDedup, memTxThreshold)
 		case tx := <-txCh:
 			mempool_indexer(db, mempoolSlots, txDedup, tx)
 		case chainUpdate := <-csCh:
@@ -214,7 +234,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 						megaStatement = append(megaStatement, s...)
 					}
 					lastBatch = pb
-
+					if blockTime != nil { blockAgeTimer.UpdateSince(*blockTime) }
 					resumption := pb.Resumption()
 					if resumption != "" {
 						tokens := strings.Split(resumption, ";")
@@ -265,11 +285,16 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				mut.Unlock()
 				processed = true
 				hc.lastBlockTime = time.Now()
+				rhf <- lastBatch.Number
 				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
 				// completionFeed.Send(chainEvent.Block.Hash)
 				// log.Printf("Spent %v on commit", time.Since(cstart))
-				log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) // TODO: Figure out a simple way to get age
+				if blockTime != nil && time.Since(*blockTime) > time.Minute {
+					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start), "age", time.Since(*blockTime))
+					break
+				}
+				log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start)) 
 				break
 			}
 		}

@@ -27,6 +27,7 @@ import (
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 )
 
 func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
@@ -189,7 +190,7 @@ var register sync.Once
 func testNumbers() []plugins.BlockNumberOrHash {
 	var result []plugins.BlockNumberOrHash
 	for i := uint64(35779967); i < uint64(35780033); i++ {
-		number := plugins.BlockNumber(i)
+		number := rpc.BlockNumber(i)
 		num := plugins.BlockNumberOrHash{
 			BlockNumber: &number,
 		}
@@ -328,12 +329,12 @@ func TestPolygonApi(t *testing.T) {
 
 	firstBlock, _ := blockNumbers[0].Number()
 
-	var passThroughBlocks []plugins.BlockNumber
+	var passThroughBlocks []rpc.BlockNumber
 
 	for i, block := range blockNumbers {
 		currentBlock, _ := block.Number()
 		if currentBlock%64 == 0 {
-			passThroughBlocks = append(passThroughBlocks, plugins.BlockNumber(currentBlock))
+			passThroughBlocks = append(passThroughBlocks, rpc.BlockNumber(currentBlock))
 		}
 
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlock %v", i), func(t *testing.T) {
@@ -436,7 +437,7 @@ func TestPolygonApi(t *testing.T) {
 					t.Fatalf("getSnapshot ValidatorSet.Validator mismatch found on block %v, inddex %v", currentBlock, j)
 				}
 			}
-			if currentBlock == plugins.BlockNumber(35779968) || currentBlock == plugins.BlockNumber(35780031) || currentBlock == plugins.BlockNumber(35780032) {
+			if currentBlock == rpc.BlockNumber(35779968) || currentBlock == rpc.BlockNumber(35780031) || currentBlock == rpc.BlockNumber(35780032) {
 				var controlRecents map[uint64]common.Address
 				json.Unmarshal(controlSnapshots[i]["recents"], &controlRecents)
 				for block, address := range testSnapshot.Recents {
@@ -556,6 +557,8 @@ func TestPolygonApi(t *testing.T) {
 						t.Fatalf("Error json marshalling, getBlockByNumber, block %v, key %v", testBlock["number"], k)
 					}
 					if !bytes.Equal(data, testBlocks[i][k]) {
+						var x uint64
+						json.Unmarshal(testBlocks[i][k], &x) 
 						t.Fatalf("getBlockByNumber mismatch found on block %v, key %v", testBlock["number"], k)
 					}
 				}

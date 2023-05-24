@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"time"
 	"database/sql"
 
 	log "github.com/inconshreveable/log15"
@@ -8,18 +9,22 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"strings"
-	"time"
 )
 
-func mempool_dropLowestPrice(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}) {
+func prune_mempool(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct{}, memTxThreshold int64) {
+	pstart := time.Now() 
+	threshold :=  pstart.Add(-time.Duration(memTxThreshold) * time.Minute).Unix()
+	if _, err := db.Exec("DELETE FROM mempool.transactions WHERE time < ?;", threshold); err != nil {
+		log.Error("Error time pruning mempool", "err", err.Error())
+	}
+	log.Debug("Pruned timed out transactions from mempool")
 	var txCount int
 	db.QueryRow("SELECT count(*) FROM mempool.transactions;").Scan(&txCount)
 	if txCount > mempoolSlots {
-		pstart := time.Now()
 		if _, err := db.Exec("DELETE FROM mempool.transactions WHERE gasPrice < (SELECT gasPrice FROM mempool.transactions ORDER BY gasPrice DESC LIMIT 1 OFFSET ?);", mempoolSlots); err != nil {
-			log.Error("Error pruning", "err", err.Error())
+			log.Error("Error gasPrice pruning", "err", err.Error())
 		}
-		log.Debug("Pruned transactions from mempool", "transaction count", (txCount - mempoolSlots), "time", time.Since(pstart))
+		log.Debug("Pruned transactions from mempool gasPrice", "transaction count", (txCount - mempoolSlots), "time", time.Since(pstart))
 	}
 }
 
@@ -48,6 +53,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		to = trimPrefix(tx.To().Bytes())
 	}
 	v, r, s := tx.RawSignatureValues()
+	t := time.Now()
 	statements := []string{}
 	// If this is a replacement transaction, delete any it might be replacing
 	statements = append(statements, ApplyParameters(
@@ -57,7 +63,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 	))
 	// Insert the transaction
 	statements = append(statements, ApplyParameters(
-		"INSERT INTO mempool.transactions(gas, gasPrice, hash, input, nonce, recipient, `value`, v, r, s, sender, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+		"INSERT INTO mempool.transactions(gas, gasPrice, hash, input, nonce, recipient, `value`, v, r, s, sender, `type`, access_list, gasFeeCap, gasTipCap, time) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		tx.Gas(),
 		gasPrice,
 		txHash,
@@ -73,6 +79,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		compress(accessListRLP),
 		trimPrefix(tx.GasFeeCap().Bytes()),
 		trimPrefix(tx.GasTipCap().Bytes()),
+		t.Unix(),
 	))
 	// Delete the transaction we just inserted if the confirmed transactions
 	// pool has a conflicting entry

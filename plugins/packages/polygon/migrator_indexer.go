@@ -125,28 +125,35 @@ func Migrate(db *sql.DB, chainid uint64) error {
 	var tableName string
 	db.QueryRow("SELECT name FROM bor.sqlite_master WHERE type='table' and name='migrations';").Scan(&tableName)
 	if tableName != "migrations" {
-		db.Exec("CREATE TABLE bor.migrations (version integer PRIMARY KEY);")
+		if _, err := db.Exec("CREATE TABLE bor.migrations (version integer PRIMARY KEY);"); err != nil {
+			log.Error("bor migrations, CREATE TABLE bor.migrations error", "err", err.Error())
+		}
 
-		db.Exec("INSERT INTO bor.migrations(version) VALUES (0);")
+		if _, err := db.Exec("INSERT INTO bor.migrations(version) VALUES (0);"); err != nil {
+			log.Error("bor migrations, INSERT INTO bor.migrations error", "err", err.Error())
+		}
 	}
 	var schemaVersion uint
 	db.QueryRow("SELECT version FROM bor.migrations;").Scan(&schemaVersion)
 	if schemaVersion < 1 {
 		log.Info("Applying bor v1 migration")
-		db.Exec(`CREATE TABLE bor.bor_receipts (
+		if _, err := db.Exec(`CREATE TABLE bor.bor_receipts (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			hash varchar(32) UNIQUE,
 			transactionIndex MEDIUMINT,
 			logsBloom blob,
 			block BIGINT
-	        );`)
+	        );`); err != nil {
+				log.Error("bor migrations, CREATE TABLE bor.bor_receipts error", "err", err.Error())
+				return nil
+			}
 
 		if _, err := db.Exec(`CREATE INDEX bor.receiptBlock ON bor_receipts(block)`); err != nil {
 			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
 			return nil
 		}
 
-		db.Exec(`CREATE TABLE bor.bor_logs (
+		if _, err := db.Exec(`CREATE TABLE bor.bor_logs (
 			address varchar(20),
 			topic0 varchar(32),
 			topic1 varchar(32),
@@ -159,17 +166,23 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			block BIGINT,
 			logIndex MEDIUMINT,
 			PRIMARY KEY (block, logIndex)
-			);`)
+			);`); err != nil {
+				log.Error("bor migrations, CREATE TABLE bor_logs error", "err", err.Error())
+				return nil
+			}
 			
 		if _, err := db.Exec(`CREATE INDEX bor.logsTxHash ON bor_logs(transactionHash)`); err != nil {
-			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+			log.Error("bor migrations, CREATE INDEX error", "err", err.Error())
 			return nil
 		}
 		if _, err := db.Exec(`CREATE INDEX bor.logsBkHash ON bor_logs(blockHash)`); err != nil {
-			log.Error("bor_receiptBlock CREATE INDEX error", "err", err.Error())
+			log.Error("bor migrations, CREATE INDEX error", "err", err.Error())
 			return nil
 		}
-		db.Exec("UPDATE bor.migrations SET version = 1;")
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 1;"); err != nil {
+			log.Error("bor migrations, migrations SET version 1 error", "err", err.Error())
+			return nil
+		}
 	}
 	if schemaVersion < 2 {
 		log.Info("Applying bor v2 migration")
@@ -263,20 +276,63 @@ func Migrate(db *sql.DB, chainid uint64) error {
 				log.Info("polygon migration v2 finished on block", "blockNumber", number)
 			}
 		}
-		db.Exec("UPDATE bor.migrations SET version = 2;")
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 2;"); err != nil {
+			log.Error("bor migrations, migrations SET version 2 error", "err", err.Error())
+			return nil
+		}
 	}
 
 	if schemaVersion < 3 {
 		log.Info("Applying bor v3 migration")
-		db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`)
+		if _, err := db.Exec(`CREATE TABLE bor.bor_snapshots (block BIGINT PRIMARY KEY, blockHash varchar(32) UNIQUE, snapshot blob);`); err != nil {
+			log.Error("bor migrations, CREATE TABLE bor.bor_snapshots error", "err", err.Error())
+		}
 		
 		log.Info("bor snapshot table created")
 
 		if _, err := db.Exec(`CREATE INDEX bor.bkHash ON bor_snapshots(blockHash);`); err != nil {
-			log.Error("Migrate bor CREATE INDEX bkHash error", "err", err.Error())
+			log.Error("bor migrations, CREATE INDEX bkHash error", "err", err.Error())
 			return nil
 		}
-		db.Exec("UPDATE bor.migrations SET version = 3;")
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 3;"); err != nil {
+			log.Error("bor migrations, migrations SET version 3 error", "err", err.Error())
+			return nil
+		}
+		log.Info("bor migrations done")
+	}
+
+	if schemaVersion < 4 {
+		log.Info("Applying bor v4 migration")
+
+		if _, err := db.Exec(`CREATE INDEX bor.address_compound ON bor_logs(address, block);`); err != nil {
+			log.Error("bor migrations, CREATE INDEX address_compound error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE INDEX bor.topic0_compound ON bor_logs(topic0, block);`); err != nil {
+			log.Error("bor migrations, CREATE INDEX topic0_compound error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE INDEX bor.topic1_partial ON bor_logs(topic1, topic0, address, block) WHERE topic1 IS NOT NULL;`); err != nil {
+			log.Error("bor migrations, CREATE INDEX topic1_partial error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE INDEX bor.topic2_partial ON bor_logs(topic2, topic0, address, block) WHERE topic2 IS NOT NULL;`); err != nil {
+			log.Error("bor migrations, CREATE INDEX topic2_partial error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE INDEX bor.topic3_partial ON bor_logs(topic3, topic0, address, block) WHERE topic3 IS NOT NULL;`); err != nil {
+			log.Error("bor migrations, CREATE INDEX topic3_partial error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`CREATE TABLE address_hints (address varchar(20));`); err != nil {
+			log.Error("bor migrations, CREATE TABLE address_hints error", "err", err.Error())
+			return nil
+		}
+
+		if _, err := db.Exec("UPDATE bor.migrations SET version = 4;"); err != nil {
+			log.Error("bor migrations, migrations SET version 4 error", "err", err.Error())
+			return nil
+		}
 		log.Info("bor migrations done")
 	}
 	

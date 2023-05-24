@@ -11,6 +11,7 @@ import (
 	"testing"
 	"os"
 
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	_ "net/http/pprof"
@@ -73,7 +74,7 @@ func TestGasAPI(t *testing.T) {
 	feeData, _ := feeDataDecompress()
 	t.Run(fmt.Sprintf("FeeHistory"), func(t *testing.T) {
 		var blockCount DecimalOrHex = 0x15
-		var lastBlock plugins.BlockNumber = 0xd59f95
+		var lastBlock rpc.BlockNumber = 0xd59f95
 		percentiles := []float64{.1, .5, .9}
 
 		actual, _ := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles)

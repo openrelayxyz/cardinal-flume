@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -108,8 +109,8 @@ var (
 func borBlockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
-	case plugins.BlockNumber:
-		if uint64(input.(plugins.BlockNumber).Int64()) < cfg.EarliestBlock {
+	case rpc.BlockNumber:
+		if uint64(input.(rpc.BlockNumber)) < cfg.EarliestBlock {
 			present = false
 			return present
 		}

@@ -12,6 +12,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	streamsTransports "github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
@@ -25,9 +26,10 @@ var trackedPrefixes = []*regexp.Regexp{
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/t/"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/r/"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/l/"),
+	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/w"),
 }
 
-func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte, tp []*regexp.Regexp) (streamsTransports.Consumer, error) { // brokerParams := cfg.BrokerParams
+func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption string, reorgThreshold, resumptionTime, lastNumber int64, lastHash, lastWeight []byte, tp []*regexp.Regexp, wl map[uint64]types.Hash) (streamsTransports.Consumer, error) { // brokerParams := cfg.BrokerParams
 	rt := []byte(resumption)
 	if resumptionTime > 0 {
 		r, err := streamsTransports.ResumptionForTimestamp(brokerParams, resumptionTime)
@@ -37,7 +39,7 @@ func deliverConsumer(brokerParams []streamsTransports.BrokerParams, resumption s
 			rt = r
 		}
 	}
-	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, tp, nil)
+	return streamsTransports.ResolveMuxConsumer(brokerParams, rt, lastNumber, types.BytesToHash(lastHash), new(big.Int).SetBytes(lastWeight), reorgThreshold, tp, wl)
 }
 
 func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBlockTime bool, pl *plugins.PluginLoader) (streamsTransports.Consumer, error) {
@@ -95,19 +97,19 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 		return consumer, nil
 	}
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
-		highestBlock, err := heavy.CallHeavy[plugins.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
+		highestBlock, err := heavy.CallHeavy[rpc.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
 			log.Info("Failed to connect with heavy server, flume light service initiated from most recent block")
-			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
+			consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...), cfg.WhitelistExternal)
 			if err != nil {
 				log.Error("Error constructing consumer from stand alone light instance", "err", err.Error())
 				return nil, err
 			}
 			return consumer, nil
 		}
-		log.Debug("Current block aquired from heavy", "block", highestBlock.Int64())
+		log.Debug("Current block aquired from heavy", "block", int64(*highestBlock))
 
-		resumptionBlockNumber := highestBlock.Int64() - reorgThreshold
+		resumptionBlockNumber := int64(*highestBlock) - reorgThreshold
 
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {
@@ -135,7 +137,7 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 		lastHash = lH.Bytes()
 		resumptionTime = int64(rT) * 1000
 
-		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
+		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...), cfg.WhitelistExternal)
 		if err != nil {
 			log.Error("Error constructing consumer from heavy connected flume light instance", "err", err.Error())
 			return nil, err
@@ -146,7 +148,7 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 	if resumptionTime < 0 && timestamp > 0 && useBlockTime {
 		resumptionTime = timestamp * 1000
 	}
-	consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
+	consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...), cfg.WhitelistExternal)
 	if err != nil {
 		log.Error("Error constructing consumer from flume heavy instance", "err", err.Error())
 		return nil, err

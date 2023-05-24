@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 )
@@ -80,8 +80,12 @@ func TestLogsAPI(t *testing.T) {
 				addresses = append(addresses, common.HexToAddress(item))
 			}
 		}
-		fb := big.NewInt(14000000)
-		lb := big.NewInt(14000021)
+		var fb *rpc.BlockNumber
+		firstBlock := rpc.BlockNumber(14000000)
+		fb = &firstBlock
+		var lb *rpc.BlockNumber
+		lastBlock := rpc.BlockNumber(14000021)
+		lb = &lastBlock
 		address := addresses[rand.Intn(len(addresses))]
 		arg := FilterQuery{
 			FromBlock: fb,
@@ -116,8 +120,12 @@ func TestLogsAPI(t *testing.T) {
 				topicZeroes = append(topicZeroes, types.HexToHash(item))
 			}
 		}
-		fb := big.NewInt(14000000)
-		lb := big.NewInt(14000021)
+		var fb *rpc.BlockNumber
+		firstBlock := rpc.BlockNumber(14000000)
+		fb = &firstBlock
+		var lb *rpc.BlockNumber
+		lastBlock := rpc.BlockNumber(14000021)
+		lb = &lastBlock
 		topic0 := topicZeroes[rand.Intn(len(topicZeroes))]
 		topicList := []types.Hash{topic0}
 		arg := FilterQuery{
@@ -161,8 +169,12 @@ func TestLogsAPI(t *testing.T) {
 				topicOnes = append(topicOnes, types.HexToHash(item))
 			}
 		}
-		fb := big.NewInt(14000000)
-		lb := big.NewInt(14000021)
+		var fb *rpc.BlockNumber
+		firstBlock := rpc.BlockNumber(14000000)
+		fb = &firstBlock
+		var lb *rpc.BlockNumber
+		lastBlock := rpc.BlockNumber(14000021)
+		lb = &lastBlock
 		topic1 := topicOnes[rand.Intn(len(topicOnes))]
 		topicList := []types.Hash{topic1}
 
@@ -207,8 +219,12 @@ func TestLogsAPI(t *testing.T) {
 				topicTwos = append(topicTwos, types.HexToHash(item))
 			}
 		}
-		fb := big.NewInt(14000000)
-		lb := big.NewInt(14000021)
+		var fb *rpc.BlockNumber
+		firstBlock := rpc.BlockNumber(14000000)
+		fb = &firstBlock
+		var lb *rpc.BlockNumber
+		lastBlock := rpc.BlockNumber(14000021)
+		lb = &lastBlock
 		topic2 := topicTwos[rand.Intn(len(topicTwos))]
 		topicList := []types.Hash{topic2}
 		arg := FilterQuery{
@@ -252,8 +268,12 @@ func TestLogsAPI(t *testing.T) {
 				topicThrees = append(topicThrees, types.HexToHash(item))
 			}
 		}
-		fb := big.NewInt(14000000)
-		lb := big.NewInt(14000021)
+		var fb *rpc.BlockNumber
+		firstBlock := rpc.BlockNumber(14000000)
+		fb = &firstBlock
+		var lb *rpc.BlockNumber
+		lastBlock := rpc.BlockNumber(14000021)
+		lb = &lastBlock
 		topic3 := topicThrees[rand.Intn(len(topicThrees))]
 		topicList := []types.Hash{topic3}
 		arg := FilterQuery{

@@ -8,6 +8,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/build"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -279,7 +280,7 @@ var (
 	gtrbnMissMeter = metrics.NewMinorMeter("/flume/gtrbn/miss")
 )
 
-func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber plugins.BlockNumber) ([]map[string]interface{}, error) {
+func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, blockNumber rpc.BlockNumber) ([]map[string]interface{}, error) {
 
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
 		log.Debug("flume_getTransactionReceiptsByBlockNumber sent to flume heavy")
@@ -299,18 +300,60 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		gtrbnHitMeter.Mark(1)
 	}
 
-	if blockNumber.Int64() < 0 {
+	if int64(blockNumber) < 0 {
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
 			return nil, err
 		}
-		blockNumber = plugins.BlockNumber(latestBlock)
+		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber.Int64()))
+	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
 	if err != nil {
 		log.Error("Error getting receipts", "err", err.Error())
 		return nil, err
 	}
 	return receipts, nil
+}
+
+var (
+	gbthHitMeter  = metrics.NewMinorMeter("/flume/gbth/hit")
+	gbthMissMeter = metrics.NewMinorMeter("/flume/gbth/miss")
+)
+
+func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
+	// this function is not included in the api test but needs to be. 
+	
+	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
+		log.Debug("eth_getBlockByTransactionHash sent to flume heavy")
+		missMeter.Mark(1)
+		gbthMissMeter.Mark(1)
+		responseShell, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockByTransactionHash", txHash)
+		if err != nil {
+			return nil, err
+		}
+		return responseShell, nil
+	}
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_getBlockByTransactionHash served from flume light")
+		hitMeter.Mark(1)
+		gbthHitMeter.Mark(1)
+	}
+
+	var blockNumber int64
+	if err := api.db.QueryRowContext(ctx, "SELECT block FROM transactions.transactions WHERE hash = ?;", txHash).Scan(&blockNumber); err != nil {
+		log.Error("GetBlockByTransactionHash returned an error", "err", err.Error())
+	}
+
+	blocks, err := getBlocks(ctx, api.db, true, api.network, "number = ?", blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	var blockVal *map[string]interface{}
+	if len(blocks) > 0 {
+		blockVal = &blocks[0]
+	}
+
+	return blockVal, nil
 }
