@@ -86,6 +86,16 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 	var lastHash, lastWeight []byte
 	var lastNumber, timestamp int64
 	db.QueryRowContext(context.Background(), "SELECT max(number), hash, td, time FROM blocks;").Scan(&lastNumber, &lastHash, &lastWeight, &timestamp)
+	if cfg.LightSeed != 0 {
+		lastNumber = cfg.LightSeed
+		log.Info("flume light service initiated from lightSeed value", "block", cfg.LightSeed)
+		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
+		if err != nil {
+			log.Error("Error constructing consumer from stand alone light instance with seeded inital block", "err", err.Error())
+			return nil, err
+		}
+		return consumer, nil
+	}
 	if len(cfg.HeavyServer) > 0 && lastNumber == 0 {
 		highestBlock, err := heavy.CallHeavy[rpc.BlockNumber](context.Background(), cfg.HeavyServer, "eth_blockNumber")
 		if err != nil {
