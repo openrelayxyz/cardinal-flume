@@ -252,10 +252,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		GasUsedRatio: make([]float64, int(blockCount)),
 	}
 	if len(rewardPercentiles) > 0 {
-		result.Reward = make([][]*hexutil.Big, int(blockCount))
 		if err := api.ascendingCheck(rewardPercentiles); err != nil {
 			return nil, err
 		}
+		result.Reward = make([][]*hexutil.Big, int(blockCount))
 	}
 	var lastBaseFee *big.Int
 	var lastGasUsed, lastGasLimit int64
