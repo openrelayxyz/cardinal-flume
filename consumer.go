@@ -89,7 +89,7 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 	if cfg.LightSeed != 0 {
 		lastNumber = cfg.LightSeed
 		log.Info("flume light service initiated from lightSeed value", "block", cfg.LightSeed)
-		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...))
+		consumer, err := deliverConsumer(brokerParams, resumption, reorgThreshold, resumptionTime, lastNumber, lastHash, lastWeight, append(trackedPrefixes, ptp...), cfg.WhitelistExternal)
 		if err != nil {
 			log.Error("Error constructing consumer from stand alone light instance with seeded inital block", "err", err.Error())
 			return nil, err
