@@ -183,6 +183,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor migrations, migrations SET version 1 error", "err", err.Error())
 			return nil
 		}
+		log.Info("bor migrations v1 done")
 	}
 	if schemaVersion < 2 {
 		log.Info("Applying bor v2 migration")
@@ -280,6 +281,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor migrations, migrations SET version 2 error", "err", err.Error())
 			return nil
 		}
+		log.Info("bor migrations v2 done")
 	}
 
 	if schemaVersion < 3 {
@@ -298,7 +300,7 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor migrations, migrations SET version 3 error", "err", err.Error())
 			return nil
 		}
-		log.Info("bor migrations done")
+		log.Info("bor migrations v3 done")
 	}
 
 	if schemaVersion < 4 {
@@ -333,7 +335,15 @@ func Migrate(db *sql.DB, chainid uint64) error {
 			log.Error("bor migrations, migrations SET version 4 error", "err", err.Error())
 			return nil
 		}
-		log.Info("bor migrations done")
+		log.Info("bor migrations v4 done")
+	}
+	if schemaVersion < 5 {
+		if _, err := db.Exec(`CREATE INDEX bor.address_topic0_compound ON bor_logs(address, topic0, block);`); err != nil {
+			log.Error("Migrate bor_logs CREATE INDEX bor.addresstopic0_compound error", "err", err.Error())
+			return nil
+		}
+		db.Exec(`UPDATE bor.migrations SET version = 5;`)
+		log.Info("bor migrations v5 done")
 	}
 	
 	log.Info("bor migrations up to date")
