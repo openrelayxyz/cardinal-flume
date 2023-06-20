@@ -219,18 +219,12 @@ var (
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
 
-	var present bool
-	var lightInstance bool
-	if len(api.cfg.HeavyServer) > 0 {
-		lightInstance = true
-		var err error
-		present, err = lightNonceCheck(ctx, api.db, addr) 
-		if err != nil {
-			log.Error("Error returned from lightNonceCheck", "err", err, "address", addr)
-		}
+	nonce, err := getSenderNonce(ctx, api.db, addr)
+	if err != nil {
+		return nil, err
 	}
 
-	if lightInstance && !present {
+	if len(api.cfg.HeavyServer) > 0  && nonce < 1 {
 		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
 		gtcMissMeter.Mark(1)
@@ -241,15 +235,10 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		return count, nil
 	}
 
-	if lightInstance {
+	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionCount served from flume light")
 		hitMeter.Mark(1)
 		gtcHitMeter.Mark(1)
-	}
-
-	nonce, err := getSenderNonce(ctx, api.db, addr)
-	if err != nil {
-		return nil, err
 	}
 
 	return &nonce, nil
