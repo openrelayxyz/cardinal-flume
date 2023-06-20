@@ -212,16 +212,39 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	return &result, nil
 }
 
+var (
+	gtcHitMeter  = metrics.NewMinorMeter("/flume/gtc/hit")
+	gtcMissMeter = metrics.NewMinorMeter("/flume/gtc/miss")
+)
+
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
 
+	var present bool
+	var lightInstance bool
 	if len(api.cfg.HeavyServer) > 0 {
-		log.Debug("eth_getTransactionCount sent to flume heavy by default")
+		lightInstance = true
+		var err error
+		present, err = lightNonceCheck(ctx, api.db, addr) 
+		if err != nil {
+			log.Error("Error returned from lightNonceCheck", "err", err, "address", addr)
+		}
+	}
+
+	if lightInstance && !present {
+		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
+		gtcMissMeter.Mark(1)
 		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
 		if err != nil {
 			return nil, err
 		}
 		return count, nil
+	}
+
+	if lightInstance {
+		log.Debug("eth_getTransactionCount served from flume light")
+		hitMeter.Mark(1)
+		gtcHitMeter.Mark(1)
 	}
 
 	nonce, err := getSenderNonce(ctx, api.db, addr)

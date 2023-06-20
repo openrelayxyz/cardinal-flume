@@ -580,6 +580,20 @@ func getTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, limit 
 	return getTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 }
 
+func lightNonceCheck(ctx context.Context, db *sql.DB, sender common.Address) (bool, error) {
+
+	var count int
+	if err := db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM transactions WHERE sender = ?) AS record_exists;", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
+		return false, err
+	}
+
+	if count > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address) (hexutil.Uint64, error) {
 	var count, nonce sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
