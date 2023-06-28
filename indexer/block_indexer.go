@@ -7,6 +7,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"time"
+	"io"
+	"math/big"
+	"regexp"
+	"strconv"
+	"sync"
+
+	"golang.org/x/crypto/sha3"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -14,12 +21,8 @@ import (
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
-	"golang.org/x/crypto/sha3"
-	"io"
-	"math/big"
-	"regexp"
-	"strconv"
-	"sync"
+
+	"github.com/openrelayxyz/cardinal-flume/blaster"
 )
 
 var (
@@ -40,7 +43,7 @@ var hasherPool = sync.Pool{
 
 type BlockIndexer struct {
 	chainid uint64
-	blastIdx *Blaster
+	blastIdx *blaster.Blaster
 }
 
 type extblock struct {
@@ -56,7 +59,7 @@ type extblockWithdrawals struct {
 	Withdrawals  evm.Withdrawals 
 }
 
-func NewBlockIndexer(chainid uint64, blasterIndexer *Blaster) Indexer {
+func NewBlockIndexer(chainid uint64, blasterIndexer *blaster.Blaster) Indexer {
 	return &BlockIndexer{
 		chainid: chainid,
 		blastIdx: blasterIndexer,
@@ -149,7 +152,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
     	tm.SetUint64(header.Time) 
 		bloom := ApplyParameters("", compress(header.Bloom[:]))
 		
-		var BlstBlck = BlastBlock{
+		var BlstBlck = blaster.BlastBlock{
 			Hash: hash,
 			Coinbase: cnbs,
 			Number: uint64(pb.Number),

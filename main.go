@@ -20,6 +20,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
 	"github.com/openrelayxyz/cardinal-flume/api"
+	"github.com/openrelayxyz/cardinal-flume/blaster"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/indexer"
 	"github.com/openrelayxyz/cardinal-flume/migrations"
@@ -182,7 +183,7 @@ func main() {
 
 	if hasBlocks {
 		if *blastIndex {
-			bI := indexer.NewBlasterIndexer("./blaster/blastblocks.sqlite")
+			bI := blaster.NewBlasterIndexer("./blaster/blastblocks.sqlite")
 			defer bI.Close()
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bI))	
 		} else {
