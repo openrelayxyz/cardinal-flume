@@ -293,6 +293,15 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 			return nil
 		}
 		db.Exec(`UPDATE logs.migrations SET version = 2;`)
+		log.Info("logs migrations v2 done")
+	}
+	if schemaVersion < 3 {
+		if _, err := db.Exec(`CREATE INDEX logs.address_topic0_compound ON event_logs(address, topic0, block);`); err != nil {
+			log.Error("Migrate Logs CREATE INDEX logs.addresstopic0_compound error", "err", err.Error())
+			return nil
+		}
+		db.Exec(`UPDATE logs.migrations SET version = 3;`)
+		log.Info("logs migrations v3 done")
 	}
 
 	log.Info("logs migrations up to date")

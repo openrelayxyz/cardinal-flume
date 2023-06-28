@@ -32,6 +32,7 @@ func main() {
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
+	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	blastIndex := flag.Bool("blastIndex", false, "utilize sqlite blaster to expidite indexing")
 
@@ -41,6 +42,10 @@ func main() {
 	if err != nil {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
+	}
+
+	if *lightSeed != 0 {
+		cfg.LightSeed = *lightSeed
 	}
 
 	pl, err := plugins.NewPluginLoader(cfg)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"context"
 	"database/sql"
 	"math/big"
@@ -177,6 +178,18 @@ var (
 	gfhMissMeter = metrics.NewMinorMeter("/flume/gfh/miss")
 )
 
+func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
+	var previous float64
+	for i, p := range rewardPercentiles {
+		if p < previous {
+			err := rpc.NewRPCError(-32000, fmt.Sprintf("invalid reward percentile: #%v:%.6f > #%v:%.6f", (i-1), previous, i, p))
+			return err
+		}
+		previous = p
+	}
+	return nil
+}
+
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
@@ -239,6 +252,9 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		GasUsedRatio: make([]float64, int(blockCount)),
 	}
 	if len(rewardPercentiles) > 0 {
+		if err := api.ascendingCheck(rewardPercentiles); err != nil {
+			return nil, err
+		}
 		result.Reward = make([][]*hexutil.Big, int(blockCount))
 	}
 	var lastBaseFee *big.Int

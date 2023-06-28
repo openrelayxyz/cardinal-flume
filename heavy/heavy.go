@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-rpc"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-rpc"
 )
+
+var genericError string = "failed to retrieve data"
 
 type MockError struct {
 	err    string
@@ -57,23 +60,28 @@ func CallHeavy[T any](ctx context.Context, backendURL string, method string, par
 
 	resp, err := client.Do(request)
 	if err != nil {
-		return nil, rpc.NewRPCError(-32503, err.Error())
+		log.Error("callHeavy connection error", "err", err)
+		return nil, rpc.NewRPCError(-32503, genericError)
 	}
 	defer resp.Body.Close()
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, rpc.NewRPCError(-32504, err.Error())
+		log.Error("callHeavy response read error", "err", err)
+		return nil, rpc.NewRPCError(-32504, genericError)
 	}
 	response := &rpc.RawResponse{}
 	if err := json.Unmarshal(result, &response); err != nil {
-		return nil, rpc.NewRPCError(-32500, err.Error())
+		log.Error("callHeavy result unmarshalling error", "err", err)
+		return nil, rpc.NewRPCError(-32500, genericError)
 	}
 	if response.Error != nil {
+		log.Error("callHeavy response error", "err", response.Error)
 		return nil, response.Error
 	}
 	ret := new(T)
 	if err := json.Unmarshal(response.Result, ret); err != nil {
-		return nil, rpc.NewRPCError(-32500, err.Error())
+		log.Error("callHeavy response unmarshalling error", "err", err)
+		return nil, rpc.NewRPCError(-32500, genericError)
 	}
 	return ret, nil
 }
