@@ -119,7 +119,7 @@ func TestBlockIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	log.Info("Block indexer test", "Decompressing batches of length:", len(batches))
-	b := NewBlockIndexer(1)
+	b := NewBlockIndexer(1, nil)
 
 	statements := make([]string, len(batches))
 	for _, pb := range batches {
