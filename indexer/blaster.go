@@ -4,7 +4,6 @@ package indexer
 import "C"
 
 import (
-	// "fmt"
 	"unsafe"
 	"math/big"
 
@@ -18,32 +17,6 @@ type BlastBlock struct {
 	Time *big.Int
 	Bloom []byte
 }
-
-// type BlastBlock struct {
-// 	Hash string
-// 	Coinbase string
-// 	Number string
-// 	Time string
-// 	Bloom string
-// }
-
-
-// func PrintC(bck BlastBlock) {
-// 	hPtr := (*C.char)(unsafe.Pointer(&bck.Hash[0]))
-// 	cPtr := (*C.char)(unsafe.Pointer(&bck.Coinbase[0]))
-// 	bPtr := (*C.char)(unsafe.Pointer(&bck.Bloom[0]))
-// 	nInt := C.longlong(bck.Number)
-// 	tInt := C.longlong(bck.Time.Int64())
-// 	fmt.Println(C.sqib_put_block(hPtr, cPtr, nInt, tInt, bPtr))
-// }
-
-// var BlastBlockZero = BlastBlock{
-// 		Hash: [32]byte{112, 212, 25, 199, 230, 106, 81, 52, 26, 215, 250, 5, 66, 242, 40, 15, 38, 237, 155, 92, 190, 139, 62, 73, 225, 80, 161, 163, 167, 67, 180, 239},
-// 		Coinbase: [20]byte{103, 11, 36, 97, 13, 249, 155, 22, 133, 174, 172, 13, 253, 83, 7, 185, 46, 12, 244, 215},
-// 		Number: 1234567,
-// 		Time: new(big.Int).SetInt64(32),
-// 		Bloom: []byte(`132342352350ijdsaflkdsajlvkajsd02j30irjalkdfjli2jq0ijrofdsvkdgoi`),
-// }
 
 type Blaster struct {
 	DB unsafe.Pointer

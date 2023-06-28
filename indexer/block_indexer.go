@@ -1,7 +1,6 @@
 package indexer
 // #cgo CXXFLAGS: -std=c++11
 // #cgo LDFLAGS: -lstdc++
-// #include "printC.h"
 import "C"
 
 import (
