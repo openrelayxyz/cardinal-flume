@@ -145,6 +145,9 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		var hash [32]byte
 		h := ApplyParameters("", pb.Hash)
 		copy(hash[:], []byte(h[16:len(h)-2]))
+		var prntHsh [32]byte
+		ph := ApplyParameters("", pb.ParentHash)
+		copy(prntHsh[:], []byte(ph[16:len(h)-2]))
 		var cnbs [20]byte
 		cb := ApplyParameters("", header.Coinbase)
 		copy(cnbs[:], []byte(cb[16:len(cb)-2]))
@@ -154,6 +157,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		
 		var BlstBlck = blaster.BlastBlock{
 			Hash: hash,
+			ParentHash: prntHsh,
 			Coinbase: cnbs,
 			Number: uint64(pb.Number),
 			Time: tm,

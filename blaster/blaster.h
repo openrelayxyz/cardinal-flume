@@ -6,8 +6,7 @@ extern "C" {
 #endif
 
 void* new_sqlite_index_blaster(const char *fname);
-void sqib_put_block(void* sqibv, char* hash, char* coinbase, long long number, long long time, char* bloom);
-// void sqib_put_block(void* sqibv, long long number);
+void sqib_put_block(void* sqibv, char* hash, char* parentHash, char* coinbase, long long number, long long time, char* bloom);
 void sqib_close(void* sqibv);
 
 
