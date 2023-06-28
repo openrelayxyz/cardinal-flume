@@ -12,10 +12,13 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"reflect"
+	"strings"
 
 	"golang.org/x/crypto/sha3"
 
 	log "github.com/inconshreveable/log15"
+	
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
@@ -140,28 +143,46 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 
 	if indexer.blastIdx != nil && pb.Number != 0 {
 
-		log.Error("hash", "hash", ApplyParameters("", pb.Hash))
+		// log.Error("hash", "hash", ApplyParameters("", pb.Hash))
 
-		var hash [32]byte
-		h := ApplyParameters("", pb.Hash)
-		copy(hash[:], []byte(h[16:len(h)-2]))
-		var prntHsh [32]byte
-		ph := ApplyParameters("", pb.ParentHash)
-		copy(prntHsh[:], []byte(ph[16:len(h)-2]))
+		// hsh := ApplyBlasterParameters(pb.Hash)
+		// var hash [32]byte
+		// copy(hash[:], trimPrefix(pb.Hash.Bytes()))
+		// h := ApplyParameters("", pb.Hash)
+		// copy(hash[:], []byte(h[16:len(h)-2]))
+		// var prntHsh [32]byte
+		// ph := ApplyParameters("", pb.ParentHash)
+		// copy(prntHsh[:], []byte(h[16:len(h)-2]))
+
+		// hash := ApplyBlasterParameters(pb.Hash.Bytes())
+
+		log.Error("experiment", "reuslt", strings.ToUpper(("X'" + pb.Hash.String()[2:] + "'")), "string?", reflect.TypeOf(ApplyBlasterParameters(pb.Hash).(string)), "interface?", reflect.TypeOf(ApplyBlasterParameters(pb.Hash)))
+
+		// var hash [32]byte
+		// b := []byte(fmt.Sprintf("X'%v", pb.Hash.String()[2:]))
+		// copy(hash[:], b)
+		// strings.ToUpper(("X'" + pb.Hash.String()[2:] + "'"))
+
+	
+
+
 		var cnbs [20]byte
 		cb := ApplyParameters("", header.Coinbase)
 		copy(cnbs[:], []byte(cb[16:len(cb)-2]))
-		tm := new(big.Int)
-    	tm.SetUint64(header.Time) 
+		// tm := new(big.Int)
+    	// tm.SetUint64(header.Time) 
 		bloom := ApplyParameters("", compress(header.Bloom[:]))
-		
+
 		var BlstBlck = blaster.BlastBlock{
-			Hash: hash,
-			ParentHash: prntHsh,
+			Hash: [32]byte(pb.Hash),
+			// ParentHash: prntHsh,
 			Coinbase: cnbs,
 			Number: uint64(pb.Number),
-			Time: tm,
 			Bloom: []byte(bloom[16:len(bloom)-2]),
+			Time: header.Time,
+			Difficulty: header.Difficulty.Int64(),
+			GasLimit: header.GasLimit,
+			GasUsed: header.GasUsed,
 		}
 		log.Error("calling put from within the block indexer")
 		indexer.blastIdx.Put(BlstBlck)
@@ -185,7 +206,14 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			pb.Hash,))
 		}
 	}
+
+	log.Error("types", "number", reflect.TypeOf(pb.Number), "hash", reflect.TypeOf(pb.Hash), "parent hash", reflect.TypeOf(pb.ParentHash), "unclehash", reflect.TypeOf(header.UncleHash))
+	log.Error("types2", "coinbase", reflect.TypeOf(header.Coinbase), "root", reflect.TypeOf(header.Root), "tx root", reflect.TypeOf(header.TxHash), "receiptRoot", reflect.TypeOf(header.Root))
+	log.Error("types3", "bloom", reflect.TypeOf(compress(header.Bloom[:])), "difficulty", reflect.TypeOf(header.Difficulty.Int64()), "gaslimit", reflect.TypeOf(header.GasLimit), "gasused", reflect.TypeOf(header.GasUsed))
+	log.Error("types4", "time", reflect.TypeOf(header.Time), "extra", reflect.TypeOf(header.Extra), "mixed", reflect.TypeOf(header.MixDigest), "nonce", reflect.TypeOf(int64(binary.BigEndian.Uint64(header.Nonce[:]))))
+	log.Error("types5", "uncleRLP", reflect.TypeOf(uncleRLP), "size", reflect.TypeOf(size), "td", reflect.TypeOf(td.Bytes), "basefee", reflect.TypeOf(header.BaseFee), "whash", reflect.TypeOf(header.WithdrawalsHash))
 	
+
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
