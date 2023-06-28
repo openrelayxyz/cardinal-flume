@@ -1,0 +1,57 @@
+func (ri *ReverseIndexer) ReverseDex() {
+	connection, _ := ri.wsConnect()
+	
+	earliestBlock := ri.getEarliestBlock()
+	startingPoint := earliestBlock - 1
+	log.Error("rev i sp", "sp", startingPoint)
+
+	batches := make(chan *delivery.PendingBatch, 10)
+
+	megaS := make(chan []string, 50)
+
+		go func () {
+		defer connection.Close()
+
+		for i := startingPoint; i >= 0; i-- {
+
+			nbr := hexutil.EncodeUint64(uint64(i))
+			params := []string{nbr}
+
+			message := message{
+				Id: 1,
+				Method: "cardinal_streamsBlock",
+				Params: params,
+			}
+
+			msg, err := json.Marshal(message)
+			if err != nil {
+				log.Error("cannot json marshal message, reverse indexer, block", nbr, "err", err.Error())
+			}
+
+			connection.WriteMessage(websocket.TextMessage, msg)
+
+
+			_, resultBytes, err := connection.ReadMessage()
+			if err != nil {
+				log.Error("Error reading transport batch, reverse indexer, on block", nbr, "err", err.Error())
+			}
+
+			var or *outerResult
+
+			if err := json.Unmarshal(resultBytes, &or); err != nil {
+				log.Error("cannot unmarshal transportBytes, reverse indexer, on block", nbr, "err", err.Error())
+			}
+
+			pb := or.Result.Batch.ToPendingBatch()
+
+			batches <- pb
+
+			log.Error("batches capacity", "cap", len(batches))
+			for {
+				pendingBatch := <- batches
+				log.Error("inside of loop", "number", pendingBatch.Number)
+			}
+		}
+		log.Error("mega S return inner loop", "len", len(megaS))	
+	} ()
+}

@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"sync"
 	"time"
 	"net/http"
@@ -31,7 +33,7 @@ func main() {
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
-	blastIndex := flag.Bool("fastIndex", false, "utilize sqlite blaster to expidite indexing")
+	blastIndex := flag.Bool("blastIndex", false, "utilize sqlite blaster to expidite indexing")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -39,10 +41,6 @@ func main() {
 	if err != nil {
 		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
-	}
-
-	if *blastIndex {
-		blast(cfg)
 	}
 
 	pl, err := plugins.NewPluginLoader(cfg)
@@ -178,7 +176,13 @@ func main() {
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
-		indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid))
+		if *blastIndex {
+			bI := indexer.NewBlasterIndexer("./blaster/blastblocks.sqlite")
+			defer bI.Close()
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bI))	
+		} else {
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
+		}
 	}
 	if hasTx {
 		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool))
@@ -193,6 +197,7 @@ func main() {
 	})
 
 	for _, fni := range pluginIndexers {
+		//pass the path of the db to the blast its supposed to save into
 		fn := fni.(func(*config.Config) indexer.Indexer)
 		idx := fn(cfg)
 		if idx != nil {
@@ -236,6 +241,7 @@ func main() {
 
 	hc := &indexer.HealthCheck{}
 	rhf := make(chan int64, 1024)
+
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
@@ -275,7 +281,16 @@ func main() {
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 
-	<-consumer.Ready()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case <-consumer.Ready():
+		signal.Stop(sigs)
+	case <-sigs:
+	  log.Info("Caught shutdown signal")
+	  return
+	}
+  
 	var minBlock int
 	if cfg.Brokers[0].URL != "null://" {
 		for {

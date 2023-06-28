@@ -1,4 +1,8 @@
 package indexer
+// #cgo CXXFLAGS: -std=c++11
+// #cgo LDFLAGS: -lstdc++
+// #include "printC.h"
+import "C"
 
 import (
 	"encoding/binary"
@@ -37,6 +41,7 @@ var hasherPool = sync.Pool{
 
 type BlockIndexer struct {
 	chainid uint64
+	blastIdx *Blaster
 }
 
 type extblock struct {
@@ -52,8 +57,11 @@ type extblockWithdrawals struct {
 	Withdrawals  evm.Withdrawals 
 }
 
-func NewBlockIndexer(chainid uint64) Indexer {
-	return &BlockIndexer{chainid: chainid}
+func NewBlockIndexer(chainid uint64, blasterIndexer *Blaster) Indexer {
+	return &BlockIndexer{
+		chainid: chainid,
+		blastIdx: blasterIndexer,
+	}
 }
 
 func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
@@ -127,6 +135,33 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		uncles[int(i)] = v
 	}
 	uncleRLP, _ := rlp.EncodeToBytes(uncles)
+
+	if indexer.blastIdx != nil && pb.Number != 0 {
+
+		log.Error("hash", "hash", ApplyParameters("", pb.Hash))
+
+		var hash [32]byte
+		h := ApplyParameters("", pb.Hash)
+		copy(hash[:], []byte(h[16:len(h)-2]))
+		var cnbs [20]byte
+		cb := ApplyParameters("", header.Coinbase)
+		copy(cnbs[:], []byte(cb[16:len(cb)-2]))
+		tm := new(big.Int)
+    	tm.SetUint64(header.Time) 
+		bloom := ApplyParameters("", compress(header.Bloom[:]))
+		
+		var BlstBlck = BlastBlock{
+			Hash: hash,
+			Coinbase: cnbs,
+			Number: uint64(pb.Number),
+			Time: tm,
+			Bloom: []byte(bloom[16:len(bloom)-2]),
+		}
+		log.Error("calling put from within the block indexer")
+		indexer.blastIdx.Put(BlstBlck)
+		return nil, nil
+	}
+
 	statements := []string{
 		ApplyParameters("DELETE FROM blocks WHERE number >= %v", pb.Number), 
 		ApplyParameters("DELETE FROM withdrawals WHERE block >= %v", pb.Number),
@@ -144,6 +179,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			pb.Hash,))
 		}
 	}
+	
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
