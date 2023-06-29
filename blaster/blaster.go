@@ -22,35 +22,46 @@ type BlastBlock struct {
 	TxRoot [32]byte
 	ReceiptRoot [32]byte
 	Bloom []byte
-	Difficulty int64
+	Difficulty uint64
 	GasLimit uint64
 	GasUsed  uint64
 	Time uint64
-	Extra
-	MixDigest
-	Nonce
-	Uncles
-	Size
-	Td
-	BaseFee
-	// 		    uncleHash   varchar(32),
-	// 		    coinbase    varchar(20),
-	// 		    root        varchar(32),
-	// 		    txRoot      varchar(32),
-	// 		    receiptRoot varchar(32),
-	// 		    bloom       blob, 0
-	// 		    difficulty  varchar(32), 0
-	// 		    gasLimit    BIGINT, 0
-	// 		    gasUsed     BIGINT, 0
-	// 		    time        BIGINT, 0
-	// 		    extra       blob,
-	// 		    mixDigest   varchar(32),
-	// 		    nonce       BIGINT,
-	// 		    uncles      blob,
-	// 		    size        BIGINT,
-	// 		    td          varchar(32), 0
-	// 		    baseFee varchar(32))
+	Extra []byte
+	MixDigest [32]byte
+	Nonce uint64
+	Uncles []byte
+	Size uint64
+	Td [32]byte
+	BaseFee [32]byte
+	WithdrawalsHash [32]byte
 }
+
+// number=int64 hash=types.Hash parent hash=types.Hash unclehash=types.Hash
+// coinbase=common.Address root=types.Hash tx root=types.Hash receiptRoot=types.Hash
+// bloom=[]uint8 difficulty=int64 gaslimit=uint64 gasused=uint64
+// time=uint64 extra=[]uint8 mixed=types.Hash nonce=int64
+// uncleRLP=[]uint8 size=int td="func() []uint8" basefee=*big.Int whash=*types.Hash
+
+// number      BIGINT PRIMARY KEY,
+// hash        varchar(32) UNIQUE,
+// parentHash  varchar(32),
+// uncleHash   varchar(32),
+// coinbase    varchar(20),
+// root        varchar(32),
+// txRoot      varchar(32),
+// receiptRoot varchar(32),
+// bloom       blob,
+// difficulty  varchar(32),
+// gasLimit    BIGINT,
+// gasUsed     BIGINT,
+// time        BIGINT,
+// extra       blob,
+// mixDigest   varchar(32),
+// nonce       BIGINT,
+// uncles      blob,
+// size        BIGINT,
+// td          varchar(32),
+// baseFee varchar(32))
 
 // pb.Number,
 // pb.Hash,
@@ -118,35 +129,68 @@ type sliceHeader struct {
 }
 
 func (b *Blaster) Put(bck BlastBlock) {
-	// hPtr := (*C.char)(unsafe.Pointer(&bck.Hash[0]))
-	// cval := (C.CBytes(bck.Hash[:32]))
-	// log.Error("hash", "pre c hash", bck.Hash, "len", len(bck.Hash), "cval", cval)
-	hPtr := (*C.char)(C.CBytes(bck.Hash[:32]))
-	blInt := (C.size_t)(len(bck.Bloom))
-	// phPtr := (*C.char)(unsafe.Pointer(&bck.ParentHash[0]))
-	cPtr := (*C.char)(unsafe.Pointer(&bck.Coinbase[0]))
+
+	var bPtr *C.char
+	var exPtr *C.char
+	var unPtr *C.char
+	
 	nInt := C.longlong(bck.Number)
-	bPtr := (*C.char)(unsafe.Pointer(&bck.Bloom[0]))
-	tInt := C.longlong(bck.Time)
+	hPtr := (*C.char)(C.CBytes(bck.Hash[:32]))
+	phPtr := (*C.char)(C.CBytes(bck.ParentHash[:32]))
+	uhPtr := (*C.char)(C.CBytes(bck.UncleHash[:32]))
+	cbPtr := (*C.char)(C.CBytes(bck.Coinbase[:20]))
+	rPtr := (*C.char)(C.CBytes(bck.Root[:32]))
+	trPtr := (*C.char)(C.CBytes(bck.TxRoot[:32]))
+	rrPtr := (*C.char)(C.CBytes(bck.ReceiptRoot[:32]))
+	blLen := (C.size_t)(len(bck.Bloom))
+	if blLen > 0 {
+		bPtr = (*C.char)(C.CBytes(bck.Bloom[:blLen]))
+	}	
 	dInt := C.longlong(bck.Difficulty)
 	glInt := C.longlong(bck.GasLimit)
 	guInt := C.longlong(bck.GasUsed)
-	
+	tInt := C.longlong(bck.Time)
+	exLen := (C.size_t)(len(bck.Extra))
+	if exLen > 0 { 
+		exPtr = (*C.char)(C.CBytes(bck.Extra[:exLen]))
+	} 
+	mxPtr := (*C.char)(C.CBytes(bck.MixDigest[:32]))
+	ncInt := C.longlong(bck.Nonce)
+	unLen := (C.size_t)(len(bck.Uncles))
+	if unLen > 0 {
+		unPtr = (*C.char)(C.CBytes(bck.Uncles[:unLen]))
+	}
+	sInt := C.longlong(bck.Size)
+	tdPtr := (*C.char)(C.CBytes(bck.Td[:32]))
+	bfPtr := (*C.char)(C.CBytes(bck.BaseFee[:32]))
 
 	log.Error("inside of put", "number", nInt)
 
 	C.sqib_put_block(
 		b.DB, 
-		blInt,
-		hPtr, 
-		// phPtr,
-		cPtr, 
-		nInt, 
+		nInt,
+		hPtr,
+		phPtr,
+		uhPtr,
+		cbPtr,
+		rPtr,
+		trPtr,
+		rrPtr,
 		bPtr,
-		tInt, 
-		dInt, 
-		glInt,
+		blLen,
+		dInt,
+		glInt, 
 		guInt,
+		tInt, 
+		exPtr,
+		exLen,
+		mxPtr,
+		ncInt,
+		unPtr,
+		unLen,
+		sInt, 
+		tdPtr,
+		bfPtr,
 	)
 	log.Error("just past the squib put block function")
 }

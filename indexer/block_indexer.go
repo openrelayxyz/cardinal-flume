@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"sync"
 	"reflect"
-	"strings"
 
 	"golang.org/x/crypto/sha3"
 
@@ -143,46 +142,62 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 
 	if indexer.blastIdx != nil && pb.Number != 0 {
 
-		// log.Error("hash", "hash", ApplyParameters("", pb.Hash))
+		// type BlastBlock struct {
+		// 	Number uint64
+		// 	Hash [32]byte
+		// 	ParentHash [32]byte
+		// 	UncleHash [32]byte
+		// 	Coinbase [20]byte
+		// 	Root [32]byte
+		// 	TxRoot [32]byte
+		// 	ReceiptRoot [32]byte
+		// 	Bloom []byte
+		// 	Difficulty [32]byte
+		// 	GasLimit uint64
+		// 	GasUsed  uint64
+		// 	Time uint64
+		// 	Extra []bytesable
+		// 	MixDigest [32]byte
+		// 	Nonce uint64
+		// 	Uncles []byte
+		// 	Size uint64
+		// 	Td [32]byte
+		// 	BaseFee [32]byte
+		// }
 
-		// hsh := ApplyBlasterParameters(pb.Hash)
-		// var hash [32]byte
-		// copy(hash[:], trimPrefix(pb.Hash.Bytes()))
-		// h := ApplyParameters("", pb.Hash)
-		// copy(hash[:], []byte(h[16:len(h)-2]))
-		// var prntHsh [32]byte
-		// ph := ApplyParameters("", pb.ParentHash)
-		// copy(prntHsh[:], []byte(h[16:len(h)-2]))
+		// number=int64 hash=types.Hash parent hash=types.Hash unclehash=types.Hash
+		// coinbase=common.Address root=types.Hash tx root=types.Hash receiptRoot=types.Hash
+		// bloom=[]uint8 difficulty=int64 gaslimit=uint64 gasused=uint64
+		// time=uint64 extra=[]uint8 mixed=types.Hash nonce=int64
+		// uncleRLP=[]uint8 size=int td="func() []uint8" basefee=*big.Int whash=*types.Hash
 
-		// hash := ApplyBlasterParameters(pb.Hash.Bytes())
+		var totalD [32]byte
+		copy(totalD[:], td.Bytes())
 
-		log.Error("experiment", "reuslt", strings.ToUpper(("X'" + pb.Hash.String()[2:] + "'")), "string?", reflect.TypeOf(ApplyBlasterParameters(pb.Hash).(string)), "interface?", reflect.TypeOf(ApplyBlasterParameters(pb.Hash)))
-
-		// var hash [32]byte
-		// b := []byte(fmt.Sprintf("X'%v", pb.Hash.String()[2:]))
-		// copy(hash[:], b)
-		// strings.ToUpper(("X'" + pb.Hash.String()[2:] + "'"))
-
-	
-
-
-		var cnbs [20]byte
-		cb := ApplyParameters("", header.Coinbase)
-		copy(cnbs[:], []byte(cb[16:len(cb)-2]))
-		// tm := new(big.Int)
-    	// tm.SetUint64(header.Time) 
-		bloom := ApplyParameters("", compress(header.Bloom[:]))
+		var baseFee [32]byte
+		copy(baseFee[:], header.BaseFee.Bytes())
 
 		var BlstBlck = blaster.BlastBlock{
-			Hash: [32]byte(pb.Hash),
-			// ParentHash: prntHsh,
-			Coinbase: cnbs,
 			Number: uint64(pb.Number),
-			Bloom: []byte(bloom[16:len(bloom)-2]),
-			Time: header.Time,
-			Difficulty: header.Difficulty.Int64(),
+			Hash: [32]byte(pb.Hash),
+			ParentHash: [32]byte(pb.ParentHash),
+			UncleHash: [32]byte(header.UncleHash),
+			Coinbase: [20]byte(header.Coinbase),
+			Root: [32]byte(header.Root),
+			TxRoot: [32]byte(header.TxHash),
+			ReceiptRoot: [32]byte(header.ReceiptHash),
+			Bloom: []byte(compress(header.Bloom[:])),
+			Difficulty: header.Difficulty.Uint64(),
 			GasLimit: header.GasLimit,
 			GasUsed: header.GasUsed,
+			Time: header.Time,
+			Extra: []byte(header.Extra),
+			MixDigest: [32]byte(header.MixDigest),
+			Nonce: uint64(binary.BigEndian.Uint64(header.Nonce[:])),
+			Uncles: []byte(uncleRLP),
+			Size: uint64(size),
+			Td: totalD,
+			BaseFee: baseFee,
 		}
 		log.Error("calling put from within the block indexer")
 		indexer.blastIdx.Put(BlstBlck)
