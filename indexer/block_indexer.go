@@ -200,7 +200,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			BaseFee: baseFee,
 		}
 		log.Error("calling put from within the block indexer")
-		indexer.blastIdx.Put(BlstBlck)
+		indexer.blastIdx.PutBlock(BlstBlck)
 		return nil, nil
 	}
 
