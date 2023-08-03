@@ -1,13 +1,16 @@
 package indexer
 
 import (
+	"regexp"
+	"strconv"
+	
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
-	"regexp"
-	"strconv"
+
+	"github.com/openrelayxyz/cardinal-flume/blaster"
 )
 
 var (
@@ -16,6 +19,7 @@ var (
 
 type LogIndexer struct {
 	chainid uint64
+	blastIdx *blaster.Blaster
 }
 
 func getTopicIndex(topics []types.Hash, idx int) []byte {
@@ -25,8 +29,11 @@ func getTopicIndex(topics []types.Hash, idx int) []byte {
 	return []byte{}
 }
 
-func NewLogIndexer(chainid uint64) Indexer {
-	return &LogIndexer{chainid: chainid}
+func NewLogIndexer(chainid uint64, blasterIndexer *blaster.Blaster) Indexer {
+	return &LogIndexer{
+		chainid: chainid,
+		blastIdx: blasterIndexer,
+	}
 }
 
 func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {

@@ -54,7 +54,7 @@ type Config struct {
 	KafkaRollback   int64             `yaml:"kafkaRollback"`
 	ReorgThreshold  int64             `yaml:"reorgThreshold"`
 	Databases       map[string]string `yaml:"databases"`
-	CDatabases      map[string]string `yaml:"cdatabases"`
+	CDatabases      map[string]string `yaml:"cDatabases"`
 	MempoolSlots    int               `yaml:"mempoolSize"`
 	MemTxTimeThreshold int64          `yaml:"mempoolTxTime"` //mempool tx expiration in miuntes
 	BlockWaitDuration int64           `yaml:"blockWaitDuration"` // number of miliseconds to wait for a block from charon

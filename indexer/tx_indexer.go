@@ -1,19 +1,24 @@
 package indexer
+// #cgo CXXFLAGS: -std=c++11
+// #cgo LDFLAGS: -lstdc++
+import "C"
 
 import (
 	"fmt"
-	// "encoding/json"
+	"math/big"
+	"regexp"
+	"strconv"
 
 	log "github.com/inconshreveable/log15"
+
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-types"
-	"math/big"
-	"regexp"
-	"strconv"
+
+	"github.com/openrelayxyz/cardinal-flume/blaster"
 )
 
 var (
@@ -35,14 +40,16 @@ type TxIndexer struct {
 	eip155Block    uint64
 	homesteadBlock uint64
 	hasMempool     bool
+	blastIdx *blaster.Blaster
 }
 
-func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool) Indexer {
+func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool, blasterIndexer *blaster.Blaster) Indexer {
 	return &TxIndexer{
 		chainid:        chainid,
 		eip155Block:    eip155block,
 		homesteadBlock: homesteadblock,
 		hasMempool: hasMempool,
+		blastIdx: blasterIndexer,
 	}
 }
 
@@ -119,6 +126,41 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
 		}
 		input := getCopy(compress(transaction.Data()))
+
+		if indexer.blastIdx != nil && pb.Number != 0 {
+
+			var BlstTx = blaster.BlastTx{
+				Gas: uint64(transaction.Gas()),
+				GasPrice: uint64(gasPrice),
+				Hash: [32]byte(transaction.Hash()),
+				Input: []byte(input)
+				Nonce: uint64(transaction.Nonce()),
+				Recipient: [20]byte(transaction.To()),
+				TransactionIndex: uint64(i),
+				Value: []byte(transactio.Value().Bytes()), // may be a problem
+				V: uint64(v.Int64()),
+				R: [32]byte(r),
+				S: [32]byte(s),
+				Sender: [20]byte(sender),
+				Func: [4]byte(getFuncSig(transaction.Data())),
+				ContractAddress: []byte(nullZeroAddress(receipt.ContractAddress)),
+				CumulativeGasUsed: uint64(receipt.CumulativeGasUsed),
+				GasUsed: uint64(receipt.GasUsed),
+				LogsBloom: []byte(getCopy(compress(receipt.LogsBloom))),
+				Status: uint64(receipt.Status),
+				Block: Uint64(pb.Number),
+				Type: uint64(transaction.Type()),
+				Accesslist: []byte(compress(accessListRLP)),
+				GasFeeCap: []byte(transaction.GasFeeCap()),
+				GasTipCap: []byte(transaction.GasTipCap()),
+			}
+			log.Error("calling put from within the tx indexer")
+			indexer.blastIdx.PutTx(BlstTx)
+			return nil, nil
+	
+		}
+
+
 		statements = append(statements, ApplyParameters(
 			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,

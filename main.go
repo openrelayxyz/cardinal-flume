@@ -115,17 +115,20 @@ func main() {
 		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
 	}
 
-	if hasBlocks {
+
+
+	if hasBlocks && !*blastIndex {
+		log.Error("blast or no after", "bi", *blastIndex)
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
 	}
-	if hasTx {
+	if hasTx && !*blastIndex {
 		if err := migrations.MigrateTransactions(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
 	}
-	if hasLogs {
+	if hasLogs && !*blastIndex {
 		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
@@ -133,11 +136,13 @@ func main() {
 			log.Warn("Failed to load index hints", "err", err.Error())
 		}
 	}
-	if hasMempool {
+	if hasMempool && !*blastIndex {
 		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
 	}
+
+	// TODO: plugin migration scenerios need to be considered in a blaster context
 	
 	pluginMigrations := pl.Lookup("Migrate", func(v interface{}) bool {
 		_, ok := v.(func(*sql.DB, uint64) error)
@@ -183,7 +188,7 @@ func main() {
 
 	if hasBlocks {
 		if *blastIndex {
-			bI := blaster.NewBlasterIndexer("./blaster/blastblocks.sqlite")
+			bI := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
 			defer bI.Close()
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bI))	
 		} else {
@@ -191,11 +196,25 @@ func main() {
 		}
 	}
 	if hasTx {
-		indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool))
+		if *blastIndex {
+			bI := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
+			defer bI.Close()
+			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bI))	
+		} else {
+			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, nil))
+		}
 	}
 	if hasLogs {
-		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
+		if *blastIndex {
+			bI := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
+			defer bI.Close()
+			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bI))	
+		} else {
+			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
+		}
 	}
+
+	// TODO: plugin indexing scenerios need to be considerred in regards to blast indexing
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config) indexer.Indexer)
