@@ -133,7 +133,7 @@ func (b *Blaster) PutTx(tx BlastTx) {
 		sendPtr,
 		funcPtr,
 		conAddPtr,
-		conAddlen,
+		conAddLen,
 		cumulativeGasUsedInt,
 		gasUsedInt,
 		bloomPtr,

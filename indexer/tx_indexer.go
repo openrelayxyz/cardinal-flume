@@ -54,6 +54,7 @@ func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool, 
 }
 
 func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
+	log.Error("Inside of TX indexer")
 	headerBytes := pb.Values[fmt.Sprintf("c/%x/b/%x/h", indexer.chainid, pb.Hash.Bytes())]
 	header := &evm.Header{}
 	if err := rlp.DecodeBytes(headerBytes, &header); err != nil {
@@ -110,7 +111,10 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
 
+	log.Error("are there txns?", "txData", len(txData))
+
 	for i := 0; i < len(txData); i++ {
+		log.Error("inside of tx loop dee loop")
 		transaction := txData[int(i)]
 		receipt := receiptData[int(i)]
 		sender := <-senderMap[transaction.Hash()]
@@ -129,33 +133,59 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 		if indexer.blastIdx != nil && pb.Number != 0 {
 
+			log.Error("made it here")
+
+			toBytes := transaction.To().Bytes()
+			var to20Bytes [20]byte
+			copy(to20Bytes[:], toBytes)
+
+			rBytes := r.Bytes()
+			var r32Bytes [32]byte
+			copy(r32Bytes[:], rBytes)
+
+			sBytes := s.Bytes()
+			var s32Bytes [32]byte
+			copy(s32Bytes[:], sBytes)
+
+			funcBytes := getFuncSig(transaction.Data())
+			var func4Bytes [4]byte
+			copy(func4Bytes[:], funcBytes)
+
+			gfcBigBytes := transaction.GasFeeCap().Bytes()
+			var gfcBytes []byte
+			copy(gfcBytes[:], gfcBigBytes)
+
+			gtcBigBytes := transaction.GasTipCap().Bytes()
+			var gtcBytes []byte
+			copy(gtcBytes[:], gtcBigBytes)
+
 			var BlstTx = blaster.BlastTx{
 				Gas: uint64(transaction.Gas()),
 				GasPrice: uint64(gasPrice),
 				Hash: [32]byte(transaction.Hash()),
-				Input: []byte(input)
+				Input: []byte(input),
 				Nonce: uint64(transaction.Nonce()),
-				Recipient: [20]byte(transaction.To()),
+				Recipient: to20Bytes,
 				TransactionIndex: uint64(i),
-				Value: []byte(transactio.Value().Bytes()), // may be a problem
+				Value: []byte(transaction.Value().Bytes()), // may be a problem
 				V: uint64(v.Int64()),
-				R: [32]byte(r),
-				S: [32]byte(s),
+				R: r32Bytes,
+				S: s32Bytes,
 				Sender: [20]byte(sender),
-				Func: [4]byte(getFuncSig(transaction.Data())),
+				Func: func4Bytes,
 				ContractAddress: []byte(nullZeroAddress(receipt.ContractAddress)),
 				CumulativeGasUsed: uint64(receipt.CumulativeGasUsed),
 				GasUsed: uint64(receipt.GasUsed),
 				LogsBloom: []byte(getCopy(compress(receipt.LogsBloom))),
 				Status: uint64(receipt.Status),
-				Block: Uint64(pb.Number),
+				Block: uint64(pb.Number),
 				Type: uint64(transaction.Type()),
 				Accesslist: []byte(compress(accessListRLP)),
-				GasFeeCap: []byte(transaction.GasFeeCap()),
-				GasTipCap: []byte(transaction.GasTipCap()),
+				GasFeeCap: gfcBytes,
+				GasTipCap: gtcBytes,
 			}
 			log.Error("calling put from within the tx indexer")
-			indexer.blastIdx.PutTx(BlstTx)
+			go indexer.blastIdx.PutTx(BlstTx)
 			return nil, nil
 	
 		}

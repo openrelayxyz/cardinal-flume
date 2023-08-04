@@ -49,6 +49,6 @@ type sliceHeader struct {
 }
  
 func (b *Blaster) Close() {
-	defer log.Error("close called on blaster")
+	defer log.Error("close called on blocks blaster")
 	C.sqib_close(b.DB)
 }

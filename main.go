@@ -197,6 +197,7 @@ func main() {
 	}
 	if hasTx {
 		if *blastIndex {
+			log.Error("initiated tx blaster")
 			bI := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
 			defer bI.Close()
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bI))	

@@ -69,6 +69,7 @@ func NewBlockIndexer(chainid uint64, blasterIndexer *blaster.Blaster) Indexer {
 }
 
 func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
+	log.Error("inside of Block indexer")
 	var withdrawals evm.Withdrawals 
     if withdrawalBytes, ok := pb.Values[fmt.Sprintf("c/%x/b/%x/w", indexer.chainid, pb.Hash.Bytes())]; ok {
 		if err := rlp.DecodeBytes(withdrawalBytes, &withdrawals); err != nil {
@@ -200,7 +201,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			BaseFee: baseFee,
 		}
 		log.Error("calling put from within the block indexer")
-		indexer.blastIdx.PutBlock(BlstBlck)
+		go indexer.blastIdx.PutBlock(BlstBlck)
 		return nil, nil
 	}
 
