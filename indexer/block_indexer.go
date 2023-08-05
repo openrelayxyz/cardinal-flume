@@ -45,7 +45,7 @@ var hasherPool = sync.Pool{
 
 type BlockIndexer struct {
 	chainid uint64
-	blastIdx *blaster.Blaster
+	blastIdx *blaster.BlockBlaster
 }
 
 type extblock struct {
@@ -61,7 +61,7 @@ type extblockWithdrawals struct {
 	Withdrawals  evm.Withdrawals 
 }
 
-func NewBlockIndexer(chainid uint64, blasterIndexer *blaster.Blaster) Indexer {
+func NewBlockIndexer(chainid uint64, blasterIndexer *blaster.BlockBlaster) Indexer {
 	return &BlockIndexer{
 		chainid: chainid,
 		blastIdx: blasterIndexer,
@@ -201,7 +201,9 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			BaseFee: baseFee,
 		}
 		log.Error("calling put from within the block indexer")
-		go indexer.blastIdx.PutBlock(BlstBlck)
+		// go indexer.blastIdx.PutBlock(BlstBlck)
+		indexer.blastIdx.PutBlock(BlstBlck)
+		// defer indexer.blastIdx.Close()
 		return nil, nil
 	}
 

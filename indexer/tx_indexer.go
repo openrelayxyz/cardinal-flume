@@ -4,6 +4,7 @@ package indexer
 import "C"
 
 import (
+	"reflect"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -40,10 +41,10 @@ type TxIndexer struct {
 	eip155Block    uint64
 	homesteadBlock uint64
 	hasMempool     bool
-	blastIdx *blaster.Blaster
+	blastIdx *blaster.TxBlaster
 }
 
-func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool, blasterIndexer *blaster.Blaster) Indexer {
+func NewTxIndexer(chainid, eip155block, homesteadblock uint64, hasMempool bool, blasterIndexer *blaster.TxBlaster) Indexer {
 	return &TxIndexer{
 		chainid:        chainid,
 		eip155Block:    eip155block,
@@ -107,37 +108,39 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 	}
 
-	statements := make([]string, 0, len(txData)+1)
+	if indexer.blastIdx != nil && pb.Number != 0 {
 
-	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
+		log.Error("inside blast case", "txdata len", len(txData))
 
-	log.Error("are there txns?", "txData", len(txData))
+		for i := 0; i < len(txData); i++ {
 
-	for i := 0; i < len(txData); i++ {
-		log.Error("inside of tx loop dee loop")
-		transaction := txData[int(i)]
-		receipt := receiptData[int(i)]
-		sender := <-senderMap[transaction.Hash()]
-		v, r, s := transaction.RawSignatureValues()
+			log.Error("inside of tx loop dee loop", "i", i)
+			transaction := txData[int(i)]
+			receipt := receiptData[int(i)]
+			sender := <-senderMap[transaction.Hash()]
+			v, r, s := transaction.RawSignatureValues()
 
-		var accessListRLP []byte
-		gasPrice := transaction.GasPrice().Uint64()
-		switch transaction.Type() {
-		case evm.AccessListTxType:
-			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
-		case evm.DynamicFeeTxType:
-			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
-			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
-		}
-		input := getCopy(compress(transaction.Data()))
+			var accessListRLP []byte
+			gasPrice := transaction.GasPrice().Uint64()
+			switch transaction.Type() {
+			case evm.AccessListTxType:
+				accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
+			case evm.DynamicFeeTxType:
+				accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
+				gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
+			}
+			input := getCopy(compress(transaction.Data()))
 
-		if indexer.blastIdx != nil && pb.Number != 0 {
 
 			log.Error("made it here")
 
-			toBytes := transaction.To().Bytes()
+			// it is possible for recipients to be null as in the case of tx 42 on block 3999873
+
 			var to20Bytes [20]byte
-			copy(to20Bytes[:], toBytes)
+			log.Error("wtf", "to20", reflect.TypeOf(to20Bytes), "len", len(to20Bytes), "der", reflect.TypeOf(transaction.To()), "der len", len(transaction.To()))
+			if reci := transaction.To(); reci != nil {
+				copy(to20Bytes[:], reci.Bytes())
+			} 
 
 			rBytes := r.Bytes()
 			var r32Bytes [32]byte
@@ -185,11 +188,34 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 				GasTipCap: gtcBytes,
 			}
 			log.Error("calling put from within the tx indexer")
-			go indexer.blastIdx.PutTx(BlstTx)
-			return nil, nil
-	
+			// go indexer.blastIdx.PutTx(BlstTx)
+			indexer.blastIdx.PutTx(BlstTx)
+			// defer indexer.blastIdx.Close()
 		}
+	return nil, nil
+	}
 
+	statements := make([]string, 0, len(txData)+1)
+
+	statements = append(statements, ApplyParameters("DELETE FROM transactions.transactions WHERE block >= %v", pb.Number))
+
+	for i := 0; i < len(txData); i++ {
+		log.Error("inside of tx loop dee loop")
+		transaction := txData[int(i)]
+		receipt := receiptData[int(i)]
+		sender := <-senderMap[transaction.Hash()]
+		v, r, s := transaction.RawSignatureValues()
+
+		var accessListRLP []byte
+		gasPrice := transaction.GasPrice().Uint64()
+		switch transaction.Type() {
+		case evm.AccessListTxType:
+			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
+		case evm.DynamicFeeTxType:
+			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
+			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
+		}
+		input := getCopy(compress(transaction.Data()))
 
 		statements = append(statements, ApplyParameters(
 			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",

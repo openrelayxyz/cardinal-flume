@@ -59,7 +59,7 @@ type BlastTx struct {
     GasTipCap []byte
 }
 
-func (b *Blaster) PutTx(tx BlastTx) {
+func (b *TxBlaster) PutTx(tx BlastTx) {
 	var inputPtr *C.char
 	var valuePtr *C.char
 	var conAddPtr *C.char
@@ -99,6 +99,7 @@ func (b *Blaster) PutTx(tx BlastTx) {
 	}
 	statInt := C.longlong(tx.Status)
 	blockInt := C.longlong(tx.Block)
+	log.Error("this is the c type block", "block", blockInt)
 	typeInt := C.longlong(tx.Type)
 	accListLen := (C.size_t)(len(tx.Accesslist))
 	if accListLen > 0 {

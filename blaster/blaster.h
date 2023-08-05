@@ -20,7 +20,9 @@ char* value, size_t valueLength, long long v, char* r, char* s, char* sender, ch
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long block, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength);
 
-void sqib_close(void* sqibv);
+void sqbb_close(void* sqibv);
+void sqtb_close(void* sqibv);
+void sqlb_close(void* sqibv);
 
 
 #ifdef __cplusplus

@@ -82,7 +82,7 @@ type BlastBlock struct {
 
 // difficulty=int64 gaslimit=uint64 gasused=uint64 time=uint64
 
-func (b *Blaster) PutBlock(bck BlastBlock) {
+func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 
 	var bPtr *C.char
 	var exPtr *C.char

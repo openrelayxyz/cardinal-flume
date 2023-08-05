@@ -188,31 +188,33 @@ func main() {
 
 	if hasBlocks {
 		if *blastIndex {
-			bI := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
-			defer bI.Close()
-			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bI))	
+			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
+			defer bIBlock.Close()
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock))	
 		} else {
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
 		}
+		// indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
 	}
 	if hasTx {
 		if *blastIndex {
 			log.Error("initiated tx blaster")
-			bI := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
-			defer bI.Close()
-			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bI))	
+			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
+			defer bITx.Close()
+			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
 		} else {
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, nil))
 		}
 	}
 	if hasLogs {
 		if *blastIndex {
-			bI := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
-			defer bI.Close()
-			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bI))	
+			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
+			defer bILog.Close()
+			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
 		} else {
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
 		}
+		// indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
 	}
 
 	// TODO: plugin indexing scenerios need to be considerred in regards to blast indexing
@@ -267,6 +269,11 @@ func main() {
 
 	hc := &indexer.HealthCheck{}
 	rhf := make(chan int64, 1024)
+
+	// if *blastIndex {
+	// 	log.Error("Calling BLASTERRRRR")
+	// 	blaster.BatchIndex(consumer, quit)
+	// }
 
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
 

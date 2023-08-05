@@ -1,0 +1,27 @@
+package blaster
+
+import (
+	"github.com/openrelayxyz/cardinal-streams/transports"
+	
+	"github.com/openrelayxyz/cardinal-flume/indexer"
+)
+
+func BatchIndex(csConsumer transports.Consumer, quit <-chan struct{}) {
+	for {
+		select {
+		case <-quit:
+				log.Info("Shutting down batch index process")
+				return 
+		case chainUpdate := <-csCh:
+			for {
+				for _, pb := range chainUpdate.Added() {
+					for _, indexer := range indexers {
+						s, err := indexer.Index(pb)
+						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
+					}
+					log.Info("batch index block", "number", pb.Number)
+				}
+			}
+		}
+	}
+}

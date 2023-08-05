@@ -9,32 +9,40 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-type Blaster struct {
+type BlockBlaster struct {
 	DB unsafe.Pointer
 }
 
-func NewBlasterBlockIndexer(dataBase string) *Blaster {
+type TxBlaster struct {
+	DB unsafe.Pointer
+}
+
+type LogBlaster struct {
+	DB unsafe.Pointer
+}
+
+func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
-	b := &Blaster{
+	b := &BlockBlaster{
 		DB: db,
 	}
 	return b
 }
 
-func NewBlasterTxIndexer(dataBase string) *Blaster {
+func NewBlasterTxIndexer(dataBase string) *TxBlaster {
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
 
-	b := &Blaster{
+	b := &TxBlaster{
 		DB: db,
 	}
 	return b
 }
 
-func NewBlasterLogIndexer(dataBase string) *Blaster {
+func NewBlasterLogIndexer(dataBase string) *LogBlaster {
 	db := C.new_sqlite_log_blaster(C.CString(dataBase))
 
-	b := &Blaster{
+	b := &LogBlaster{
 		DB: db,
 	}
 	return b
@@ -48,7 +56,17 @@ type sliceHeader struct {
 	cap int
 }
  
-func (b *Blaster) Close() {
+func (b *BlockBlaster) Close() {
 	defer log.Error("close called on blocks blaster")
-	C.sqib_close(b.DB)
+	C.sqbb_close(b.DB)
+}
+
+func (b *TxBlaster) Close() {
+	defer log.Error("close called on tx blaster")
+	C.sqtb_close(b.DB)
+}
+
+func (b *LogBlaster) Close() {
+	defer log.Error("close called on log blaster")
+	C.sqlb_close(b.DB)
 }

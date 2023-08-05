@@ -19,7 +19,7 @@ var (
 
 type LogIndexer struct {
 	chainid uint64
-	blastIdx *blaster.Blaster
+	blastIdx *blaster.LogBlaster
 }
 
 func getTopicIndex(topics []types.Hash, idx int) []byte {
@@ -29,7 +29,7 @@ func getTopicIndex(topics []types.Hash, idx int) []byte {
 	return []byte{}
 }
 
-func NewLogIndexer(chainid uint64, blasterIndexer *blaster.Blaster) Indexer {
+func NewLogIndexer(chainid uint64, blasterIndexer *blaster.LogBlaster) Indexer {
 	return &LogIndexer{
 		chainid: chainid,
 		blastIdx: blasterIndexer,
