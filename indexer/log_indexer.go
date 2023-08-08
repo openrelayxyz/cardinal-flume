@@ -3,6 +3,9 @@ package indexer
 import (
 	"regexp"
 	"strconv"
+	"encoding/binary"
+
+	log "github.com/inconshreveable/log15"
 	
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
@@ -63,6 +66,52 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		}
 	}
 
+	if indexer.blastIdx != nil && pb.Number != 0 {
+
+		for i := 0; i < len(logData); i++ {
+			logRecord := logData[int64(i)]
+			var topicZero32Bytes [32]byte
+			if t := getTopicIndex(logRecord.Topics, 0); t != nil {
+				copy(topicZero32Bytes[:], t)
+			} 
+
+			var topicOne32Bytes [32]byte
+			if t := getTopicIndex(logRecord.Topics, 1); t != nil {
+				copy(topicOne32Bytes[:], t)
+			} 
+
+			var topicTwo32Bytes [32]byte
+			if t := getTopicIndex(logRecord.Topics, 1); t != nil {
+				copy(topicTwo32Bytes[:], t)
+			} 
+
+			var topicThree32Bytes [32]byte
+			if t := getTopicIndex(logRecord.Topics, 3); t != nil {
+				copy(topicThree32Bytes[:], t)
+			} 
+
+			var txDex [32]byte
+			binary.BigEndian.PutUint32(txDex[:4], uint32(logRecord.TxIndex))
+			
+			var BlstLog = blaster.BlastLog{
+				Address: logRecord.Address,
+				Topic0:	topicZero32Bytes,
+				Topic1: topicOne32Bytes,
+				Topic2:	topicTwo32Bytes,
+				Topic3:	topicThree32Bytes,
+				Data: compress(logRecord.Data),
+				Block: uint64(pb.Number),
+				LogIndex: uint64(logRecord.Index),
+				TransactionHash: txData[logRecord.TxIndex],
+				TransactionIndex: txDex,
+				BlockHash: pb.Hash,
+			}
+			log.Error("calling put from within the log indexer")
+			// go indexer.blastIdx.PutTx(BlstTx)
+			indexer.blastIdx.PutLog(BlstLog)
+		}
+		return nil, nil
+	}
 	statements := make([]string, 0, len(logData)+1)
 
 	statements = append(statements, ApplyParameters("DELETE FROM event_logs WHERE block >= %v", pb.Number))

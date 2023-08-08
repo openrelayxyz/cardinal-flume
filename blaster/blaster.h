@@ -20,6 +20,8 @@ char* value, size_t valueLength, long long v, char* r, char* s, char* sender, ch
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long block, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength);
 
+void sqib_put_log(void* sqibv, char* address, char* topic0, char* topic1, char* topic2, char* topic3, char* data, size_t dataLength, long long block, long long logIndex, char* transactionHash, char* transacitonIndex, char* blockHash);
+
 void sqbb_close(void* sqibv);
 void sqtb_close(void* sqibv);
 void sqlb_close(void* sqibv);

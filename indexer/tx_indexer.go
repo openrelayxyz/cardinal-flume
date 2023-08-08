@@ -4,7 +4,6 @@ package indexer
 import "C"
 
 import (
-	"reflect"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -137,7 +136,6 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			// it is possible for recipients to be null as in the case of tx 42 on block 3999873
 
 			var to20Bytes [20]byte
-			log.Error("wtf", "to20", reflect.TypeOf(to20Bytes), "len", len(to20Bytes), "der", reflect.TypeOf(transaction.To()), "der len", len(transaction.To()))
 			if reci := transaction.To(); reci != nil {
 				copy(to20Bytes[:], reci.Bytes())
 			} 
