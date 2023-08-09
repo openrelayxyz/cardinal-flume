@@ -73,6 +73,7 @@ type Config struct {
 	LightSeed       int64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
 	WhitelistExternal map[uint64]types.Hash
+	BlastIndex      bool
 }
 
 func LoadConfig(fname string) (*Config, error) {

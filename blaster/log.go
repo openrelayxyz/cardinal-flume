@@ -45,6 +45,8 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	var transDexPtr *C.char
 	var blockHashPtr *C.char
 
+	blockInt := C.longlong(lg.Block)
+	logDexInt := C.longlong(lg.LogIndex)
 	addressPtr = (*C.char)(C.CBytes(lg.Address[:20]))
 	topic0Ptr = (*C.char)(C.CBytes(lg.Topic0[:32]))
 	topic1Ptr = (*C.char)(C.CBytes(lg.Topic1[:32]))
@@ -54,8 +56,6 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	if dataLen > 0 {
 		dataPtr = (*C.char)(C.CBytes(lg.Data[:dataLen]))
 	}
-	blockInt := C.longlong(lg.Block)
-	logDexInt := C.longlong(lg.LogIndex)
 	transHashPtr = (*C.char)(C.CBytes(lg.TransactionHash[:32]))
 	transDexPtr = (*C.char)(C.CBytes(lg.TransactionIndex[:32]))
 	blockHashPtr = (*C.char)(C.CBytes(lg.BlockHash[:32]))
@@ -66,6 +66,8 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 
 	C.sqib_put_log(
 		b.DB, 
+		blockInt, 
+		logDexInt,
 		addressPtr,
 		topic0Ptr,
 		topic1Ptr,
@@ -73,8 +75,6 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 		topic3Ptr,
 		dataPtr,
 		dataLen,
-		blockInt, 
-		logDexInt,
 		transHashPtr,
 		transDexPtr,
 		blockHashPtr,

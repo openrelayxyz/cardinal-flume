@@ -100,12 +100,21 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	genesisStatements := []string{}
 
 	for _, indexer := range indexers {
-		statements, err := indexer.Index(pb.ToPendingBatch())
-		if err != nil {
-			log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
-			return err
+		if cfg.BlastIndex {
+			_, err := indexer.Index(pb.ToPendingBatch())
+			if err != nil {
+				log.Error("Error caught while batch indexing genesis block", "err", err)
+				return err
+			}
+			return nil
+		} else {
+			statements, err := indexer.Index(pb.ToPendingBatch())
+			if err != nil {
+				log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
+				return err
+			}
+			genesisStatements = append(genesisStatements, statements...)
 		}
-		genesisStatements = append(genesisStatements, statements...)
 	}
 
 	mut.Lock()

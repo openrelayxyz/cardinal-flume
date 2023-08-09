@@ -33,10 +33,10 @@ import (
 // 		    gasTipCap varchar(32))
 
 type BlastTx struct {
-	// Id uint64
+	Hash [32]byte
+	Block uint64
 	Gas uint64
 	GasPrice uint64
-	Hash [32]byte
 	Input []byte
 	Nonce uint64
 	Recipient [20]byte
@@ -52,7 +52,6 @@ type BlastTx struct {
 	GasUsed uint64
 	LogsBloom []byte
 	Status uint64
-	Block uint64
 	Type uint64
 	Accesslist []byte
 	GasFeeCap []byte
@@ -68,9 +67,10 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	var gFeePtr *C.char
 	var gTipPtr *C.char
 	
+	blockInt := C.longlong(tx.Block)
+	hashPtr := (*C.char)(C.CBytes(tx.Hash[:32]))
 	gasInt := C.longlong(tx.Gas)
 	gasPriceInt := C.longlong(tx.GasPrice)
-	hashPtr := (*C.char)(C.CBytes(tx.Hash[:32]))
 	inputLen := (C.size_t)(len(tx.Input))
 	if inputLen > 0 {
 		inputPtr = (*C.char)(C.CBytes(tx.Input[:inputLen]))
@@ -98,8 +98,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		bloomPtr = (*C.char)(C.CBytes(tx.LogsBloom[:bloomLen]))
 	}
 	statInt := C.longlong(tx.Status)
-	blockInt := C.longlong(tx.Block)
-	log.Error("this is the c type block", "block", blockInt)
 	typeInt := C.longlong(tx.Type)
 	accListLen := (C.size_t)(len(tx.Accesslist))
 	if accListLen > 0 {
@@ -117,10 +115,11 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	log.Error("inside of put tx", "number", blockInt)
 
 	C.sqib_put_tx(
-		b.DB, 
+		b.DB,
+		hashPtr,
+		blockInt, 
 		gasInt,
 		gasPriceInt,
-		hashPtr,
 		inputPtr,
 		inputLen,
 		nonceInt,
@@ -140,7 +139,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		bloomPtr,
 		bloomLen,
 		statInt,
-		blockInt,
 		typeInt,
 		accListPtr,
 		accListLen,

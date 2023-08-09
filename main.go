@@ -49,6 +49,10 @@ func main() {
 		cfg.LightSeed = *lightSeed
 	}
 
+	if *blastIndex {
+		cfg.BlastIndex = true
+	}
+
 	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
@@ -118,7 +122,6 @@ func main() {
 
 
 	if hasBlocks && !*blastIndex {
-		log.Error("blast or no after", "bi", *blastIndex)
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
@@ -198,7 +201,6 @@ func main() {
 	}
 	if hasTx {
 		if *blastIndex {
-			log.Error("initiated tx blaster")
 			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
 			defer bITx.Close()
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
