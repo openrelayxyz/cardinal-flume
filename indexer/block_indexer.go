@@ -44,7 +44,8 @@ var hasherPool = sync.Pool{
 
 type BlockIndexer struct {
 	chainid uint64
-	blastIdx *blaster.BlockBlaster
+	blastBlockIdx *blaster.BlockBlaster
+	blastWithdrawalIdx *blaster.WithdrawalBlaster
 }
 
 type extblock struct {
@@ -60,10 +61,11 @@ type extblockWithdrawals struct {
 	Withdrawals  evm.Withdrawals 
 }
 
-func NewBlockIndexer(chainid uint64, blasterIndexer *blaster.BlockBlaster) Indexer {
+func NewBlockIndexer(chainid uint64, blasterBlockIndexer *blaster.BlockBlaster, blasterWithdrawalIndexer *blaster.WithdrawalBlaster) Indexer {
 	return &BlockIndexer{
 		chainid: chainid,
-		blastIdx: blasterIndexer,
+		blastBlockIdx: blasterBlockIndexer,
+		blastWithdrawalIdx: blasterWithdrawalIndexer,
 	}
 }
 
@@ -140,7 +142,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	}
 	uncleRLP, _ := rlp.EncodeToBytes(uncles)
 
-	if indexer.blastIdx != nil && pb.Number != 0 {
+	if indexer.blastBlockIdx != nil && pb.Number != 0 {
 		return indexer.blockBatchIndex(header, pb, td, size, uncleRLP, withdrawals)
 	}
 
@@ -206,8 +208,10 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 	var baseFee [32]byte
 	copy(baseFee[:], header.BaseFee.Bytes())
 
-	var wHash [32]byte
-	copy(wHash[:], header.WithdrawalsHash.Bytes())
+	if header.WithdrawalsHash != nil {
+		var wHash [32]byte
+		copy(wHash[:], header.WithdrawalsHash.Bytes())
+	}
 
 	var BlstBlck = blaster.BlastBlock{
 		Number: uint64(pb.Number),
@@ -230,14 +234,15 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		Size: uint64(size),
 		Td: totalD,
 		BaseFee: baseFee,
-		WithdrawalHash: wHash,
 	}
+
+	// WithdrawalHash: wHash,
 
 	log.Debug("calling put from within the block indexer")
 
-	indexer.blastIdx.PutBlock(BlstBlck)
+	indexer.blastBlockIdx.PutBlock(BlstBlck)
 
-	if withdrawals.Len() > 0 {
+	if indexer.blastWithdrawalIdx != nil && withdrawals.Len() > 0 {
 		log.Error("NOTTTTT EEEEEEEMMMMMPPPPPPPPPTTTTTTTYYYYYYYYY")
 
 		for _, wtdrl := range withdrawals {
@@ -253,7 +258,7 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 			Amount: wtdrl.Amount,
 			BlockHash: pb.Hash,
 			}
-		indexer.blastIdx.PutWithdrawal(BlstWthdrl)
+		indexer.blastWithdrawalIdx.PutWithdrawal(BlstWthdrl)
 		log.Debug("calling put from within the withdrawals indexer")
 		}
 	}

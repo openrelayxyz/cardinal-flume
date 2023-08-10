@@ -47,6 +47,7 @@ func main() {
 
 	if *lightSeed != 0 {
 		cfg.LightSeed = *lightSeed
+		cfg.EarliestBlock = uint64(*lightSeed)
 	}
 
 	if *blastIndex {
@@ -192,11 +193,13 @@ func main() {
 	if hasBlocks {
 		if *blastIndex {
 			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
-			defer bIBlock.CloseBlocks()
+			defer bIBlock.Close()
+			bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"])
+			defer bIWtd.Close()
 			// defer bIBlock.CloseWithdrawals()
-			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock))	
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock, bIWtd))	
 		} else {
-			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil, nil))
 		}
 		// indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
 	}
@@ -336,7 +339,12 @@ func main() {
 		}
 	}
 	//if this > 0 then this is a light server
-	cfg.EarliestBlock = uint64(minBlock)
+	// if cfg.LightSeed == 0 {
+	// 	cfg.EarliestBlock = uint64(minBlock)
+	// } else {
+	// 	cfg.EraliestBlock = cfg.LightSeed
+	// }
+	cfg.EarliestBlock = 1
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)

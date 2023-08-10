@@ -11,16 +11,14 @@ import (
 )
 
 type BlockBlaster struct {
-	BlockDB unsafe.Pointer
-	WithdrawalDB unsafe.Pointer
-	BlockLock *sync.Mutex
-	WithdrawalLock *sync.Mutex
+	DB unsafe.Pointer
+	Lock *sync.Mutex
 }
 
-// type WithdrawalBlaster struct {
-// 	DB unsafe.Pointer
-// 	Lock *sync.Mutex
-// }
+type WithdrawalBlaster struct {
+	DB unsafe.Pointer
+	Lock *sync.Mutex
+}
 
 type TxBlaster struct {
 	DB unsafe.Pointer
@@ -33,26 +31,24 @@ type LogBlaster struct {
 }
 
 func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
-	bdb, wdb := C.new_sqlite_block_blaster(C.CString(dataBase))
-	// wdb := C.new_sqlite_withdrawal_blaster(C.CString(dataBase))
+	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
 	b := &BlockBlaster{
-		BlockDB: bdb,
-		BlockLock: new(sync.Mutex),
-		WithdrawalLock: new(sync.Mutex),
+		DB: db,
+		Lock: new(sync.Mutex),
 	}
 	return b
 }
 
-// func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
-// 	db := C.new_sqlite_withdrawal_blaster(C.CString(dataBase))
+func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
+	db := C.new_sqlite_withdrawal_blaster(C.CString(dataBase))
 
-// 	b := &WithdrawalBlaster{
-// 		DB: db,
-// 		Lock: new(sync.Mutex),
-// 	}
-// 	return b
-// }
+	b := &WithdrawalBlaster{
+		DB: db,
+		Lock: new(sync.Mutex),
+	}
+	return b
+}
 
 func NewBlasterTxIndexer(dataBase string) *TxBlaster {
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
@@ -82,24 +78,17 @@ type sliceHeader struct {
 	cap int
 }
  
-func (b *BlockBlaster) CloseBlocks() {
+func (b *BlockBlaster) Close() {
 	defer log.Error("close called on blocks blaster")
-	b.BlockLock.Lock()
-	C.sqbb_close(b.BlockDB)
-	C.sqwb_close(b.WithdrawalDB)
+	b.Lock.Lock()
+	C.sqbb_close(b.DB)
 }
 
-// func (b *BlockBlaster) CloseWithdrawals() {
-// 	defer log.Error("close called on blocks blaster")
-// 	b.WithdrawalLock.Lock()
-// 	C.sqwb_close(b.DB)
-// }
-
-// func (b *BlockBlaster) Close() {
-// 	defer log.Error("close called on withdrawals blaster")
-// 	b.Lock.Lock()
-// 	C.sqwb_close(b.DB)
-// }
+func (b *WithdrawalBlaster) Close() {
+	defer log.Error("close called on withdrawals blaster")
+	b.Lock.Lock()
+	C.sqwb_close(b.DB)
+}
 
 func (b *TxBlaster) Close() {
 	defer log.Error("close called on tx blaster")
