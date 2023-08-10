@@ -146,6 +146,7 @@ func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map
 		log.Debug("calling put from within the log indexer")
 
 		indexer.blastIdx.PutLog(BlstLog)
+
 	}
 	return nil, nil
 }

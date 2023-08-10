@@ -28,7 +28,7 @@ type BlastBlock struct {
 	Size uint64
 	Td [32]byte
 	BaseFee [32]byte
-	WithdrawalsHash [32]byte
+	WithdrawalHash [32]byte
 }
 
 // number=int64 hash=types.Hash parent hash=types.Hash unclehash=types.Hash
@@ -117,11 +117,14 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	sInt := C.longlong(bck.Size)
 	tdPtr := (*C.char)(C.CBytes(bck.Td[:32]))
 	bfPtr := (*C.char)(C.CBytes(bck.BaseFee[:32]))
+	wthdHashPtr := (*C.char)(C.CBytes(bck.WithdrawalHash[:32]))
 
 	log.Error("inside of put block", "number", nInt)
 
+	b.BlockLock.Lock()
+
 	C.sqib_put_block(
-		b.DB, 
+		b.BlockDB, 
 		nInt,
 		hPtr,
 		phPtr,
@@ -145,6 +148,50 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 		sInt, 
 		tdPtr,
 		bfPtr,
+		wthdHashPtr,
 	)
 	log.Error("just past the squib put block function")
+	b.BlockLock.Unlock()
+}
+
+// wtdrlIndex MEDIUMINT,
+// vldtrIndex MEDIUMINT,
+// address VARCHAR(20),
+// amount    MEDIUMINT,
+// block     BIGINT,
+// blockHash VARCHAR(32),
+// PRIMARY KEY (block, wtdrlIndex)
+
+type BlastWithdrawal struct {
+	Block uint64
+	WithdrawalIndex uint64
+	ValidatorIndex uint64
+	Address [20]byte
+	Amount uint64
+	BlockHash [32]byte
+}
+
+func (b *BlockBlaster) PutWithdrawal(wd BlastWithdrawal) {
+	
+	blockInt := C.longlong(wd.Block)
+	wDexInt := C.longlong(wd.WithdrawalIndex)
+	vDexInt := C.longlong(wd.ValidatorIndex)
+	addPtr := (*C.char)(C.CBytes(wd.Address[:20]))
+	amountPtr := C.longlong(wd.Amount)
+	bHashPtr := (*C.char)(C.CBytes(wd.BlockHash[:32]))
+
+	b.WithdrawalLock.Lock()
+
+	C.sqib_put_withdrawal(
+		b.WithdrawalDB, 
+		blockInt,
+		wDexInt,
+		vDexInt,
+		addPtr,
+		amountPtr,
+		bHashPtr,
+	)
+	log.Error("just past the squib put withdrawals function")
+	b.WithdrawalLock.Unlock()
+
 }

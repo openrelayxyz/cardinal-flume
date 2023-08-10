@@ -192,7 +192,8 @@ func main() {
 	if hasBlocks {
 		if *blastIndex {
 			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
-			defer bIBlock.Close()
+			defer bIBlock.CloseBlocks()
+			// defer bIBlock.CloseWithdrawals()
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock))	
 		} else {
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil))
@@ -218,8 +219,6 @@ func main() {
 		}
 		// indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
 	}
-
-	// TODO: plugin indexing scenerios need to be considerred in regards to blast indexing
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config) indexer.Indexer)

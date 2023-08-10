@@ -141,7 +141,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	uncleRLP, _ := rlp.EncodeToBytes(uncles)
 
 	if indexer.blastIdx != nil && pb.Number != 0 {
-		return indexer.blockBatchIndex(header, pb, td, size, uncleRLP)
+		return indexer.blockBatchIndex(header, pb, td, size, uncleRLP, withdrawals)
 	}
 
 	statements := []string{
@@ -196,7 +196,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	return statements, nil
 }
 
-func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.PendingBatch, td *big.Int, size int, uncleRLP []byte) ([]string, error) {
+func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.PendingBatch, td *big.Int, size int, uncleRLP []byte, withdrawals evm.Withdrawals) ([]string, error) {
 
 	//TODO: withdrawals
 
@@ -205,6 +205,9 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 
 	var baseFee [32]byte
 	copy(baseFee[:], header.BaseFee.Bytes())
+
+	var wHash [32]byte
+	copy(wHash[:], header.WithdrawalsHash.Bytes())
 
 	var BlstBlck = blaster.BlastBlock{
 		Number: uint64(pb.Number),
@@ -227,11 +230,38 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		Size: uint64(size),
 		Td: totalD,
 		BaseFee: baseFee,
+		WithdrawalHash: wHash,
 	}
 
 	log.Debug("calling put from within the block indexer")
 
 	indexer.blastIdx.PutBlock(BlstBlck)
 
+	if withdrawals.Len() > 0 {
+		log.Error("NOTTTTT EEEEEEEMMMMMPPPPPPPPPTTTTTTTYYYYYYYYY")
+
+		for _, wtdrl := range withdrawals {
+
+			var address [20]byte
+			copy(address[:], trimPrefix(wtdrl.Address[:]))
+
+			var BlstWthdrl = blaster.BlastWithdrawal{
+			Block: uint64(pb.Number),
+			WithdrawalIndex: uint64(wtdrl.Index),
+			ValidatorIndex: uint64(wtdrl.Validator),
+			Address: address,
+			Amount: wtdrl.Amount,
+			BlockHash: pb.Hash,
+			}
+		indexer.blastIdx.PutWithdrawal(BlstWthdrl)
+		log.Debug("calling put from within the withdrawals indexer")
+		}
+	}
+
+	
+
+	// for _, wd := range withdrawls {
+	// 	indexer.blastIdx.PutWitdrawal(withdrawalType)
+	// }
 	return nil, nil
 }

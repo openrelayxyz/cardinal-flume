@@ -114,6 +114,8 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 
 	log.Error("inside of put tx", "number", blockInt)
 
+	b.Lock.Lock()
+
 	C.sqib_put_tx(
 		b.DB,
 		hashPtr,
@@ -148,6 +150,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		gTipLen,
 	)
 	log.Error("just past the squib put tx function")
-	
+	b.Lock.Unlock()
 
 }

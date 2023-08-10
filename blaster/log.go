@@ -64,6 +64,8 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 
 	log.Error("inside of put log", "number", blockInt)
 
+	b.Lock.Lock()
+
 	C.sqib_put_log(
 		b.DB, 
 		blockInt, 
@@ -80,6 +82,7 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 		blockHashPtr,
 	)
 	log.Error("just past the squib put log function")
+	b.Lock.Unlock()
 	
 
 }
