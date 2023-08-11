@@ -97,6 +97,9 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 						}
 					}
 				}
+				if len(megaStatement) == 0 {
+					continue
+				}
 				mut.Lock()
 				start := time.Now()
 				dbtx, err := db.BeginTx(context.Background(), nil)
