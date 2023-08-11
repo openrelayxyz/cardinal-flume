@@ -98,7 +98,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					}
 				}
 				if len(megaStatement) == 0 {
-					continue
+					break
 				}
 				mut.Lock()
 				start := time.Now()
