@@ -192,6 +192,7 @@ func main() {
 
 	if hasBlocks {
 		if *blastIndex {
+			log.Error("ok we made it here")
 			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
 			defer bIBlock.Close()
 			bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"])
@@ -274,11 +275,6 @@ func main() {
 	hc := &indexer.HealthCheck{}
 	rhf := make(chan int64, 1024)
 
-	// if *blastIndex {
-	// 	log.Error("Calling BLASTERRRRR")
-	// 	blaster.BatchIndex(consumer, quit)
-	// }
-
 	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
@@ -339,12 +335,8 @@ func main() {
 		}
 	}
 	//if this > 0 then this is a light server
-	// if cfg.LightSeed == 0 {
-	// 	cfg.EarliestBlock = uint64(minBlock)
-	// } else {
-	// 	cfg.EraliestBlock = cfg.LightSeed
-	// }
-	cfg.EarliestBlock = 1
+
+	cfg.EarliestBlock = uint64(minBlock)
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
