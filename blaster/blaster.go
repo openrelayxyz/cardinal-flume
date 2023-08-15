@@ -13,6 +13,8 @@ import (
 type BlockBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	CloseLogs chan struct{}
+	CloseTxns chan struct{}
 }
 
 type WithdrawalBlaster struct {
@@ -23,19 +25,23 @@ type WithdrawalBlaster struct {
 type TxBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	CloseChan chan struct{}
 }
 
 type LogBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	CloseChan chan struct{}
 }
 
-func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
+func NewBlasterBlockIndexer(dataBase string, closeLogs chan struct{}, closeTxns chan struct{}) *BlockBlaster {
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
 	b := &BlockBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		CloseLogs: closeLogs,
+		CloseTxns: closeTxns,
 	}
 	return b
 }
@@ -50,27 +56,27 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 	return b
 }
 
-func NewBlasterTxIndexer(dataBase string) *TxBlaster {
+func NewBlasterTxIndexer(dataBase string, closeChan chan struct{}) *TxBlaster {
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
 
 	b := &TxBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		CloseChan: closeChan,
 	}
 	return b
 }
 
-func NewBlasterLogIndexer(dataBase string) *LogBlaster {
+func NewBlasterLogIndexer(dataBase string, closeChan chan struct{}) *LogBlaster {
 	db := C.new_sqlite_log_blaster(C.CString(dataBase))
 
 	b := &LogBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		CloseChan: closeChan,
 	}
 	return b
 }
-
-// need to implement a put method for blocks, logs, and transactions. 
 
 type sliceHeader struct {
 	p   unsafe.Pointer

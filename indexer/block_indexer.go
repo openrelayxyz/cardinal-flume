@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"os"
 
 	"golang.org/x/crypto/sha3"
 
@@ -70,7 +71,6 @@ func NewBlockIndexer(chainid uint64, blasterBlockIndexer *blaster.BlockBlaster, 
 }
 
 func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
-	log.Error("inside of Block indexer")
 	var withdrawals evm.Withdrawals 
     if withdrawalBytes, ok := pb.Values[fmt.Sprintf("c/%x/b/%x/w", indexer.chainid, pb.Hash.Bytes())]; ok {
 		if err := rlp.DecodeBytes(withdrawalBytes, &withdrawals); err != nil {
@@ -200,7 +200,23 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 
 func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.PendingBatch, td *big.Int, size int, uncleRLP []byte, withdrawals evm.Withdrawals) ([]string, error) {
 
-	//TODO: withdrawals
+	timestamp := time.Unix(int64(header.Time), 0)
+
+	go func() {
+	if time.Since(timestamp) < 1 * time.Minute {
+		log.Info("Close called on blast indexer from within condition")
+		// indexer.blastBlockIdx.CloseTxns <- struct{}{}
+		indexer.blastBlockIdx.CloseLogs <- struct{}{}
+		log.Error("but no el trafico")
+		indexer.blastWithdrawalIdx.Close()
+		indexer.blastBlockIdx.Close()
+		os.Exit(0)
+	}
+} ()
+
+	if pb.Number % 100 == 0 {
+		log.Error("Indexed block", "number", pb.Number, "age", time.Since(timestamp))
+	}
 
 	var totalD [32]byte
 	copy(totalD[:], td.Bytes())
@@ -208,8 +224,8 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 	var baseFee [32]byte
 	copy(baseFee[:], header.BaseFee.Bytes())
 
+	var wHash [32]byte
 	if header.WithdrawalsHash != nil {
-		var wHash [32]byte
 		copy(wHash[:], header.WithdrawalsHash.Bytes())
 	}
 
@@ -234,16 +250,16 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		Size: uint64(size),
 		Td: totalD,
 		BaseFee: baseFee,
+		WithdrawalHash: wHash,
 	}
 
 	// WithdrawalHash: wHash,
 
-	log.Debug("calling put from within the block indexer")
-
 	indexer.blastBlockIdx.PutBlock(BlstBlck)
 
+
+
 	if indexer.blastWithdrawalIdx != nil && withdrawals.Len() > 0 {
-		log.Error("NOTTTTT EEEEEEEMMMMMPPPPPPPPPTTTTTTTYYYYYYYYY")
 
 		for _, wtdrl := range withdrawals {
 
@@ -259,14 +275,10 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 			BlockHash: pb.Hash,
 			}
 		indexer.blastWithdrawalIdx.PutWithdrawal(BlstWthdrl)
-		log.Debug("calling put from within the withdrawals indexer")
 		}
 	}
 
 	
 
-	// for _, wd := range withdrawls {
-	// 	indexer.blastIdx.PutWitdrawal(withdrawalType)
-	// }
 	return nil, nil
 }

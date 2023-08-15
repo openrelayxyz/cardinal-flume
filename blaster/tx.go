@@ -2,11 +2,6 @@ package blaster
 // #include "blaster.h"
 import "C"
 
-import (
-	log "github.com/inconshreveable/log15"
-)
-
-
 // id INTEGER PRIMARY KEY AUTOINCREMENT,
 // 		    gas BIGINT,
 // 		    gasPrice BIGINT,
@@ -112,8 +107,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		gTipPtr = (*C.char)(C.CBytes(tx.GasTipCap[:gTipLen]))
 	}
 
-	log.Error("inside of put tx", "number", blockInt)
-
 	b.Lock.Lock()
 
 	C.sqib_put_tx(
@@ -149,7 +142,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		gTipPtr,
 		gTipLen,
 	)
-	log.Error("just past the squib put tx function")
 	b.Lock.Unlock()
 
 }

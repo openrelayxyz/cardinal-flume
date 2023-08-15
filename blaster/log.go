@@ -2,11 +2,6 @@ package blaster
 // #include "blaster.h"
 import "C"
 
-import (
-	log "github.com/inconshreveable/log15"
-)
-
-
 // address varchar(20),
 // topic0 varchar(32),
 // topic1 varchar(32),
@@ -60,10 +55,6 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	transDexPtr = (*C.char)(C.CBytes(lg.TransactionIndex[:32]))
 	blockHashPtr = (*C.char)(C.CBytes(lg.BlockHash[:32]))
 
-
-
-	log.Error("inside of put log", "number", blockInt)
-
 	b.Lock.Lock()
 
 	C.sqib_put_log(
@@ -81,7 +72,6 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 		transDexPtr,
 		blockHashPtr,
 	)
-	log.Error("just past the squib put log function")
 	b.Lock.Unlock()
 	
 

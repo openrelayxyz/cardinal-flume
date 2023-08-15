@@ -240,7 +240,6 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 			GasFeeCap: gfcBytes,
 			GasTipCap: gtcBytes,
 		}
-		log.Debug("calling put from within the tx indexer")
 		indexer.blastIdx.PutTx(BlstTx)
 
 	}

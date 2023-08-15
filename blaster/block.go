@@ -3,10 +3,6 @@ package blaster
 // #include "blaster.h"
 import "C"
 
-import (
-	log "github.com/inconshreveable/log15"
-)
-
 type BlastBlock struct {
 	Number uint64
 	Hash [32]byte
@@ -120,8 +116,6 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	bfPtr := (*C.char)(C.CBytes(bck.BaseFee[:32]))
 	wthdHashPtr = (*C.char)(C.CBytes(bck.WithdrawalHash[:32]))
 
-	log.Error("inside of put block", "number", nInt)
-
 	b.Lock.Lock()
 
 	C.sqib_put_block(
@@ -151,7 +145,6 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 		bfPtr,
 		wthdHashPtr,
 	)
-	log.Error("just past the squib put block function")
 	b.Lock.Unlock()
 }
 
@@ -192,7 +185,6 @@ func (b *WithdrawalBlaster) PutWithdrawal(wd BlastWithdrawal) {
 		amountPtr,
 		bHashPtr,
 	)
-	log.Error("just past the squib put withdrawals function")
 	b.Lock.Unlock()
 
 }

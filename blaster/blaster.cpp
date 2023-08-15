@@ -35,7 +35,6 @@ void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash,
     uint8_t rec_buf[buf_size];
     rec_len = sqbb->make_new_rec(rec_buf, 21, rec_values, value_lens, block_col_types);
     sqbb->put(rec_buf, -rec_len, NULL, 0);
-    std::cout << "Inside of cpp after put block" << std::endl;
 }
 
 void sqbb_close(void* sqibv) {
@@ -75,8 +74,6 @@ char* value, size_t valueLength, long long v, char* r, char* s, char* sender, ch
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength) {
 
-    std::cout << "Inside of cpp before put tx" << std::endl;
-
     sqlite_index_blaster* sqtb;
     int rec_len;
     sqtb = (sqlite_index_blaster*)sqibv;
@@ -89,7 +86,6 @@ char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength
     uint8_t rec_buf[buf_size];
     rec_len = sqtb->make_new_rec(rec_buf, 23, rec_values, value_lens, tx_col_types);
     sqtb->put(rec_buf, -rec_len, NULL, 0);
-    std::cout << "Inside of cpp after put tx" << std::endl;
 }
 
 void* new_sqlite_log_blaster(const char *fname) {
@@ -109,8 +105,6 @@ const uint8_t log_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEX
 
 void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, char* topic1, char* topic2, char* topic3, char* data, size_t dataLength, char* transactionHash, char* transactionIndex, char* blockHash) {
 
-    std::cout << "Inside of cpp before put log" << std::endl;
-
     sqlite_index_blaster* sqlb;
     int rec_len;
     sqlb = (sqlite_index_blaster*)sqibv;
@@ -123,7 +117,6 @@ void sqib_put_log(void* sqibv, long long block, long long logIndex, char* addres
     uint8_t rec_buf[buf_size];
     rec_len = sqlb->make_new_rec(rec_buf, 11, rec_values, value_lens, log_col_types);
     sqlb->put(rec_buf, -rec_len, NULL, 0);
-    std::cout << "Inside of cpp after put log" << std::endl;
 
 }
 
@@ -153,30 +146,18 @@ const uint8_t wd_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT6
 
 void sqib_put_withdrawal(void* sqibv, long long block, long long wthdrlIndex, long long vldtrIndex, char* address, long long amount, char* blockHash) {
 
-    std::cout << "Inside of cpp before put withdrawal" << std::endl;
-
     sqlite_index_blaster* sqwb;
-    std::cout << "got wd blaster" << std::endl;
     int rec_len;
-    std::cout << "red len" << std::endl;
     sqwb = (sqlite_index_blaster*)sqibv;
-    std::cout << "set sqwb" << std::endl;
     const void *rec_values[] = {&block, &wthdrlIndex, &vldtrIndex, address, &amount, blockHash};
-    std::cout << "set rec vals" << std::endl;
     const size_t value_lens[] = {8, 8, 8, 20, 8, 32};
-    std::cout << "set sizes" << std::endl;
     size_t buf_size = 0;
-    std::cout << "set buf size" << std::endl;
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
     } 
-    std::cout << "past loop" << std::endl;
     uint8_t rec_buf[buf_size];
-    std::cout << "set rec buf" << std::endl;
     rec_len = sqwb->make_new_rec(rec_buf, 6, rec_values, value_lens, wd_col_types);
-    std::cout << "make new rec" << std::endl;
     sqwb->put(rec_buf, -rec_len, NULL, 0);
-    std::cout << "Inside of cpp after put withdrawal" << std::endl;
 }
 
 void sqwb_close(void* sqibv) {
