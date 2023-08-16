@@ -2,19 +2,6 @@ package blaster
 // #include "blaster.h"
 import "C"
 
-// address varchar(20),
-// topic0 varchar(32),
-// topic1 varchar(32),
-// topic2 varchar(32),
-// topic3 varchar(32),
-// data blob,
-// block BIGINT,
-// logIndex MEDIUMINT,
-// transactionHash varchar(32),
-// transactionIndex varchar(32),
-// blockHash varchar(32),
-// PRIMARY KEY (block, logIndex)
-
 type BlastLog struct {
 	Address [20]byte
 	Topic0 [32]byte
@@ -48,9 +35,12 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	topic2Ptr = (*C.char)(C.CBytes(lg.Topic2[:32]))
 	topic3Ptr = (*C.char)(C.CBytes(lg.Topic3[:32]))
 	dataLen := (C.size_t)(len(lg.Data))
-	if dataLen > 0 {
+	if dataLen > 25000 { // This value may need to be adjusted
+		dataPtr = (*C.char)(C.CBytes([]byte{}))
+		dataLen = 0
+	} else if dataLen > 0 {
 		dataPtr = (*C.char)(C.CBytes(lg.Data[:dataLen]))
-	}
+	} 
 	transHashPtr = (*C.char)(C.CBytes(lg.TransactionHash[:32]))
 	transDexPtr = (*C.char)(C.CBytes(lg.TransactionIndex[:32]))
 	blockHashPtr = (*C.char)(C.CBytes(lg.BlockHash[:32]))

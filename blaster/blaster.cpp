@@ -59,14 +59,6 @@ void* new_sqlite_tx_blaster(const char *fname) {
     return (void*)sqtb;
 }
 
-void sqtb_close(void* sqibv) {
-    sqlite_index_blaster* sqtb;
-    sqtb = (sqlite_index_blaster*)(sqibv);
-    sqtb->close();
-    std::cout << "sqib close tx function" << std::endl;
-    free(sqibv);
-}
-
 const uint8_t tx_col_types[] = {SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT};
 
 void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, long long transactionIndex, 
@@ -83,10 +75,28 @@ char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
     } 
+     if (block < 0) {
+        std::cerr << "Error: block value is less than zero." << std::endl;
+    }
+    if (block == 4095971) {
+        std::cerr << "This proves our condition is working." << buf_size << std::endl;
+    }
+    if (block > 5000000) {
+        std::cerr << "Error: block value is greater than 5 million." << std::endl;
+    }
     uint8_t rec_buf[buf_size];
     rec_len = sqtb->make_new_rec(rec_buf, 23, rec_values, value_lens, tx_col_types);
     sqtb->put(rec_buf, -rec_len, NULL, 0);
 }
+
+void sqtb_close(void* sqibv) {
+    sqlite_index_blaster* sqtb;
+    sqtb = (sqlite_index_blaster*)(sqibv);
+    sqtb->close();
+    std::cout << "sqib close tx function" << std::endl;
+    free(sqibv);
+}
+
 
 void* new_sqlite_log_blaster(const char *fname) {
     sqlite_index_blaster* sqlb = new sqlite_index_blaster(

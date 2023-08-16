@@ -1,0 +1,17 @@
+State of the flume sqlite blaster as of 8/16/23
+
+If passed the --blastIndex flag the application will divert from its regular functionality, create four (standard three plus withdrawals) databases, and begin indexing into them. If passed the lightSeed=value flag the application will begin indexing from 128 blocks before that point. This works down to block 1, the genesis block will still need to be appended into the dbs by hand once we have passed them off to be indexed and prepared for normal flume use. 
+
+Issues:
+
+There have been no thorough accuracy tests run on the dbs created by blaster. My suspicion is that there is still some data manipulation required to ensure the entries are formatted in the way the flume apis anticipate they should be. 
+
+As of now, and likely moving forward, withdrawals is no longer a table on the blocks database but a separate database of its own which means the flume apis will need to be modified to accommodate this change. 
+
+The most significant problem we have discovered at this point is the tendency for the transactions database to include problematic entries. They can be identified by the presence of block numbers in the ten or
+more digits or negative ten or more digits. They are discover able by running either min and max block checks against the db or by selecting blocks ordered by blocks. At this point our working assumption is that
+these represent scenarios in which the "input" fields of the transactions have exceeded a size maximum being set by sqlite blaster. However there is also evidence that there may be other problems yet undiscovered. 
+
+Essentially the method for investigation would be to set a size threshold in the inputLength value on line 54 of tx.go in the blaster package. This diverts the data into a utility function which writes that data to a file which can be parsed and added into the database at a later time. The threshold should be adjusted until no more problematic data entries appear to be present. The problem we are seeing is that once the threshold has been set low enough to eliminate the problematic entries we seem to be meeting the condition more that we would expect given the number of missing records we observed during trouble shooting. Meaning it is possible that the size of the input data is actually not the issue or there are other unknowns causing the problematic entries. A first step would be to try and identify missing entries from a condition less dry run and look to see if other data fields with fluctuating size may be contributing to the overloading we believe we are observing. 
+
+Also the writing to the file has not been fully flushed out. 

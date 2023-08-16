@@ -102,14 +102,6 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map[int64]*evm.Log, txData map[uint]types.Hash) ([]string, error) {
 
-	go func () {
-		select {
-		case <-indexer.blastIdx.CloseChan:
-		log.Error("so im guessing obviously not")
-		indexer.blastIdx.Close()
-		}
-	} ()
-
 			for i := 0; i < len(logData); i++ {
 
 				logRecord := logData[int64(i)]

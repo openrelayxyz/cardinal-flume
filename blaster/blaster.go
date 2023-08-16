@@ -6,6 +6,9 @@ import "C"
 import (
 	"unsafe"
 	"sync"
+	// "encoding/json"
+	"reflect"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -13,8 +16,6 @@ import (
 type BlockBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
-	CloseLogs chan struct{}
-	CloseTxns chan struct{}
 }
 
 type WithdrawalBlaster struct {
@@ -25,24 +26,23 @@ type WithdrawalBlaster struct {
 type TxBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
-	CloseChan chan struct{}
+	MIFile *os.File
 }
 
 type LogBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
-	CloseChan chan struct{}
 }
 
-func NewBlasterBlockIndexer(dataBase string, closeLogs chan struct{}, closeTxns chan struct{}) *BlockBlaster {
+func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
+
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
 	b := &BlockBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
-		CloseLogs: closeLogs,
-		CloseTxns: closeTxns,
 	}
+	log.Info("block blaster initialized")
 	return b
 }
 
@@ -53,28 +53,37 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 		DB: db,
 		Lock: new(sync.Mutex),
 	}
+	log.Info("withdrawal blaster initialized")
 	return b
 }
 
-func NewBlasterTxIndexer(dataBase string, closeChan chan struct{}) *TxBlaster {
+func NewBlasterTxIndexer(dataBase string) *TxBlaster {
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
+	file, err := os.OpenFile("missing_inputs.json", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Error("Error opening missing input file, TxBlaster is nil", "err", err)
+		return nil
+	}
+
+	log.Error("file", "type", reflect.TypeOf(file))
 
 	b := &TxBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
-		CloseChan: closeChan,
+		MIFile: file,
 	}
+	log.Info("transaction blaster initialized")
 	return b
 }
 
-func NewBlasterLogIndexer(dataBase string, closeChan chan struct{}) *LogBlaster {
+func NewBlasterLogIndexer(dataBase string) *LogBlaster {
 	db := C.new_sqlite_log_blaster(C.CString(dataBase))
 
 	b := &LogBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
-		CloseChan: closeChan,
 	}
+	log.Info("log blaster initialized")
 	return b
 }
 
@@ -85,25 +94,26 @@ type sliceHeader struct {
 }
  
 func (b *BlockBlaster) Close() {
-	defer log.Error("close called on blocks blaster")
+	defer log.Info("close called on blocks blaster")
 	b.Lock.Lock()
 	C.sqbb_close(b.DB)
 }
 
 func (b *WithdrawalBlaster) Close() {
-	defer log.Error("close called on withdrawals blaster")
+	defer log.Info("close called on withdrawals blaster")
 	b.Lock.Lock()
 	C.sqwb_close(b.DB)
 }
 
 func (b *TxBlaster) Close() {
-	defer log.Error("close called on tx blaster")
+	defer log.Info("close called on tx blaster")
 	b.Lock.Lock()
+	b.MIFile.Close()
 	C.sqtb_close(b.DB)
 }
 
 func (b *LogBlaster) Close() {
-	defer log.Error("close called on log blaster")
+	defer log.Info("close called on log blaster")
 	b.Lock.Lock()
 	C.sqlb_close(b.DB)
 }

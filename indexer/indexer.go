@@ -97,7 +97,8 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 						}
 					}
 				}
-				if len(megaStatement) == 0 {
+				if len(megaStatement) == 0 { // this exists to enable blast indexes to interrupt the standard behavior of this function
+					processed = true
 					break
 				}
 				mut.Lock()

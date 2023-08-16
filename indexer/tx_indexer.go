@@ -170,8 +170,14 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Header, txData map[int]*evm.Transaction, receiptData map[int]*cardinalReceiptMeta, senderMap map[types.Hash]<-chan common.Address) ([]string, error) {
 
+	// var block int64 
+
 	for i := 0; i < len(txData); i++ {
 
+		// if pb.Number != block {
+		// 	log.Error("block", "tx block", pb.Number)
+		// }
+		// block = pb.Number
 		transaction := txData[int(i)]
 		receipt := receiptData[int(i)]
 		sender := <-senderMap[transaction.Hash()]
@@ -216,7 +222,7 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 		copy(gtcBytes[:], gtcBigBytes)
 
 		var BlstTx = blaster.BlastTx{
-			Hash: [32]byte(transaction.Hash()),
+			Hash: transaction.Hash(),
 			Block: uint64(pb.Number),
 			Gas: uint64(transaction.Gas()),
 			GasPrice: uint64(gasPrice),

@@ -47,7 +47,6 @@ func main() {
 
 	if *lightSeed != 0 {
 		cfg.LightSeed = *lightSeed
-		cfg.EarliestBlock = uint64(*lightSeed)
 	}
 	
 	pl, err := plugins.NewPluginLoader(cfg)
@@ -186,52 +185,36 @@ func main() {
 
 	indexes := []indexer.Indexer{}
 
-	bIBlock := &blaster.BlockBlaster{}
-	bIWtd := &blaster.WithdrawalBlaster{}
-	bITx := &blaster.TxBlaster{}
-	bILog := &blaster.LogBlaster{}
-	if *blastIndex {
-		closeTxChan := make(chan struct{})
-		closeLogChan := make(chan struct{})
-		bIBlock = blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], closeTxChan, closeLogChan)
-		bIWtd = blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"])
-		bITx = blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], closeTxChan)
-		bILog = blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"], closeLogChan)
-	}
-
 	if hasBlocks {
-		// if *blastIndex {
-		// 	log.Error("ok we made it here")
-		// 	bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], blastQuitChan)
-		// 	if bIBlock != nil {
-		// 		log.Error("not nil")
-		// 	}
-		// 	defer bIBlock.Close()
-		// 	bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"], blastQuitChan)
-		// 	defer bIWtd.Close()
+		if *blastIndex {
+			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
+			if bIBlock != nil {
+			}
+			defer bIBlock.Close()
+			bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"])
+			defer bIWtd.Close()
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock, bIWtd))	
-		// } else {
-		// 	indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil, nil))
-		// }
+		} else {
+			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil, nil))
+		}
 	}
 	if hasTx {
-		// if *blastIndex {
-		// 	bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], blastQuitChan)
-		// 	defer bITx.Close()
-		// 	indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
-		// } else {
-			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))
-		// }
+		if *blastIndex {
+			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
+			defer bITx.Close()
+			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
+		} else {
+			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, nil))
+		}
 	}
 	if hasLogs {
-		// if *blastIndex {
-		// 	bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"], blastQuitChan)
-		// 	defer bILog.Close()
-		// 	indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
-		// } else {
-			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))
-		// }
-		// indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
+		if *blastIndex {
+			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
+			defer bILog.Close()
+			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
+		} else {
+			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))
+		}
 	}
 
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
@@ -240,7 +223,6 @@ func main() {
 	})
 
 	for _, fni := range pluginIndexers {
-		//pass the path of the db to the blast its supposed to save into
 		fn := fni.(func(*config.Config) indexer.Indexer)
 		idx := fn(cfg)
 		if idx != nil {
@@ -335,7 +317,7 @@ func main() {
 	}
   
 	var minBlock int
-	if cfg.Brokers[0].URL != "null://" {
+	if cfg.Brokers[0].URL != "null://" && !*blastIndex {
 		for {
 			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
 				log.Debug("Earliest block set", "block", minBlock)

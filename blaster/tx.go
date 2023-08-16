@@ -2,30 +2,12 @@ package blaster
 // #include "blaster.h"
 import "C"
 
-// id INTEGER PRIMARY KEY AUTOINCREMENT,
-// 		    gas BIGINT,
-// 		    gasPrice BIGINT,
-// 		    hash varchar(32),
-// 		    input blob,
-// 		    nonce BIGINT,
-// 		    recipient varchar(20),
-// 		    transactionIndex MEDIUMINT,
-// 		    value varchar(32),
-// 		    v SMALLINT,
-// 		    r varchar(32),
-// 		    s varchar(32),
-// 		    sender varchar(20),
-// 		    func varchar(4),
-// 		    contractAddress varchar(20),
-// 		    cumulativeGasUsed BIGINT,
-// 		    gasUsed BIGINT,
-// 		    logsBloom blob,
-// 		    status TINYINT,
-// 		    block BIGINT,
-// 		    type TINYINT,
-// 		    access_list blob,
-// 		    gasFeeCap varchar(32),
-// 		    gasTipCap varchar(32))
+import (
+	"encoding/json"
+	log "github.com/inconshreveable/log15"
+
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+)
 
 type BlastTx struct {
 	Hash [32]byte
@@ -53,6 +35,8 @@ type BlastTx struct {
     GasTipCap []byte
 }
 
+var after C.longlong
+
 func (b *TxBlaster) PutTx(tx BlastTx) {
 	var inputPtr *C.char
 	var valuePtr *C.char
@@ -67,9 +51,14 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	gasInt := C.longlong(tx.Gas)
 	gasPriceInt := C.longlong(tx.GasPrice)
 	inputLen := (C.size_t)(len(tx.Input))
-	if inputLen > 0 {
+	if inputLen > 20000 { // This value may need to be adjusted
+		// log.Error("yep", "len", inputLen, "block", tx.Block)
+		inputPtr = (*C.char)(C.CBytes([]byte{}))
+		inputLen = 0
+		b.appendToFile(tx.Block, tx.Hash, tx.Input)
+	} else if inputLen > 0 {
 		inputPtr = (*C.char)(C.CBytes(tx.Input[:inputLen]))
-	}
+	} 
 	nonceInt := C.longlong(tx.Nonce)
 	reciPtr := (*C.char)(C.CBytes(tx.Recipient[:20]))
 	transDexInt := C.longlong(tx.TransactionIndex)
@@ -143,5 +132,30 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		gTipLen,
 	)
 	b.Lock.Unlock()
+}
+
+type missingInput struct {
+	number uint64
+	hash string
+	input []byte
+}
+
+func (b *TxBlaster) appendToFile(number uint64, hash [32]byte, input []byte) {
+
+	hashSlice := hash[:]
+
+	record := missingInput{number: number, hash: hexutil.Encode(hashSlice), input: input}
+
+
+	// log.Error("got a record", "hash", hexutil.Encode(hashSlice))
+	
+	jsonData, err := json.Marshal(record)
+	if err != nil {
+		log.Error("Error marshaling missingInput JSON", "err", err, "number", number, "hash", hexutil.Encode(hashSlice))
+	}
+
+	if _, err = b.MIFile.Write(jsonData); err != nil {
+		log.Error("Error writing to missingInput file in put tx", "err", err, "number", number, "hash", hash)
+	}
 
 }

@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
-	"os"
 
 	"golang.org/x/crypto/sha3"
 
@@ -164,13 +163,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 		}
 	}
 
-	// log.Error("types", "number", reflect.TypeOf(pb.Number), "hash", reflect.TypeOf(pb.Hash), "parent hash", reflect.TypeOf(pb.ParentHash), "unclehash", reflect.TypeOf(header.UncleHash))
-	// log.Error("types2", "coinbase", reflect.TypeOf(header.Coinbase), "root", reflect.TypeOf(header.Root), "tx root", reflect.TypeOf(header.TxHash), "receiptRoot", reflect.TypeOf(header.Root))
-	// log.Error("types3", "bloom", reflect.TypeOf(compress(header.Bloom[:])), "difficulty", reflect.TypeOf(header.Difficulty.Int64()), "gaslimit", reflect.TypeOf(header.GasLimit), "gasused", reflect.TypeOf(header.GasUsed))
-	// log.Error("types4", "time", reflect.TypeOf(header.Time), "extra", reflect.TypeOf(header.Extra), "mixed", reflect.TypeOf(header.MixDigest), "nonce", reflect.TypeOf(int64(binary.BigEndian.Uint64(header.Nonce[:]))))
-	// log.Error("types5", "uncleRLP", reflect.TypeOf(uncleRLP), "size", reflect.TypeOf(size), "td", reflect.TypeOf(td.Bytes), "basefee", reflect.TypeOf(header.BaseFee), "whash", reflect.TypeOf(header.WithdrawalsHash))
-	
-
 	statements = append(statements, ApplyParameters(
 		"INSERT INTO blocks(number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, gasLimit, gasUsed, `time`, extra, mixDigest, nonce, uncles, size, td, baseFee, withdrawalHash) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		pb.Number,
@@ -201,18 +193,6 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.PendingBatch, td *big.Int, size int, uncleRLP []byte, withdrawals evm.Withdrawals) ([]string, error) {
 
 	timestamp := time.Unix(int64(header.Time), 0)
-
-	go func() {
-	if time.Since(timestamp) < 1 * time.Minute {
-		log.Info("Close called on blast indexer from within condition")
-		// indexer.blastBlockIdx.CloseTxns <- struct{}{}
-		indexer.blastBlockIdx.CloseLogs <- struct{}{}
-		log.Error("but no el trafico")
-		indexer.blastWithdrawalIdx.Close()
-		indexer.blastBlockIdx.Close()
-		os.Exit(0)
-	}
-} ()
 
 	if pb.Number % 100 == 0 {
 		log.Error("Indexed block", "number", pb.Number, "age", time.Since(timestamp))
@@ -253,8 +233,6 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		WithdrawalHash: wHash,
 	}
 
-	// WithdrawalHash: wHash,
-
 	indexer.blastBlockIdx.PutBlock(BlstBlck)
 
 
@@ -277,8 +255,6 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		indexer.blastWithdrawalIdx.PutWithdrawal(BlstWthdrl)
 		}
 	}
-
-	
 
 	return nil, nil
 }

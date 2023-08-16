@@ -27,57 +27,6 @@ type BlastBlock struct {
 	WithdrawalHash [32]byte
 }
 
-// number=int64 hash=types.Hash parent hash=types.Hash unclehash=types.Hash
-// coinbase=common.Address root=types.Hash tx root=types.Hash receiptRoot=types.Hash
-// bloom=[]uint8 difficulty=int64 gaslimit=uint64 gasused=uint64
-// time=uint64 extra=[]uint8 mixed=types.Hash nonce=int64
-// uncleRLP=[]uint8 size=int td="func() []uint8" basefee=*big.Int whash=*types.Hash
-
-// number      BIGINT PRIMARY KEY,
-// hash        varchar(32) UNIQUE,
-// parentHash  varchar(32),
-// uncleHash   varchar(32),
-// coinbase    varchar(20),
-// root        varchar(32),
-// txRoot      varchar(32),
-// receiptRoot varchar(32),
-// bloom       blob,
-// difficulty  varchar(32),
-// gasLimit    BIGINT,
-// gasUsed     BIGINT,
-// time        BIGINT,
-// extra       blob,
-// mixDigest   varchar(32),
-// nonce       BIGINT,
-// uncles      blob,
-// size        BIGINT,
-// td          varchar(32),
-// baseFee varchar(32))
-
-// pb.Number,
-// pb.Hash,
-// pb.ParentHash,
-// header.UncleHash,
-// header.Coinbase,
-// header.Root,
-// header.TxHash,
-// header.ReceiptHash,
-// compress(header.Bloom[:]),
-// header.Difficulty.Int64(),
-// header.GasLimit,
-// header.GasUsed,
-// header.Time,
-// header.Extra,
-// header.MixDigest,
-// int64(binary.BigEndian.Uint64(header.Nonce[:])),
-// uncleRLP,
-// size,
-// td.Bytes(),
-// header.BaseFee,
-// header.WithdrawalsHash,
-
-// difficulty=int64 gaslimit=uint64 gasused=uint64 time=uint64
-
 func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 
 	var bPtr *C.char
@@ -147,14 +96,6 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	)
 	b.Lock.Unlock()
 }
-
-// wtdrlIndex MEDIUMINT,
-// vldtrIndex MEDIUMINT,
-// address VARCHAR(20),
-// amount    MEDIUMINT,
-// block     BIGINT,
-// blockHash VARCHAR(32),
-// PRIMARY KEY (block, wtdrlIndex)
 
 type BlastWithdrawal struct {
 	Block uint64
