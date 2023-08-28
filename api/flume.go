@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"runtime"
+	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -356,4 +357,196 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 	}
 
 	return blockVal, nil
+}
+
+func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]types.Hash, error) {
+
+	if len(partialHexString) % 2 != 0 {
+		log.Error("flume_blockHashesWithPrefix input must be of even length")
+	}
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_blockHashesWithPrefix sent to flume heavy by default")
+		missMeter.Mark(1)
+		hashes, err := heavy.CallHeavy[[]types.Hash](ctx, api.cfg.HeavyServer, "flume_blockHashesWithPrefix", partialHexString)
+		if err != nil {
+			return nil, err
+		}
+		return *hashes, nil
+	}
+
+	bytes, err := hex.DecodeString(partialHexString[2:])
+	if err != nil {
+		log.Error("Error decoding partial Hex String, flume_blockHashesWithPrefix", "err", err)
+	}
+
+	augmentedBytes := incrementLastByte(bytes)
+
+	statement := "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ?"
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes)
+	if err != nil {
+		log.Error("Error returned from query in flume_blockHashWithPrefix", "err", err)
+		return nil, nil
+	}
+	defer rows.Close()
+	var result []types.Hash
+	for rows.Next() {
+			var hashBytes []byte
+			err := rows.Scan(&hashBytes)
+			if err != nil {
+				log.Error("Error scanning rows flume_blockHashesWithPrefix")
+				return nil, err
+			}
+			result = append(result, bytesToHash(hashBytes))
+		}
+	return result, nil
+
+}
+
+func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHexString string) ([]types.Hash, error) {
+
+	if len(partialHexString) % 2 != 0 {
+		log.Error("flume_TransactionHashesWithPrefix input must be of even length")
+	}
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_TransactionHashesWithPrefix sent to flume heavy by default")
+		missMeter.Mark(1)
+		hashes, err := heavy.CallHeavy[[]types.Hash](ctx, api.cfg.HeavyServer, "flume_TransactionHashesWithPrefix", partialHexString)
+		if err != nil {
+			return nil, err
+		}
+		return *hashes, nil
+	}
+
+	bytes, err := hex.DecodeString(partialHexString[2:])
+	if err != nil {
+		log.Error("Error decoding partial Hex String, flume_TransactionHashesWithPrefix", "err", err)
+	}
+
+	augmentedBytes := incrementLastByte(bytes)
+
+	mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ?"
+	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ?"
+
+	var result []types.Hash
+
+	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes)
+	if err != nil {
+		log.Error("Error returned from mempool query in flume_transactionHashWithPrefix", "err", err)
+		return nil, nil
+	}
+	defer mpRows.Close()
+	for mpRows.Next() {
+			var hashBytes []byte
+			err := mpRows.Scan(&hashBytes)
+			if err != nil {
+				log.Error("Error scanning mempool rows flume_transactionHashesWithPrefix")
+				return nil, err
+			}
+			result = append(result, bytesToHash(hashBytes))
+		}
+	
+	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes)
+	if err != nil {
+		log.Error("Error returned from transaction query in flume_transactionHashWithPrefix", "err", err)
+		return nil, nil
+	}
+	defer txRows.Close()
+	for txRows.Next() {
+			var hashBytes []byte
+			err := txRows.Scan(&hashBytes)
+			if err != nil {
+				log.Error("Error scanning transaction rows flume_transactionHashesWithPrefix")
+				return nil, err
+			}
+			result = append(result, bytesToHash(hashBytes))
+		}
+
+	return result, nil
+}
+
+func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]common.Address, error) {
+
+	if len(partialHexString) % 2 != 0 {
+		log.Error("flume_addressWithPrefix input must be of even length")
+	}
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_addressWithPrefix sent to flume heavy by default")
+		missMeter.Mark(1)
+		addresses, err := heavy.CallHeavy[[]common.Address](ctx, api.cfg.HeavyServer, "flume_addressWithPrefix", partialHexString)
+		if err != nil {
+			return nil, err
+		}
+		return *addresses, nil
+	}
+
+	bytes, err := hex.DecodeString(partialHexString[2:])
+	if err != nil {
+		log.Error("Error decoding partial Hex String, flume_addressWithPrefix", "err", err)
+	}
+
+	augmentedBytes := incrementLastByte(bytes)
+
+	statement := "SELECT address FROM event_logs WHERE address > ? AND address < ?"
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes)
+	if err != nil {
+		log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
+		return nil, nil
+	}
+	defer rows.Close()
+	var preResult []common.Address
+	for rows.Next() {
+			var addressBytes []byte
+			err := rows.Scan(&addressBytes)
+			if err != nil {
+				log.Error("Error scanning rows flume_addressWithPrefix")
+				return nil, err
+			}
+			preResult = append(preResult, bytesToAddress(addressBytes))
+	}
+	seen := make(map[common.Address]bool)
+	var result []common.Address
+	for _, item := range preResult {
+		if _, ok := seen[item]; !ok {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
+func (api *FlumeAPI) ResolvePrefix(ctx context.Context, partialHexString string) (map[string]interface{}, error) {
+
+	if len(api.cfg.HeavyServer) > 0 {
+		log.Debug("flume_resolvePrefix sent to flume heavy by default")
+		missMeter.Mark(1)
+		hashes, err := heavy.CallHeavy[map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_resolvePrefix", partialHexString)
+		if err != nil {
+			return nil, err
+		}
+		return *hashes, nil
+	}
+
+	blockHashes, err := api.BlockHashesWithPrefix(ctx, partialHexString)
+	if err != nil {
+		log.Error("Error returned from flume_blockHashesWithPrefix, flume_resolvePrefix", "err", err)
+	}
+	txHashes, err := api.TransactionHashesWithPrefix(ctx, partialHexString)
+	if err != nil {
+		log.Error("Error returned from flume_transactionHashesWithPrefix, flume_resolvePrefix", "err", err)
+	}
+	addresses, err := api.AddressWithPrefix(ctx, partialHexString)
+	if err != nil {
+		log.Error("Error returned from flume_addressWithPrefix, flume_resolvePrefix", "err", err)
+	}
+
+	result := map[string]interface{}{
+		"blockHashes": blockHashes,
+		"transactionHashes": txHashes,
+		"addresses": addresses,
+	}
+
+	return result, nil
 }

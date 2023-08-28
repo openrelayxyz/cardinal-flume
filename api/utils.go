@@ -920,3 +920,20 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	}
 	return results, nil
 }
+
+func incrementLastByte(prefix []byte) []byte {
+	if len(prefix) == 0 {
+		return nil
+	}
+	prefixCopy := make([]byte, len(prefix))
+	copy(prefixCopy, prefix)
+
+	lastByteIndex := len(prefixCopy) - 1
+	
+	if prefixCopy[lastByteIndex] == 0xFF {
+		return nil
+	}
+	prefixCopy[lastByteIndex]++
+
+	return prefixCopy
+}
