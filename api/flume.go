@@ -361,9 +361,12 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 
 func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]types.Hash, error) {
 
-	if len(partialHexString) % 2 != 0 {
-		log.Error("flume_blockHashesWithPrefix input must be of even length")
+	log.Error("input length", "len", len(partialHexString))
+
+	if len(partialHexString) == 66 {
+		return []types.Hash{partialHexString}, nil
 	}
+
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_blockHashesWithPrefix sent to flume heavy by default")
@@ -375,15 +378,23 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 		return *hashes, nil
 	}
 
-	bytes, err := hex.DecodeString(partialHexString[2:])
-	if err != nil {
-		log.Error("Error decoding partial Hex String, flume_blockHashesWithPrefix", "err", err)
+	bytes, _ := hex.DecodeString(partialHexString[2:])
+
+	leadingZeros := 0
+	for ; leadingZeros < len(bytes); leadingZeros++ {
+		if bytes[leadingZeros] != 0 {
+			break
+		}
 	}
+
+	log.Error("Post loop leading zeros", "lz", leadingZeros, "byte len", len(bytes))
+
+	bytes = bytes[leadingZeros:]
 
 	augmentedBytes := incrementLastByte(bytes)
 
-	statement := "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ?"
-	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes)
+	statement := "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 32 - leadingZeros)
 	if err != nil {
 		log.Error("Error returned from query in flume_blockHashWithPrefix", "err", err)
 		return nil, nil
@@ -424,14 +435,23 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 		log.Error("Error decoding partial Hex String, flume_TransactionHashesWithPrefix", "err", err)
 	}
 
+	leadingZeros := 0
+	for ; leadingZeros < len(bytes); leadingZeros++ {
+		if bytes[leadingZeros] != 0 {
+			break
+		}
+	}
+
+	bytes = bytes[leadingZeros:]
+
 	augmentedBytes := incrementLastByte(bytes)
 
-	mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ?"
-	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ?"
+	mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
+	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
 
 	var result []types.Hash
 
-	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes)
+	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - leadingZeros)
 	if err != nil {
 		log.Error("Error returned from mempool query in flume_transactionHashWithPrefix", "err", err)
 		return nil, nil
@@ -447,7 +467,7 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 			result = append(result, bytesToHash(hashBytes))
 		}
 	
-	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes)
+	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes, 32 - leadingZeros)
 	if err != nil {
 		log.Error("Error returned from transaction query in flume_transactionHashWithPrefix", "err", err)
 		return nil, nil
@@ -467,9 +487,10 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 }
 
 func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]common.Address, error) {
-
+	log.Error("length of input", "len", len(partialHexString))
 	if len(partialHexString) % 2 != 0 {
 		log.Error("flume_addressWithPrefix input must be of even length")
+		return nil, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -487,16 +508,25 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 		log.Error("Error decoding partial Hex String, flume_addressWithPrefix", "err", err)
 	}
 
+	leadingZeros := 0
+	for ; leadingZeros < len(bytes); leadingZeros++ {
+		if bytes[leadingZeros] != 0 {
+			break
+		}
+	}
+
+	bytes = bytes[leadingZeros:]
+
 	augmentedBytes := incrementLastByte(bytes)
 
-	statement := "SELECT address FROM event_logs WHERE address > ? AND address < ?"
-	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes)
+	statement := "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20"
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - leadingZeros)
 	if err != nil {
 		log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
 		return nil, nil
 	}
 	defer rows.Close()
-	var preResult []common.Address
+	var result []common.Address
 	for rows.Next() {
 			var addressBytes []byte
 			err := rows.Scan(&addressBytes)
@@ -504,16 +534,9 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 				log.Error("Error scanning rows flume_addressWithPrefix")
 				return nil, err
 			}
-			preResult = append(preResult, bytesToAddress(addressBytes))
+			result = append(result, bytesToAddress(addressBytes))
 	}
-	seen := make(map[common.Address]bool)
-	var result []common.Address
-	for _, item := range preResult {
-		if _, ok := seen[item]; !ok {
-			seen[item] = true
-			result = append(result, item)
-		}
-	}
+	
 	return result, nil
 }
 
