@@ -219,7 +219,19 @@ var (
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber)
+	var pending bool 
+	if int64(blockNumber) < 0 {
+		if int64(blockNumber) == -2 {
+			pending = true
+		}
+		latestBlock, err := getLatestBlock(ctx, api.db)
+		if err != nil {
+			return nil, err
+		}
+		blockNumber = rpc.BlockNumber(latestBlock)
+	}
+
+	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber, pending)
 	if err != nil {
 		return nil, err
 	}
