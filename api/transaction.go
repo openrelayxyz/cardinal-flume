@@ -217,9 +217,9 @@ var (
 	gtcMissMeter = metrics.NewMinorMeter("/flume/gtc/miss")
 )
 
-func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	nonce, err := getSenderNonce(ctx, api.db, addr)
+	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber)
 	if err != nil {
 		return nil, err
 	}

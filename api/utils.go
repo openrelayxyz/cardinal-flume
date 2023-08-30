@@ -580,11 +580,18 @@ func getTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, limit 
 	return getTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 }
 
-func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address) (hexutil.Uint64, error) {
-	var count, nonce sql.NullInt64
+func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, blockNumber rpc.BlockNumber) (hexutil.Uint64, error) {
+	
+	var count sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&count); err != nil {
 		return 0, err
 	}
+
+	if int64(blockNumber) > -2 {
+		return hexutil.Uint64(count.Int64 + 1), nil
+	}
+
+	var nonce sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM mempool.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&nonce); err != nil {
 		return 0, err
 	}
