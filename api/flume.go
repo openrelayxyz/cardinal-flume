@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/build"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -359,26 +360,32 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 	return blockVal, nil
 }
 
-func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]types.Hash, error) {
-
-	log.Error("input length", "len", len(partialHexString))
+func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
 	if len(partialHexString) == 66 {
-		return []types.Hash{partialHexString}, nil
+		return []string{partialHexString}, nil
 	}
-
+	if len(partialHexString) % 2 != 0 {
+		log.Error("Odd length input passed into flume_blockHashesWithPrefix")
+		return []string{"Input must be of even length"}, nil
+	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_blockHashesWithPrefix sent to flume heavy by default")
 		missMeter.Mark(1)
-		hashes, err := heavy.CallHeavy[[]types.Hash](ctx, api.cfg.HeavyServer, "flume_blockHashesWithPrefix", partialHexString)
+		hashes, err := heavy.CallHeavy[[]string](ctx, api.cfg.HeavyServer, "flume_blockHashesWithPrefix", partialHexString)
 		if err != nil {
-			return nil, err
+			log.Error("Error calling heavy server, flume_blockHashesWithPrefix", "err", err)
+			return nil, nil
 		}
 		return *hashes, nil
 	}
 
-	bytes, _ := hex.DecodeString(partialHexString[2:])
+	bytes, err := hex.DecodeString(partialHexString[2:])
+	if err != nil {
+		log.Error("Error decoding partial hex string, flume_blockHashesWithPrefix", "err", err)
+		return nil, nil
+	} 
 
 	leadingZeros := 0
 	for ; leadingZeros < len(bytes); leadingZeros++ {
@@ -386,8 +393,10 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 			break
 		}
 	}
-
-	log.Error("Post loop leading zeros", "lz", leadingZeros, "byte len", len(bytes))
+	if leadingZeros == len(bytes) {
+		log.Error("All zero input passed into flume_blockHashesWithPrefix")
+		return []string{"Input must contain non zero characters"}, nil
+	}
 
 	bytes = bytes[leadingZeros:]
 
@@ -400,7 +409,7 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 		return nil, nil
 	}
 	defer rows.Close()
-	var result []types.Hash
+	var result []string
 	for rows.Next() {
 			var hashBytes []byte
 			err := rows.Scan(&hashBytes)
@@ -408,31 +417,37 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 				log.Error("Error scanning rows flume_blockHashesWithPrefix")
 				return nil, err
 			}
-			result = append(result, bytesToHash(hashBytes))
+			result = append(result, hexutil.Encode(hashBytes))
 		}
 	return result, nil
 
 }
 
-func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHexString string) ([]types.Hash, error) {
+func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
+	if len(partialHexString) == 66 {
+		return []string{partialHexString}, nil
+	}
 	if len(partialHexString) % 2 != 0 {
-		log.Error("flume_TransactionHashesWithPrefix input must be of even length")
+		log.Error("Odd length input passed into flume_transactionHashesWithPrefix")
+		return []string{"Input must be of even length"}, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_TransactionHashesWithPrefix sent to flume heavy by default")
 		missMeter.Mark(1)
-		hashes, err := heavy.CallHeavy[[]types.Hash](ctx, api.cfg.HeavyServer, "flume_TransactionHashesWithPrefix", partialHexString)
+		hashes, err := heavy.CallHeavy[[]string](ctx, api.cfg.HeavyServer, "flume_TransactionHashesWithPrefix", partialHexString)
 		if err != nil {
-			return nil, err
+			log.Error("Error calling heavy server, flume_transactionHashesWithPrefix", "err", err)
+			return nil, nil
 		}
 		return *hashes, nil
 	}
 
 	bytes, err := hex.DecodeString(partialHexString[2:])
 	if err != nil {
-		log.Error("Error decoding partial Hex String, flume_TransactionHashesWithPrefix", "err", err)
+		log.Error("Error decoding partial hex String, flume_TransactionHashesWithPrefix", "err", err)
+		return nil, nil
 	}
 
 	leadingZeros := 0
@@ -440,6 +455,10 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 		if bytes[leadingZeros] != 0 {
 			break
 		}
+	}
+	if leadingZeros == len(bytes) {
+		log.Error("All zero input passed into flume_transactionHashesWithPrefix")
+		return []string{"Input must contain non zero characters"}, nil
 	}
 
 	bytes = bytes[leadingZeros:]
@@ -449,11 +468,11 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 	mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
 	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
 
-	var result []types.Hash
+	var result []string
 
 	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - leadingZeros)
 	if err != nil {
-		log.Error("Error returned from mempool query in flume_transactionHashWithPrefix", "err", err)
+		log.Error("Error returned from mempool query in flume_transactionHashesWithPrefix", "err", err)
 		return nil, nil
 	}
 	defer mpRows.Close()
@@ -464,12 +483,12 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 				log.Error("Error scanning mempool rows flume_transactionHashesWithPrefix")
 				return nil, err
 			}
-			result = append(result, bytesToHash(hashBytes))
+			result = append(result, hexutil.Encode(hashBytes))
 		}
 	
 	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes, 32 - leadingZeros)
 	if err != nil {
-		log.Error("Error returned from transaction query in flume_transactionHashWithPrefix", "err", err)
+		log.Error("Error returned from transaction query in flume_transactionHashesWithPrefix", "err", err)
 		return nil, nil
 	}
 	defer txRows.Close()
@@ -480,25 +499,29 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 				log.Error("Error scanning transaction rows flume_transactionHashesWithPrefix")
 				return nil, err
 			}
-			result = append(result, bytesToHash(hashBytes))
+			result = append(result, hexutil.Encode(hashBytes))
 		}
 
 	return result, nil
 }
 
-func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]common.Address, error) {
-	log.Error("length of input", "len", len(partialHexString))
+func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
+
+	if len(partialHexString) == 42 {
+		return []string{partialHexString}, nil
+	}
 	if len(partialHexString) % 2 != 0 {
-		log.Error("flume_addressWithPrefix input must be of even length")
-		return nil, nil
+		log.Error("Odd length input passed into flume_addressWithPrefix")
+		return []string{"Input must be of even length"}, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_addressWithPrefix sent to flume heavy by default")
 		missMeter.Mark(1)
-		addresses, err := heavy.CallHeavy[[]common.Address](ctx, api.cfg.HeavyServer, "flume_addressWithPrefix", partialHexString)
+		addresses, err := heavy.CallHeavy[[]string](ctx, api.cfg.HeavyServer, "flume_addressWithPrefix", partialHexString)
 		if err != nil {
-			return nil, err
+			log.Error("Error calling heavy server, flume_addressWithPrefix", "err", err)
+			return nil, nil
 		}
 		return *addresses, nil
 	}
@@ -506,6 +529,7 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 	bytes, err := hex.DecodeString(partialHexString[2:])
 	if err != nil {
 		log.Error("Error decoding partial Hex String, flume_addressWithPrefix", "err", err)
+		return nil, nil
 	}
 
 	leadingZeros := 0
@@ -513,6 +537,10 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 		if bytes[leadingZeros] != 0 {
 			break
 		}
+	}
+	if leadingZeros == len(bytes) {
+		log.Error("All zero input passed into flume_addressWithPrefix")
+		return []string{"Input must contain non zero characters"}, nil
 	}
 
 	bytes = bytes[leadingZeros:]
@@ -526,7 +554,7 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 		return nil, nil
 	}
 	defer rows.Close()
-	var result []common.Address
+	var result []string
 	for rows.Next() {
 			var addressBytes []byte
 			err := rows.Scan(&addressBytes)
@@ -534,7 +562,7 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 				log.Error("Error scanning rows flume_addressWithPrefix")
 				return nil, err
 			}
-			result = append(result, bytesToAddress(addressBytes))
+			result = append(result, hexutil.Encode(addressBytes))
 	}
 	
 	return result, nil

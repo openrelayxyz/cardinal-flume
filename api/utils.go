@@ -134,6 +134,23 @@ func bytesToHexBig(a []byte) *hexutil.Big {
 	return &x
 }
 
+func incrementLastByte(prefix []byte) []byte {
+	if len(prefix) == 0 {
+		return nil
+	}
+	prefixCopy := make([]byte, len(prefix))
+	copy(prefixCopy, prefix)
+
+	lastByteIndex := len(prefixCopy) - 1
+	
+	if prefixCopy[lastByteIndex] == 0xFF {
+		return nil
+	}
+	prefixCopy[lastByteIndex]++
+
+	return prefixCopy
+}
+
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -876,13 +893,6 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 
 }
 
-// wtdrlIndex MEDIUMINT,
-// vldtrIndex MEDIUMINT,
-// recipient VARCHAR(20),
-// amount    blob,
-// block     BIGINT
-// PRIMARY KEY (block, wtdrlIndex)
-
 func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
 	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.address, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
@@ -919,21 +929,4 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 		}
 	}
 	return results, nil
-}
-
-func incrementLastByte(prefix []byte) []byte {
-	if len(prefix) == 0 {
-		return nil
-	}
-	prefixCopy := make([]byte, len(prefix))
-	copy(prefixCopy, prefix)
-
-	lastByteIndex := len(prefixCopy) - 1
-	
-	if prefixCopy[lastByteIndex] == 0xFF {
-		return nil
-	}
-	prefixCopy[lastByteIndex]++
-
-	return prefixCopy
 }
