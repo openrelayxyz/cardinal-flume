@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -22,6 +23,10 @@ import (
 	"math/big"
 	"os"
 	"sort"
+)
+
+var (
+	zeroInputError = errors.New("Input must contain non zero characters")
 )
 
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
@@ -149,6 +154,17 @@ func incrementLastByte(prefix []byte) []byte {
 	prefixCopy[lastByteIndex]++
 
 	return prefixCopy
+}
+
+func countLeadingZeros(byteSlice []byte) (int, error) {
+
+	leadingZeros := 0
+	for ; leadingZeros < len(byteSlice); leadingZeros++ {
+		if byteSlice[leadingZeros] != 0 {
+			return leadingZeros, nil
+		}
+	}
+	return 0, zeroInputError
 }
 
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {

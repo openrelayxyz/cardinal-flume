@@ -365,10 +365,6 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 	if len(partialHexString) == 66 {
 		return []string{partialHexString}, nil
 	}
-	if len(partialHexString) % 2 != 0 {
-		log.Error("Odd length input passed into flume_blockHashesWithPrefix")
-		return []string{"Input must be of even length"}, nil
-	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_blockHashesWithPrefix sent to flume heavy by default")
@@ -383,27 +379,22 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 
 	bytes, err := hex.DecodeString(partialHexString[2:])
 	if err != nil {
-		log.Error("Error decoding partial hex string, flume_blockHashesWithPrefix", "err", err)
-		return nil, nil
+		log.Error("Error decoding partial Hex String, flume_blockHashesWithPrefix", "err", err)
+		return nil, err
 	} 
 
-	leadingZeros := 0
-	for ; leadingZeros < len(bytes); leadingZeros++ {
-		if bytes[leadingZeros] != 0 {
-			break
-		}
-	}
-	if leadingZeros == len(bytes) {
-		log.Error("All zero input passed into flume_blockHashesWithPrefix")
-		return []string{"Input must contain non zero characters"}, nil
+	zeros, err := countLeadingZeros(bytes)
+	if err != nil {
+		log.Error("Error trimming input, flume_blockHashesWithPrefix")
+		return nil, err
 	}
 
-	bytes = bytes[leadingZeros:]
+	bytes = bytes[zeros:]
 
 	augmentedBytes := incrementLastByte(bytes)
 
 	statement := "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 32 - leadingZeros)
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 32 - zeros)
 	if err != nil {
 		log.Error("Error returned from query in flume_blockHashWithPrefix", "err", err)
 		return nil, nil
@@ -428,10 +419,6 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 	if len(partialHexString) == 66 {
 		return []string{partialHexString}, nil
 	}
-	if len(partialHexString) % 2 != 0 {
-		log.Error("Odd length input passed into flume_transactionHashesWithPrefix")
-		return []string{"Input must be of even length"}, nil
-	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_TransactionHashesWithPrefix sent to flume heavy by default")
@@ -446,22 +433,17 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 
 	bytes, err := hex.DecodeString(partialHexString[2:])
 	if err != nil {
-		log.Error("Error decoding partial hex String, flume_TransactionHashesWithPrefix", "err", err)
-		return nil, nil
+		log.Error("Error decoding partial Hex String, flume_transactionHashesWithPrefix", "err", err)
+		return nil, err
 	}
 
-	leadingZeros := 0
-	for ; leadingZeros < len(bytes); leadingZeros++ {
-		if bytes[leadingZeros] != 0 {
-			break
-		}
-	}
-	if leadingZeros == len(bytes) {
-		log.Error("All zero input passed into flume_transactionHashesWithPrefix")
-		return []string{"Input must contain non zero characters"}, nil
+	zeros, err := countLeadingZeros(bytes)
+	if err != nil {
+		log.Error("Error trimming input, flume_transactionHashesWithPrefix")
+		return nil, err
 	}
 
-	bytes = bytes[leadingZeros:]
+	bytes = bytes[zeros:]
 
 	augmentedBytes := incrementLastByte(bytes)
 
@@ -470,7 +452,7 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 
 	var result []string
 
-	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - leadingZeros)
+	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - zeros)
 	if err != nil {
 		log.Error("Error returned from mempool query in flume_transactionHashesWithPrefix", "err", err)
 		return nil, nil
@@ -486,7 +468,7 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 			result = append(result, hexutil.Encode(hashBytes))
 		}
 	
-	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes, 32 - leadingZeros)
+	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes, 32 - zeros)
 	if err != nil {
 		log.Error("Error returned from transaction query in flume_transactionHashesWithPrefix", "err", err)
 		return nil, nil
@@ -510,10 +492,6 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 	if len(partialHexString) == 42 {
 		return []string{partialHexString}, nil
 	}
-	if len(partialHexString) % 2 != 0 {
-		log.Error("Odd length input passed into flume_addressWithPrefix")
-		return []string{"Input must be of even length"}, nil
-	}
 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_addressWithPrefix sent to flume heavy by default")
@@ -529,26 +507,21 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 	bytes, err := hex.DecodeString(partialHexString[2:])
 	if err != nil {
 		log.Error("Error decoding partial Hex String, flume_addressWithPrefix", "err", err)
-		return nil, nil
+		return nil, err
 	}
 
-	leadingZeros := 0
-	for ; leadingZeros < len(bytes); leadingZeros++ {
-		if bytes[leadingZeros] != 0 {
-			break
-		}
-	}
-	if leadingZeros == len(bytes) {
-		log.Error("All zero input passed into flume_addressWithPrefix")
-		return []string{"Input must contain non zero characters"}, nil
+	zeros, err := countLeadingZeros(bytes)
+	if err != nil {
+		log.Error("Error trimming input, flume_addressWithPrefix")
+		return nil, err
 	}
 
-	bytes = bytes[leadingZeros:]
+	bytes = bytes[zeros:]
 
 	augmentedBytes := incrementLastByte(bytes)
 
 	statement := "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20"
-	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - leadingZeros)
+	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - zeros)
 	if err != nil {
 		log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
 		return nil, nil
@@ -583,14 +556,17 @@ func (api *FlumeAPI) ResolvePrefix(ctx context.Context, partialHexString string)
 	blockHashes, err := api.BlockHashesWithPrefix(ctx, partialHexString)
 	if err != nil {
 		log.Error("Error returned from flume_blockHashesWithPrefix, flume_resolvePrefix", "err", err)
+		return nil, err
 	}
 	txHashes, err := api.TransactionHashesWithPrefix(ctx, partialHexString)
 	if err != nil {
 		log.Error("Error returned from flume_transactionHashesWithPrefix, flume_resolvePrefix", "err", err)
+		return nil, err
 	}
 	addresses, err := api.AddressWithPrefix(ctx, partialHexString)
 	if err != nil {
 		log.Error("Error returned from flume_addressWithPrefix, flume_resolvePrefix", "err", err)
+		return nil, err
 	}
 
 	result := map[string]interface{}{
