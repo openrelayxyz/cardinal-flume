@@ -108,7 +108,10 @@ func main() {
 			}
 			defer rows.Close()
 			if rows.Next() {
-				log.Error("gaps found in blocks database", "missing blocks", rows)
+				var number uint64
+				rows.Scan(&number) 
+				log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)
+				os.Exit(1)
 			}
 		}
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
