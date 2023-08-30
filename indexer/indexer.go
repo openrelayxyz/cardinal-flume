@@ -184,7 +184,7 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan int64) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
-	blockTimeMeter  := metrics.NewMajorMeter("/flume/blockTime")
+	blockTimer  := metrics.NewMajorTimer("/flume/blockProcessingTime")
 
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -275,7 +275,6 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					mut.Unlock()
 					continue
 				}
-				cstart := time.Now()
 				if err := dbtx.Commit(); err != nil {
 					stats := db.Stats()
 					log.Warn("Failed to commit", "err", err.Error())
@@ -289,9 +288,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				rhf <- lastBatch.Number
 				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
-				if time.Since(cstart) > 10 * time.Second {
-					blockTimeMeter.Mark(1)
-				}
+				blockTimer.UpdateSince(start)
 				if blockTime != nil && time.Since(*blockTime) > time.Minute {
 					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start), "age", time.Since(*blockTime))
 					break
