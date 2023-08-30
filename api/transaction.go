@@ -221,7 +221,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 
 	var pending bool 
 	if int64(blockNumber) < 0 {
-		if int64(blockNumber) == -2 {
+		if blockNumber == rpc.PendingBlockNumber {
 			pending = true
 		}
 		latestBlock, err := getLatestBlock(ctx, api.db)
@@ -240,7 +240,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
 		gtcMissMeter.Mark(1)
-		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
+		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr, blockNumber)
 		if err != nil {
 			return nil, err
 		}
