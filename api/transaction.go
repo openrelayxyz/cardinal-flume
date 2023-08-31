@@ -217,9 +217,21 @@ var (
 	gtcMissMeter = metrics.NewMinorMeter("/flume/gtc/miss")
 )
 
-func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address) (*hexutil.Uint64, error) {
+func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	nonce, err := getSenderNonce(ctx, api.db, addr)
+	var pending bool 
+	if int64(blockNumber) < 0 {
+		if blockNumber == rpc.PendingBlockNumber {
+			pending = true
+		}
+		latestBlock, err := getLatestBlock(ctx, api.db)
+		if err != nil {
+			return nil, err
+		}
+		blockNumber = rpc.BlockNumber(latestBlock)
+	}
+
+	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber, pending)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +240,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
 		gtcMissMeter.Mark(1)
-		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr)
+		count, err := heavy.CallHeavy[hexutil.Uint64](ctx, api.cfg.HeavyServer, "eth_getTransactionCount", addr, blockNumber)
 		if err != nil {
 			return nil, err
 		}

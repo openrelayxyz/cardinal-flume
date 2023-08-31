@@ -132,7 +132,6 @@ func TestTransactionAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, receiptsMap[i][k]) {
-					// t.Fatalf("receipts error %v %v %v %v", i, k, string(data), string(receiptsMap[i+7][k]))
 					t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test"+string(data), "control"+string(receiptsMap[i][k]))
 				}
 			}
@@ -193,7 +192,7 @@ func TestTransactionAPI(t *testing.T) {
 
 	for sender, nonce := range nonces {
 		t.Run(fmt.Sprintf("GetTransactionCount"), func(t *testing.T) {
-			actual, _ := tx.GetTransactionCount(context.Background(), sender)
+			actual, _ := tx.GetTransactionCount(context.Background(), sender, rpc.LatestBlockNumber)
 			if *actual != nonce {
 				t.Fatalf("GetTransactionCountError %v %v", actual, nonce)
 			}
