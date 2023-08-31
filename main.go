@@ -32,6 +32,7 @@ func main() {
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
+	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -100,6 +101,19 @@ func main() {
 	}
 	_, hasBlocks := cfg.Databases["blocks"]
 	if hasBlocks {
+		if *runCertaintyCheck {
+			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
+			if err != nil {
+				log.Error("Error occured when running certainty check on blocks database", "err", err)
+			}
+			defer rows.Close()
+			if rows.Next() {
+				var number uint64
+				rows.Scan(&number) 
+				log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)
+				os.Exit(1)
+			}
+		}
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
 	_, hasTx := cfg.Databases["transactions"]
