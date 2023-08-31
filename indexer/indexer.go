@@ -184,6 +184,8 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 
 func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan int64) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
+	blockTimer  := metrics.NewMajorTimer("/flume/blockProcessingTime")
+
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
 	txSub := txFeed.Subscribe(txCh)
@@ -273,8 +275,6 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					mut.Unlock()
 					continue
 				}
-				// log.Printf("Spent %v on %v inserts", time.Since(istart), len(statements))
-				// cstart := time.Now()
 				if err := dbtx.Commit(); err != nil {
 					stats := db.Stats()
 					log.Warn("Failed to commit", "err", err.Error())
@@ -288,8 +288,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				rhf <- lastBatch.Number
 				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
-				// completionFeed.Send(chainEvent.Block.Hash)
-				// log.Printf("Spent %v on commit", time.Since(cstart))
+				blockTimer.UpdateSince(start)
 				if blockTime != nil && time.Since(*blockTime) > time.Minute {
 					log.Info("Committed Block", "number", uint64(lastBatch.Number), "hash", hexutil.Bytes(lastBatch.Hash.Bytes()), "in", time.Since(start), "age", time.Since(*blockTime))
 					break
