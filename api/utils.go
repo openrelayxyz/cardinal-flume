@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -22,6 +23,10 @@ import (
 	"math/big"
 	"os"
 	"sort"
+)
+
+var (
+	zeroInputError = errors.New("Input must contain non zero characters")
 )
 
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
@@ -132,6 +137,34 @@ func uintToHexBig(a uint64) *hexutil.Big {
 func bytesToHexBig(a []byte) *hexutil.Big {
 	x := hexutil.Big(*new(big.Int).SetBytes(a))
 	return &x
+}
+
+func incrementLastByte(prefix []byte) []byte {
+	if len(prefix) == 0 {
+		return nil
+	}
+	prefixCopy := make([]byte, len(prefix))
+	copy(prefixCopy, prefix)
+
+	lastByteIndex := len(prefixCopy) - 1
+	
+	if prefixCopy[lastByteIndex] == 0xFF {
+		return nil
+	}
+	prefixCopy[lastByteIndex]++
+
+	return prefixCopy
+}
+
+func countLeadingZeros(byteSlice []byte) (int, error) {
+
+	leadingZeros := 0
+	for ; leadingZeros < len(byteSlice); leadingZeros++ {
+		if byteSlice[leadingZeros] != 0 {
+			return leadingZeros, nil
+		}
+	}
+	return 0, zeroInputError
 }
 
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
@@ -875,13 +908,6 @@ func getFlumeTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, l
 	return getFlumeTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 
 }
-
-// wtdrlIndex MEDIUMINT,
-// vldtrIndex MEDIUMINT,
-// recipient VARCHAR(20),
-// amount    blob,
-// block     BIGINT
-// PRIMARY KEY (block, wtdrlIndex)
 
 func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
 	query := fmt.Sprintf("SELECT withdrawals.wtdrlIndex, withdrawals.vldtrIndex, withdrawals.address, withdrawals.amount FROM withdrawals WHERE %v;", whereClause)
