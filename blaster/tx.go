@@ -7,6 +7,7 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	// "github.com/openrelayxyz/cardinal-types"
 )
 
 type BlastTx struct {
@@ -55,7 +56,7 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		// log.Error("yep", "len", inputLen, "block", tx.Block)
 		inputPtr = (*C.char)(C.CBytes([]byte{}))
 		inputLen = 0
-		b.appendToFile(tx.Block, tx.Hash, tx.Input)
+		b.appendToFile(tx.Block, tx.Hash, tx.Input) // we need to change this so that the entire transaction is skipped. 
 	} else if inputLen > 0 {
 		inputPtr = (*C.char)(C.CBytes(tx.Input[:inputLen]))
 	} 
@@ -147,7 +148,7 @@ func (b *TxBlaster) appendToFile(number uint64, hash [32]byte, input []byte) {
 	record := missingInput{number: number, hash: hexutil.Encode(hashSlice), input: input}
 
 
-	// log.Error("got a record", "hash", hexutil.Encode(hashSlice))
+	log.Error("got a record", "hash", hexutil.Encode(hashSlice))
 	
 	jsonData, err := json.Marshal(record)
 	if err != nil {

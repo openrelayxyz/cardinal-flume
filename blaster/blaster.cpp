@@ -18,7 +18,7 @@ void* new_sqlite_block_blaster(const char *fname) {
     return (void*)sqbb;
 }
 
-const uint8_t block_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT};
+const uint8_t block_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
 
 void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash, char* uncleHash, char* coinbase, char* root, char* txRoot, char* receiptRoot, char* bloom, size_t bloomLength, long long difficulty, long long gasLimit, long long gasUsed, long long time, char* extra, size_t extraLength, char* mixDigest, long long nonce, char* uncles, size_t unclesLength, long long size, char* td, char* baseFee, char* withdrawalHash) {
@@ -32,6 +32,7 @@ void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash,
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
     } 
+    // std::cout << "this is the buf size" << buf_size << std::endl;
     uint8_t rec_buf[buf_size];
     rec_len = sqbb->make_new_rec(rec_buf, 21, rec_values, value_lens, block_col_types);
     sqbb->put(rec_buf, -rec_len, NULL, 0);
@@ -59,7 +60,7 @@ void* new_sqlite_tx_blaster(const char *fname) {
     return (void*)sqtb;
 }
 
-const uint8_t tx_col_types[] = {SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT};
+const uint8_t tx_col_types[] = {SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
 void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, long long transactionIndex, 
 char* value, size_t valueLength, long long v, char* r, char* s, char* sender, char* func, char* contractAddress, size_t contractAddressLength, long long cumulativeGasUsed, 
@@ -111,7 +112,7 @@ void* new_sqlite_log_blaster(const char *fname) {
     return (void*)sqlb;
 }
 
-const uint8_t log_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT};
+const uint8_t log_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
 void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, char* topic1, char* topic2, char* topic3, char* data, size_t dataLength, char* transactionHash, char* transactionIndex, char* blockHash) {
 
@@ -151,7 +152,7 @@ void* new_sqlite_withdrawal_blaster(const char *fname) {
     return (void*)sqwb;
 }
 
-const uint8_t wd_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_TEXT, SQLT_TYPE_INT64, SQLT_TYPE_TEXT};
+const uint8_t wd_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB};
 ;
 
 void sqib_put_withdrawal(void* sqibv, long long block, long long wthdrlIndex, long long vldtrIndex, char* address, long long amount, char* blockHash) {

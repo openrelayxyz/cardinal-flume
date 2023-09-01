@@ -36,6 +36,7 @@ func main() {
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	blastIndex := flag.Bool("blastIndex", false, "utilize sqlite blaster to expidite indexing")
+	blastAPI := flag.Bool("blasterAPI", false, "test blast databases")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -56,10 +57,18 @@ func main() {
 
 	pl.Initialize(cfg)
 
+	dbs := map[string]string{}
+	if *blastAPI {
+		dbs = cfg.CDatabases 
+	} else {
+		dbs = cfg.Databases
+	}
+
 	sql.Register("sqlite3_hooked",
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				for name, path := range cfg.Databases {
+				for name, path := range dbs {
+					log.Error("db connections", "dbs", dbs)
 					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 4294967294;", path, name, name, name, name, name), nil)
 				}
 				return nil
@@ -98,24 +107,25 @@ func main() {
 	}
 
 	
-	_, hasLogs := cfg.Databases["logs"]
+	_, hasLogs := cfg.CDatabases["logs"]
 	if hasLogs {
 		log.Info("has logs", "logs", cfg.Databases["logs"])
 	}
-	_, hasBlocks := cfg.Databases["blocks"]
+	_, hasBlocks := cfg.CDatabases["blocks"]
 	if hasBlocks {
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
-	_, hasTx := cfg.Databases["transactions"]
+	_, hasTx := cfg.CDatabases["transactions"]
 	if hasTx {
 		log.Info("has transactions", "transactions", cfg.Databases["transactions"])
 	}
-	_, hasMempool := cfg.Databases["mempool"]
+	_, hasMempool := cfg.CDatabases["mempool"]
 	if hasMempool {
 		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
 	}
 
 
+	if !*blastAPI {
 
 	if hasBlocks && !*blastIndex {
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
@@ -140,6 +150,8 @@ func main() {
 			log.Error(err.Error())
 		}
 	}
+
+}
 
 	// TODO: plugin migration scenerios need to be considered in a blaster context
 	
