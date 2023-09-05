@@ -167,7 +167,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionReceipt did not return expected parameters, heavy test", "err", err.Error())
 	}
 
-	_, err = tx.GetTransactionCount(context.Background(), testAddress)
+	_, err = tx.GetTransactionCount(context.Background(), testAddress, testBlockNumber)
 	if err == nil {
 		t.Fatal("GetTransactionCount did not return expected error, heavy test", "err", err.Error())
 	}
@@ -176,6 +176,9 @@ func TestCallHeavy(t *testing.T) {
 	}
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionCount did not return expected parameter address, heavy test", "err", err.Error())
+	}
+	if err.(*heavy.MockError).Params[1].(rpc.BlockNumber) != testBlockNumber {
+		t.Fatal("GetTransactionCount did not return expected parameter blockNumber, heavy test", "err", err.Error())
 	}
 
 	l := NewLogsAPI(db, 1, pl, cfg)

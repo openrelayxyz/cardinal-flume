@@ -37,7 +37,8 @@ func main() {
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	blastIndex := flag.Bool("blastIndex", false, "utilize sqlite blaster to expidite indexing")
 	blastAPI := flag.Bool("blasterAPI", false, "test blast databases")
-
+	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
+	
 	flag.CommandLine.Parse(os.Args[1:])
 
 	cfg, err := config.LoadConfig(flag.CommandLine.Args()[0])
@@ -49,7 +50,7 @@ func main() {
 	if *lightSeed != 0 {
 		cfg.LightSeed = *lightSeed
 	}
-	
+
 	pl, err := plugins.NewPluginLoader(cfg)
 	if err != nil {
 		log.Error("No PluginLoader initialized", "err", err.Error())
@@ -113,6 +114,19 @@ func main() {
 	}
 	_, hasBlocks := cfg.CDatabases["blocks"]
 	if hasBlocks {
+		if *runCertaintyCheck {
+			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
+			if err != nil {
+				log.Error("Error occured when running certainty check on blocks database", "err", err)
+			}
+			defer rows.Close()
+			if rows.Next() {
+				var number uint64
+				rows.Scan(&number) 
+				log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)
+				os.Exit(1)
+			}
+		}
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
 	_, hasTx := cfg.CDatabases["transactions"]

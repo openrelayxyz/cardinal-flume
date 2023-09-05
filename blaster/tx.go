@@ -3,7 +3,8 @@ package blaster
 import "C"
 
 import (
-	"encoding/json"
+	"fmt"
+	// "encoding/json"
 	log "github.com/inconshreveable/log15"
 
 	"github.com/openrelayxyz/cardinal-types/hexutil"
@@ -53,7 +54,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	gasPriceInt := C.longlong(tx.GasPrice)
 	inputLen := (C.size_t)(len(tx.Input))
 	if inputLen > 20000 { // This value may need to be adjusted
-		// log.Error("yep", "len", inputLen, "block", tx.Block)
 		inputPtr = (*C.char)(C.CBytes([]byte{}))
 		inputLen = 0
 		b.appendToFile(tx.Block, tx.Hash, tx.Input) // we need to change this so that the entire transaction is skipped. 
@@ -145,18 +145,24 @@ func (b *TxBlaster) appendToFile(number uint64, hash [32]byte, input []byte) {
 
 	hashSlice := hash[:]
 
-	record := missingInput{number: number, hash: hexutil.Encode(hashSlice), input: input}
+	statement := fmt.Sprintf("UPDATE transactions SET input = X'%x' WHERE hash = X'%x';", input, hashSlice)
+	// log.Error("this is the statement", "statement", statement)
+
+	_, err := b.MIFile.Write([]byte(statement + "\n"))
+	if err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
 
 
 	log.Error("got a record", "hash", hexutil.Encode(hashSlice))
 	
-	jsonData, err := json.Marshal(record)
-	if err != nil {
-		log.Error("Error marshaling missingInput JSON", "err", err, "number", number, "hash", hexutil.Encode(hashSlice))
-	}
+	// jsonData, err := json.Marshal(record)
+	// if err != nil {
+	// 	log.Error("Error marshaling missingInput JSON", "err", err, "number", number, "hash", hexutil.Encode(hashSlice))
+	// }
 
-	if _, err = b.MIFile.Write(jsonData); err != nil {
-		log.Error("Error writing to missingInput file in put tx", "err", err, "number", number, "hash", hash)
-	}
+	// if _, err = b.MIFile.Write(jsonData); err != nil {
+	// 	log.Error("Error writing to missingInput file in put tx", "err", err, "number", number, "hash", hash)
+	// }
 
 }

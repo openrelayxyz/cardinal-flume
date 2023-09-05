@@ -7,8 +7,9 @@ import (
 	"unsafe"
 	"sync"
 	// "encoding/json"
-	"reflect"
+	// "reflect"
 	"os"
+	"compress/gzip"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -26,7 +27,7 @@ type WithdrawalBlaster struct {
 type TxBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
-	MIFile *os.File
+	MIFile *gzip.Writer
 }
 
 type LogBlaster struct {
@@ -58,21 +59,38 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 }
 
 func NewBlasterTxIndexer(dataBase string) *TxBlaster {
+
+	var writer *gzip.Writer
+	// _, err := os.Stat("tx_updates.sql.gz")
+
+	// if os.IsNotExist(err) {
+	// 	file, err := os.Create("tx_updates.sql")
+	// 	if err != nil {
+	// 		log.Error("Error creating updates file, TxBlaster is nil", "err", err)
+	// 		return nil
+	// 		}  
+	// 	defer file.Close()
+	// 	writer := gzip.NewWriter(file)
+	// 	defer writer.Close()
+	// } else {
+		file, err := os.Create("tx_updates.sql.gz")
+		if err != nil {
+			log.Error("Error opening tx updates file, TxBlaster is nil", "err", err)
+			return nil
+		}
+		// defer file.Close()
+		writer = gzip.NewWriter(file)
+		// defer writer.Close()
+	// }
+	// log.Error("file", "type", reflect.TypeOf(file))
+	
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
-	file, err := os.OpenFile("missing_inputs.json", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		log.Error("Error opening missing input file, TxBlaster is nil", "err", err)
-		return nil
-	}
-
-	log.Error("file", "type", reflect.TypeOf(file))
-
 	b := &TxBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
-		MIFile: file,
+		MIFile: writer,
 	}
-	log.Info("transaction blaster initialized")
+	log.Info("transaction blaster initialized", "writer", b.MIFile)
 	return b
 }
 
