@@ -6,6 +6,7 @@ import "C"
 import (
 	"unsafe"
 	"sync"
+	"time"
 	// "encoding/json"
 	// "reflect"
 	"os"
@@ -27,6 +28,7 @@ type WithdrawalBlaster struct {
 type TxBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	Updates string
 	MIFile *gzip.Writer
 }
 
@@ -58,36 +60,29 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 	return b
 }
 
-func NewBlasterTxIndexer(dataBase string) *TxBlaster {
+func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 
 	var writer *gzip.Writer
-	// _, err := os.Stat("tx_updates.sql.gz")
 
-	// if os.IsNotExist(err) {
-	// 	file, err := os.Create("tx_updates.sql")
-	// 	if err != nil {
-	// 		log.Error("Error creating updates file, TxBlaster is nil", "err", err)
-	// 		return nil
-	// 		}  
-	// 	defer file.Close()
-	// 	writer := gzip.NewWriter(file)
-	// 	defer writer.Close()
-	// } else {
-		file, err := os.Create("tx_updates.sql.gz")
-		if err != nil {
-			log.Error("Error opening tx updates file, TxBlaster is nil", "err", err)
-			return nil
-		}
-		// defer file.Close()
-		writer = gzip.NewWriter(file)
-		// defer writer.Close()
-	// }
-	// log.Error("file", "type", reflect.TypeOf(file))
+	currentTime := time.Now()
+
+	timestamp := currentTime.Format("1981-01-17_15-04-05")
+
+	fileName := updates + timestamp + ".sql.gz"
+
+	
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Error("Error opening tx updates file, TxBlaster is nil", "err", err)
+		return nil
+	}
+	writer = gzip.NewWriter(file)
 	
 	db := C.new_sqlite_tx_blaster(C.CString(dataBase))
 	b := &TxBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		Updates: updates,
 		MIFile: writer,
 	}
 	log.Info("transaction blaster initialized", "writer", b.MIFile)

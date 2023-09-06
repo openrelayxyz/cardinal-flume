@@ -35,7 +35,7 @@ func main() {
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
-	blastIndex := flag.Bool("blastIndex", false, "utilize sqlite blaster to expidite indexing")
+	blastIndex := flag.String("blastIndex", "", "trigger to put flume into batch indexing mode, string argument will be the location of sql updates file(s)")
 	blastAPI := flag.Bool("blasterAPI", false, "test blast databases")
 	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
 	
@@ -141,17 +141,17 @@ func main() {
 
 	if !*blastAPI {
 
-	if hasBlocks && !*blastIndex {
+	if hasBlocks && *blastIndex=="" {
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
 	}
-	if hasTx && !*blastIndex {
+	if hasTx && *blastIndex=="" {
 		if err := migrations.MigrateTransactions(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
 	}
-	if hasLogs && !*blastIndex {
+	if hasLogs && *blastIndex=="" {
 		if err := migrations.MigrateLogs(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
@@ -159,7 +159,7 @@ func main() {
 			log.Warn("Failed to load index hints", "err", err.Error())
 		}
 	}
-	if hasMempool && !*blastIndex {
+	if hasMempool && *blastIndex=="" {
 		if err := migrations.MigrateMempool(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
 		}
@@ -212,7 +212,7 @@ func main() {
 	indexes := []indexer.Indexer{}
 
 	if hasBlocks {
-		if *blastIndex {
+		if *blastIndex!="" {
 			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
 			if bIBlock != nil {
 			}
@@ -225,8 +225,8 @@ func main() {
 		}
 	}
 	if hasTx {
-		if *blastIndex {
-			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"])
+		if *blastIndex!="" {
+			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], *blastIndex)
 			defer bITx.Close()
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
 		} else {
@@ -234,7 +234,7 @@ func main() {
 		}
 	}
 	if hasLogs {
-		if *blastIndex {
+		if *blastIndex!="" {
 			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
 			defer bILog.Close()
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
@@ -343,7 +343,7 @@ func main() {
 	}
   
 	var minBlock int
-	if cfg.Brokers[0].URL != "null://" && !*blastIndex {
+	if cfg.Brokers[0].URL != "null://" && *blastIndex=="" {
 		for {
 			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
 				log.Debug("Earliest block set", "block", minBlock)

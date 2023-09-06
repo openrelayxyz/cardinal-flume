@@ -5,9 +5,9 @@ import "C"
 import (
 	"fmt"
 	// "encoding/json"
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 
-	"github.com/openrelayxyz/cardinal-types/hexutil"
+	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	// "github.com/openrelayxyz/cardinal-types"
 )
 
@@ -154,7 +154,7 @@ func (b *TxBlaster) appendToFile(number uint64, hash [32]byte, input []byte) {
 	}
 
 
-	log.Error("got a record", "hash", hexutil.Encode(hashSlice))
+	// log.Error("got a record", "hash", hexutil.Encode(hashSlice))
 	
 	// jsonData, err := json.Marshal(record)
 	// if err != nil {
