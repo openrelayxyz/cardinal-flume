@@ -1,6 +1,4 @@
 package blaster
-// #cgo CXXFLAGS: -std=c++11
-// #cgo LDFLAGS: -lstdc++
 // #include <stdlib.h>
 // #include "blaster.h"
 import "C"
@@ -102,7 +100,6 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	)
 
 	defer C.free(unsafe.Pointer(hPtr))
-	defer C.free(unsafe.Pointer(hPtr))
 	defer C.free(unsafe.Pointer(phPtr))
 	defer C.free(unsafe.Pointer(uhPtr))
 	defer C.free(unsafe.Pointer(cbPtr))
@@ -118,6 +115,7 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	defer C.free(unsafe.Pointer(wthdHashPtr))
 
 	b.Lock.Unlock()
+
 }
 
 

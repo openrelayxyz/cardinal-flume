@@ -66,7 +66,7 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 
 	currentTime := time.Now()
 
-	timestamp := currentTime.Format("1981-01-17_15-04-05")
+	timestamp := currentTime.Format("2006-01-02_15-04-05")
 
 	fileName := updates + timestamp + ".sql.gz"
 
