@@ -1,7 +1,13 @@
 package blaster
-
+// #cgo CXXFLAGS: -std=c++11
+// #cgo LDFLAGS: -lstdc++
+// #include <stdlib.h>
 // #include "blaster.h"
 import "C"
+
+import (
+	"unsafe"
+)
 
 type BlastBlock struct {
 	Number uint64
@@ -94,8 +100,27 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 		bfPtr,
 		wthdHashPtr,
 	)
+
+	defer C.free(unsafe.Pointer(hPtr))
+	defer C.free(unsafe.Pointer(hPtr))
+	defer C.free(unsafe.Pointer(phPtr))
+	defer C.free(unsafe.Pointer(uhPtr))
+	defer C.free(unsafe.Pointer(cbPtr))
+	defer C.free(unsafe.Pointer(rPtr))
+	defer C.free(unsafe.Pointer(trPtr))
+	defer C.free(unsafe.Pointer(rrPtr))
+	defer C.free(unsafe.Pointer(bPtr))
+	defer C.free(unsafe.Pointer(exPtr))
+	defer C.free(unsafe.Pointer(mxPtr))
+	defer C.free(unsafe.Pointer(unPtr))
+	defer C.free(unsafe.Pointer(tdPtr))
+	defer C.free(unsafe.Pointer(bfPtr))
+	defer C.free(unsafe.Pointer(wthdHashPtr))
+
 	b.Lock.Unlock()
 }
+
+
 
 type BlastWithdrawal struct {
 	Block uint64
@@ -112,7 +137,7 @@ func (b *WithdrawalBlaster) PutWithdrawal(wd BlastWithdrawal) {
 	wDexInt := C.longlong(wd.WithdrawalIndex)
 	vDexInt := C.longlong(wd.ValidatorIndex)
 	addPtr := (*C.char)(C.CBytes(wd.Address[:20]))
-	amountPtr := C.longlong(wd.Amount)
+	amountInt := C.longlong(wd.Amount)
 	bHashPtr := (*C.char)(C.CBytes(wd.BlockHash[:32]))
 
 	b.Lock.Lock()
@@ -123,9 +148,12 @@ func (b *WithdrawalBlaster) PutWithdrawal(wd BlastWithdrawal) {
 		wDexInt,
 		vDexInt,
 		addPtr,
-		amountPtr,
+		amountInt,
 		bHashPtr,
 	)
-	b.Lock.Unlock()
 
+	defer C.free(unsafe.Pointer(addPtr))
+	defer C.free(unsafe.Pointer(bHashPtr))
+	
+	b.Lock.Unlock()
 }

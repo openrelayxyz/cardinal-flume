@@ -1,9 +1,11 @@
 package blaster
 // #include "blaster.h"
+// #include <stdlib.h>
 import "C"
 
 import (
 	"fmt"
+	"unsafe"
 	// "encoding/json"
 	// log "github.com/inconshreveable/log15"
 
@@ -132,6 +134,21 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		gTipPtr,
 		gTipLen,
 	)
+
+	defer C.free(unsafe.Pointer(hashPtr))
+	defer C.free(unsafe.Pointer(inputPtr))
+	defer C.free(unsafe.Pointer(reciPtr))
+	defer C.free(unsafe.Pointer(valuePtr))
+	defer C.free(unsafe.Pointer(rPtr))
+	defer C.free(unsafe.Pointer(sPtr))
+	defer C.free(unsafe.Pointer(sendPtr))
+	defer C.free(unsafe.Pointer(funcPtr))
+	defer C.free(unsafe.Pointer(conAddPtr))
+	defer C.free(unsafe.Pointer(bloomPtr))
+	defer C.free(unsafe.Pointer(accListPtr))
+	defer C.free(unsafe.Pointer(gFeePtr))
+	defer C.free(unsafe.Pointer(gTipPtr))
+
 	b.Lock.Unlock()
 }
 

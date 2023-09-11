@@ -1,6 +1,11 @@
 package blaster
+// #include <stdlib.h>
 // #include "blaster.h"
 import "C"
+
+import (
+	"unsafe"
+)
 
 type BlastLog struct {
 	Address [20]byte
@@ -62,7 +67,16 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 		transDexPtr,
 		blockHashPtr,
 	)
-	b.Lock.Unlock()
-	
 
+	defer C.free(unsafe.Pointer(addressPtr))
+	defer C.free(unsafe.Pointer(topic0Ptr))
+	defer C.free(unsafe.Pointer(topic1Ptr))
+	defer C.free(unsafe.Pointer(topic2Ptr))
+	defer C.free(unsafe.Pointer(topic3Ptr))
+	defer C.free(unsafe.Pointer(dataPtr))
+	defer C.free(unsafe.Pointer(transHashPtr))
+	defer C.free(unsafe.Pointer(transDexPtr))
+	defer C.free(unsafe.Pointer(blockHashPtr))
+
+	b.Lock.Unlock()
 }
