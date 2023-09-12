@@ -152,34 +152,14 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	b.Lock.Unlock()
 }
 
-type missingInput struct {
-	number uint64
-	hash string
-	input []byte
-}
-
 func (b *TxBlaster) appendToFile(number uint64, hash [32]byte, input []byte) {
 
 	hashSlice := hash[:]
 
 	statement := fmt.Sprintf("UPDATE transactions SET input = X'%x' WHERE hash = X'%x';", input, hashSlice)
-	// log.Error("this is the statement", "statement", statement)
 
 	_, err := b.MIFile.Write([]byte(statement + "\n"))
 	if err != nil {
 		fmt.Println("Error writing to file:", err)
 	}
-
-
-	// log.Error("got a record", "hash", hexutil.Encode(hashSlice))
-	
-	// jsonData, err := json.Marshal(record)
-	// if err != nil {
-	// 	log.Error("Error marshaling missingInput JSON", "err", err, "number", number, "hash", hexutil.Encode(hashSlice))
-	// }
-
-	// if _, err = b.MIFile.Write(jsonData); err != nil {
-	// 	log.Error("Error writing to missingInput file in put tx", "err", err, "number", number, "hash", hash)
-	// }
-
 }

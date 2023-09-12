@@ -35,6 +35,8 @@ type TxBlaster struct {
 type LogBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	Updates string
+	MIFile *gzip.Writer
 }
 
 func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
@@ -63,12 +65,9 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 
 	var writer *gzip.Writer
-
 	currentTime := time.Now()
-
 	timestamp := currentTime.Format("2006-01-02_15-04-05")
-
-	fileName := updates + timestamp + ".sql.gz"
+	fileName := "tx" + updates + timestamp + ".sql.gz"
 
 	
 	file, err := os.Create(fileName)
@@ -89,12 +88,28 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 	return b
 }
 
-func NewBlasterLogIndexer(dataBase string) *LogBlaster {
+func NewBlasterLogIndexer(dataBase, updates string) *LogBlaster {
+
+	var writer *gzip.Writer
+	currentTime := time.Now()
+	timestamp := currentTime.Format("2006-01-02_15-04-05")
+	fileName := "log" + updates + timestamp + ".sql.gz"
+
+	
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Error("Error opening lg updates file, LogBlaster is nil", "err", err)
+		return nil
+	}
+	writer = gzip.NewWriter(file)
+
 	db := C.new_sqlite_log_blaster(C.CString(dataBase))
 
 	b := &LogBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		Updates: updates,
+		MIFile: writer,
 	}
 	log.Info("log blaster initialized")
 	return b

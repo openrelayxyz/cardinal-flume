@@ -4,6 +4,7 @@ package blaster
 import "C"
 
 import (
+	"fmt"
 	"unsafe"
 )
 
@@ -40,12 +41,13 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	topic2Ptr = (*C.char)(C.CBytes(lg.Topic2[:32]))
 	topic3Ptr = (*C.char)(C.CBytes(lg.Topic3[:32]))
 	dataLen := (C.size_t)(len(lg.Data))
-	if dataLen > 25000 { // This value may need to be adjusted
+	if dataLen > 20000 { // This value may need to be adjusted
 		dataPtr = (*C.char)(C.CBytes([]byte{}))
 		dataLen = 0
+		b.appendToFile(lg.Block, lg.Data, lg.LogIndex)
 	} else if dataLen > 0 {
 		dataPtr = (*C.char)(C.CBytes(lg.Data[:dataLen]))
-	} 
+	}  
 	transHashPtr = (*C.char)(C.CBytes(lg.TransactionHash[:32]))
 	transDexPtr = (*C.char)(C.CBytes(lg.TransactionIndex[:32]))
 	blockHashPtr = (*C.char)(C.CBytes(lg.BlockHash[:32]))
@@ -79,4 +81,14 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	defer C.free(unsafe.Pointer(blockHashPtr))
 
 	b.Lock.Unlock()
+}
+
+func (b *LogBlaster) appendToFile(number uint64, data []byte, logIndex uint64) {
+
+	statement := fmt.Sprintf("UPDATE event_logs SET data = X'%x' WHERE block = X'%x' AND logIndex = X'%x';", data, number, logIndex)
+
+	_, err := b.MIFile.Write([]byte(statement + "\n"))
+	if err != nil {
+		fmt.Println("Error writing to file:", err)
+	}
 }

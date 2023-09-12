@@ -235,7 +235,7 @@ func main() {
 	}
 	if hasLogs {
 		if *blastIndex!="" {
-			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"])
+			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"],  *blastIndex)
 			defer bILog.Close()
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
 		} else {
