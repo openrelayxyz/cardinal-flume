@@ -67,7 +67,7 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 	var writer *gzip.Writer
 	currentTime := time.Now()
 	timestamp := currentTime.Format("2006-01-02_15-04-05")
-	fileName := "tx" + updates + timestamp + ".sql.gz"
+	fileName := updates + "tx" + timestamp + ".sql.gz"
 
 	
 	file, err := os.Create(fileName)
@@ -93,7 +93,7 @@ func NewBlasterLogIndexer(dataBase, updates string) *LogBlaster {
 	var writer *gzip.Writer
 	currentTime := time.Now()
 	timestamp := currentTime.Format("2006-01-02_15-04-05")
-	fileName := "log" + updates + timestamp + ".sql.gz"
+	fileName := updates + "logs" + timestamp + ".sql.gz"
 
 	
 	file, err := os.Create(fileName)
@@ -143,5 +143,6 @@ func (b *TxBlaster) Close() {
 func (b *LogBlaster) Close() {
 	defer log.Info("close called on log blaster")
 	b.Lock.Lock()
+	b.MIFile.Close()
 	C.sqlb_close(b.DB)
 }
