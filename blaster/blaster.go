@@ -84,7 +84,7 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 		Updates: updates,
 		MIFile: writer,
 	}
-	log.Info("transaction blaster initialized", "writer", b.MIFile)
+	log.Info("transaction blaster initialized")
 	return b
 }
 
