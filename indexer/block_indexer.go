@@ -198,6 +198,10 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		log.Error("Indexed block", "number", pb.Number, "age", time.Since(timestamp))
 	}
 
+	if time.Since(timestamp) < 30 * time.Second {
+		log.Error("up to date")
+	}
+
 	var totalD [32]byte
 	copy(totalD[:], td.Bytes())
 
