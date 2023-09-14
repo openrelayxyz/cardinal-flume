@@ -170,7 +170,14 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Header, txData map[int]*evm.Transaction, receiptData map[int]*cardinalReceiptMeta, senderMap map[types.Hash]<-chan common.Address) ([]string, error) {
 
-	// var block int64 
+	go func() {
+        for {
+            select {
+			case <-indexer.blastIdx.Quit:
+                indexer.blastIdx.Close()
+            }
+        }
+    }()
 
 	for i := 0; i < len(txData); i++ {
 

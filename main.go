@@ -107,11 +107,11 @@ func main() {
 	}
 
 	
-	_, hasLogs := cfg.CDatabases["logs"]
+	_, hasLogs := cfg.Databases["logs"]
 	if hasLogs {
 		log.Info("has logs", "logs", cfg.Databases["logs"])
 	}
-	_, hasBlocks := cfg.CDatabases["blocks"]
+	_, hasBlocks := cfg.Databases["blocks"]
 	if hasBlocks {
 		if *runCertaintyCheck {
 			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
@@ -128,11 +128,11 @@ func main() {
 		}
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
-	_, hasTx := cfg.CDatabases["transactions"]
+	_, hasTx := cfg.Databases["transactions"]
 	if hasTx {
 		log.Info("has transactions", "transactions", cfg.Databases["transactions"])
 	}
-	_, hasMempool := cfg.CDatabases["mempool"]
+	_, hasMempool := cfg.Databases["mempool"]
 	if hasMempool {
 		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
 	}
@@ -206,13 +206,14 @@ func main() {
 		log.Error(err.Error())
 	}
 	quit := make(chan struct{})
+	blastTxnsQuit := make(chan struct{})
+	blastLogsQuit := make(chan struct{})
 	mut := &sync.RWMutex{}
 
 	indexes := []indexer.Indexer{}
-
 	if hasBlocks {
 		if *blastIndex!="" {
-			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"])
+			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], blastTxnsQuit, blastLogsQuit)
 			if bIBlock != nil {
 			}
 			defer bIBlock.Close()
@@ -225,7 +226,7 @@ func main() {
 	}
 	if hasTx {
 		if *blastIndex!="" {
-			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], *blastIndex)
+			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], blastTxnsQuit, *blastIndex)
 			defer bITx.Close()
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
 		} else {
@@ -234,7 +235,7 @@ func main() {
 	}
 	if hasLogs {
 		if *blastIndex!="" {
-			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"],  *blastIndex)
+			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"], blastLogsQuit, *blastIndex)
 			defer bILog.Close()
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
 		} else {

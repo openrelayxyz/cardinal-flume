@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 	"io"
-	"os"
 	"math/big"
 	"regexp"
 	"strconv"
@@ -201,7 +200,10 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 
 	if time.Since(timestamp) < 30 * time.Second {
 		log.Info("blaster up to date with most current block", "number", uint64(pb.Number))
-		os.Exit(0)
+		indexer.blastBlockIdx.TxQuit <- struct{}{}
+		indexer.blastBlockIdx.LogsQuit <- struct{}{}
+		indexer.blastWithdrawalIdx.Close()
+		indexer.blastBlockIdx.Close()
 	}
 
 	var totalD [32]byte

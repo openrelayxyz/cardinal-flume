@@ -102,50 +102,59 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map[int64]*evm.Log, txData map[uint]types.Hash) ([]string, error) {
 
-			for i := 0; i < len(logData); i++ {
+	go func() {
+        for {
+            select {
+			case <-indexer.blastIdx.Quit:
+                indexer.blastIdx.Close()
+            }
+        }
+    }()
 
-				logRecord := logData[int64(i)]
+	for i := 0; i < len(logData); i++ {
 
-				var topicZero32Bytes [32]byte
-				if t := getTopicIndex(logRecord.Topics, 0); t != nil {
-					copy(topicZero32Bytes[:], t)
-				} 
+		logRecord := logData[int64(i)]
 
-				var topicOne32Bytes [32]byte
-				if t := getTopicIndex(logRecord.Topics, 1); t != nil {
-					copy(topicOne32Bytes[:], t)
-				} 
+		var topicZero32Bytes [32]byte
+		if t := getTopicIndex(logRecord.Topics, 0); t != nil {
+			copy(topicZero32Bytes[:], t)
+		} 
 
-				var topicTwo32Bytes [32]byte
-				if t := getTopicIndex(logRecord.Topics, 1); t != nil {
-					copy(topicTwo32Bytes[:], t)
-				} 
+		var topicOne32Bytes [32]byte
+		if t := getTopicIndex(logRecord.Topics, 1); t != nil {
+			copy(topicOne32Bytes[:], t)
+		} 
 
-				var topicThree32Bytes [32]byte
-				if t := getTopicIndex(logRecord.Topics, 3); t != nil {
-					copy(topicThree32Bytes[:], t)
-				} 
+		var topicTwo32Bytes [32]byte
+		if t := getTopicIndex(logRecord.Topics, 1); t != nil {
+			copy(topicTwo32Bytes[:], t)
+		} 
 
-				var txDex [32]byte
-				binary.BigEndian.PutUint32(txDex[:4], uint32(logRecord.TxIndex))
-				
-				var BlstLog = blaster.BlastLog{
-					Block: uint64(pb.Number),
-					LogIndex: uint64(logRecord.Index),
-					Address: logRecord.Address,
-					Topic0:	topicZero32Bytes,
-					Topic1: topicOne32Bytes,
-					Topic2:	topicTwo32Bytes,
-					Topic3:	topicThree32Bytes,
-					Data: compress(logRecord.Data),
-					TransactionHash: txData[logRecord.TxIndex],
-					TransactionIndex: txDex,
-					BlockHash: pb.Hash,
-				}
+		var topicThree32Bytes [32]byte
+		if t := getTopicIndex(logRecord.Topics, 3); t != nil {
+			copy(topicThree32Bytes[:], t)
+		} 
 
-				indexer.blastIdx.PutLog(BlstLog)
+		var txDex [32]byte
+		binary.BigEndian.PutUint32(txDex[:4], uint32(logRecord.TxIndex))
+		
+		var BlstLog = blaster.BlastLog{
+			Block: uint64(pb.Number),
+			LogIndex: uint64(logRecord.Index),
+			Address: logRecord.Address,
+			Topic0:	topicZero32Bytes,
+			Topic1: topicOne32Bytes,
+			Topic2:	topicTwo32Bytes,
+			Topic3:	topicThree32Bytes,
+			Data: compress(logRecord.Data),
+			TransactionHash: txData[logRecord.TxIndex],
+			TransactionIndex: txDex,
+			BlockHash: pb.Hash,
+		}
 
-			}
+		indexer.blastIdx.PutLog(BlstLog)
+
+	}
 
 	return nil, nil
 }

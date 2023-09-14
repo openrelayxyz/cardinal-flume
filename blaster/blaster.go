@@ -17,6 +17,8 @@ import (
 
 type BlockBlaster struct {
 	DB unsafe.Pointer
+	TxQuit chan struct{}
+	LogsQuit chan struct{}
 	Lock *sync.Mutex
 }
 
@@ -28,6 +30,7 @@ type WithdrawalBlaster struct {
 type TxBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	Quit chan struct{}
 	Updates string
 	MIFile *gzip.Writer
 }
@@ -35,11 +38,12 @@ type TxBlaster struct {
 type LogBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	Quit chan struct{}
 	Updates string
 	MIFile *gzip.Writer
 }
 
-func NewBlasterBlockIndexer(dataBase string) *BlockBlaster {
+func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitCahn chan struct{}) *BlockBlaster {
 
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
@@ -62,7 +66,7 @@ func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
 	return b
 }
 
-func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
+func NewBlasterTxIndexer(dataBase string, quitChan chan struct{}, updates string) *TxBlaster {
 
 	var writer *gzip.Writer
 	currentTime := time.Now()
@@ -81,6 +85,7 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 	b := &TxBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		Quit: quitChan,
 		Updates: updates,
 		MIFile: writer,
 	}
@@ -88,7 +93,7 @@ func NewBlasterTxIndexer(dataBase, updates string) *TxBlaster {
 	return b
 }
 
-func NewBlasterLogIndexer(dataBase, updates string) *LogBlaster {
+func NewBlasterLogIndexer(dataBase string, quitChan chan struct{}, updates string) *LogBlaster {
 
 	var writer *gzip.Writer
 	currentTime := time.Now()
@@ -108,6 +113,7 @@ func NewBlasterLogIndexer(dataBase, updates string) *LogBlaster {
 	b := &LogBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		Quit: quitChan,
 		Updates: updates,
 		MIFile: writer,
 	}
