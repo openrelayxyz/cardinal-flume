@@ -174,6 +174,7 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
         for {
             select {
 			case <-indexer.blastIdx.Quit:
+				log.Error("Caught shutdown signal in txns")
                 indexer.blastIdx.Close()
             }
         }

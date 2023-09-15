@@ -106,7 +106,8 @@ func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map
         for {
             select {
 			case <-indexer.blastIdx.Quit:
-                indexer.blastIdx.Close()
+				log.Error("Caught shutdown signal in logs")
+				indexer.blastIdx.Close()
             }
         }
     }()
