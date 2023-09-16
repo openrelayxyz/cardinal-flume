@@ -43,16 +43,28 @@ type LogBlaster struct {
 	MIFile *gzip.Writer
 }
 
-func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitCahn chan struct{}) *BlockBlaster {
+func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitChan chan struct{}) *BlockBlaster {
 
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
 	b := &BlockBlaster{
 		DB: db,
+		TxQuit: txQuitChan,
+		LogsQuit: logsQuitChan,
 		Lock: new(sync.Mutex),
 	}
 	log.Info("block blaster initialized")
 	return b
+}
+
+func (b *BlockBlaster) SendTxQuit() {
+	log.Error("called quit on txns from block blaster")
+	b.TxQuit <- struct{}{}
+}
+
+func (b *BlockBlaster) SendLogsQuit() {
+	log.Error("called quit on logs from block blaster")
+	b.LogsQuit <- struct{}{}
 }
 
 func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
@@ -93,6 +105,18 @@ func NewBlasterTxIndexer(dataBase string, quitChan chan struct{}, updates string
 	return b
 }
 
+func (b *TxBlaster) ListenForTxClose() {
+	go func() {
+		for {
+			select {
+			case <- b.Quit:
+				log.Error("Caught shutdown signal in txns")
+                b.Close()
+            }
+        }
+    }()
+}
+
 func NewBlasterLogIndexer(dataBase string, quitChan chan struct{}, updates string) *LogBlaster {
 
 	var writer *gzip.Writer
@@ -121,11 +145,23 @@ func NewBlasterLogIndexer(dataBase string, quitChan chan struct{}, updates strin
 	return b
 }
 
-type sliceHeader struct {
-	p   unsafe.Pointer
-	len int
-	cap int
+func (b *LogBlaster) ListenForLogsClose() {
+	go func() {
+        for {
+            select {
+			case <- b.Quit:
+				log.Error("Caught shutdown signal in logs")
+                b.Close()
+            }
+        }
+    }()
 }
+
+// type sliceHeader struct {
+// 	p   unsafe.Pointer
+// 	len int
+// 	cap int
+// }
  
 func (b *BlockBlaster) Close() {
 	defer log.Info("close called on blocks blaster")

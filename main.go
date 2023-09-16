@@ -206,8 +206,8 @@ func main() {
 		log.Error(err.Error())
 	}
 	quit := make(chan struct{})
-	blastTxnsQuit := make(chan struct{})
-	blastLogsQuit := make(chan struct{})
+	blastTxnsQuit := make(chan struct{}, 1)
+	blastLogsQuit := make(chan struct{}, 1)
 	mut := &sync.RWMutex{}
 
 	indexes := []indexer.Indexer{}
@@ -228,6 +228,7 @@ func main() {
 		if *blastIndex!="" {
 			bITx := blaster.NewBlasterTxIndexer(cfg.CDatabases["transactions"], blastTxnsQuit, *blastIndex)
 			defer bITx.Close()
+			bITx.ListenForTxClose()
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, bITx))	
 		} else {
 			indexes = append(indexes, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, hasMempool, nil))
@@ -237,6 +238,7 @@ func main() {
 		if *blastIndex!="" {
 			bILog := blaster.NewBlasterLogIndexer(cfg.CDatabases["logs"], blastLogsQuit, *blastIndex)
 			defer bILog.Close()
+			bILog.ListenForLogsClose()
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, bILog))	
 		} else {
 			indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid, nil))

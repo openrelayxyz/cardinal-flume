@@ -4,6 +4,7 @@ package indexer
 import "C"
 
 import (
+	"os"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -198,13 +199,15 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		log.Error("Indexed block", "number", pb.Number, "age", time.Since(timestamp))
 	}
 
-	// if time.Since(timestamp) < 30 * time.Second {
-	// 	log.Info("blaster up to date with most current block", "number", uint64(pb.Number))
-	// 	indexer.blastBlockIdx.TxQuit <- struct{}{}
-	// 	indexer.blastBlockIdx.LogsQuit <- struct{}{}
-	// 	indexer.blastWithdrawalIdx.Close()
-	// 	indexer.blastBlockIdx.Close()
-	// }
+	if time.Since(timestamp) < 2 * time.Minute {
+		log.Info("blaster up to date with most current block", "number", uint64(pb.Number))
+		indexer.blastBlockIdx.SendTxQuit()
+		indexer.blastBlockIdx.SendLogsQuit()
+		time.Sleep(500 * time.Millisecond)
+		indexer.blastWithdrawalIdx.Close()
+		indexer.blastBlockIdx.Close()
+		os.Exit(0)
+	}
 
 	var totalD [32]byte
 	copy(totalD[:], td.Bytes())
