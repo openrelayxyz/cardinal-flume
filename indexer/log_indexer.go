@@ -102,15 +102,15 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map[int64]*evm.Log, txData map[uint]types.Hash) ([]string, error) {
 
-	go func() {
-        for {
-            select {
-			case <-indexer.blastIdx.Quit:
-				log.Error("Caught shutdown signal in logs")
-				indexer.blastIdx.Close()
-            }
-        }
-    }()
+	// go func() {
+    //     for {
+    //         select {
+	// 		case <-indexer.blastIdx.Quit:
+	// 			log.Error("Caught shutdown signal in logs")
+	// 			indexer.blastIdx.Close()
+    //         }
+    //     }
+    // }()
 
 	for i := 0; i < len(logData); i++ {
 
