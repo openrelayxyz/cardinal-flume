@@ -254,7 +254,6 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
 		log.Debug("flume_getTransactionReceiptsByBlockHash sent to flume heavy")
 		missMeter.Mark(1)
-		missMeter.Mark(1)
 		gtrbhMissMeter.Mark(1)
 		rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getTransactionReceiptsByBlockHash", blockHash)
 		if err != nil {
@@ -271,7 +270,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
-		log.Error("Error getting receipts", "err", err.Error())
+		log.Error("Error getting receipts, flume_getTransactionReceiptsByBlockHash", "err", err)
 		return nil, err
 	}
 	return receipts, nil
@@ -312,9 +311,10 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 
 	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
 	if err != nil {
-		log.Error("Error getting receipts", "err", err.Error())
+		log.Error("Error getting receipts, flume_getTransactionReceiptsByBlockNumber", "err", err)
 		return nil, err
 	}
+
 	return receipts, nil
 }
 

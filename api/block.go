@@ -342,3 +342,97 @@ func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash typ
 
 	return &result, nil
 }
+
+var (
+	gbrHitMeter  = metrics.NewMinorMeter("/flume/gbr/hit")
+	gbrMissMeter = metrics.NewMinorMeter("/flume/gbr/miss")
+)
+
+func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHash) ([]map[string]interface{}, error) {
+	
+	blockNumber, numOk := input.Number()
+	blockHash, hshOk := input.Hash()
+
+	if numOk{
+
+		if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+			log.Debug("eth_getBlockReceipts sent to flume heavy")
+			missMeter.Mark(1)
+			gbrMissMeter.Mark(1)
+			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockReceipts", blockNumber)
+			if err != nil {
+				return nil, err
+			}
+			return *rt, nil
+		}
+	
+	
+		if len(api.cfg.HeavyServer) > 0 {
+			log.Debug("eth_getBlockRecipts served from flume light")
+			hitMeter.Mark(1)
+			gbrHitMeter.Mark(1)
+		}
+	
+		if int64(blockNumber) < 0 {
+			latestBlock, err := getLatestBlock(ctx, api.db)
+			if err != nil {
+				return nil, err
+			}
+			blockNumber = rpc.BlockNumber(latestBlock)
+		}
+	
+		receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
+		if err != nil {
+			log.Error("Error getting receipts, eth_getBlockReciepts, blockNumber", "err", err)
+			return nil, nil
+		}
+	
+		for _, item := range receipts {
+			for k, _ := range item {
+				if k =="timestamp" {
+					delete(item, k)
+				}
+			}
+		}
+	
+		return receipts, nil
+	}
+	
+	if hshOk{
+
+		if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+			log.Debug("eth_getBlockReceipts sent to flume heavy")
+			missMeter.Mark(1)
+			gbrMissMeter.Mark(1)
+			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockReceipts", blockHash)
+			if err != nil {
+				return nil, err
+			}
+			return *rt, nil
+		}
+	
+		if len(api.cfg.HeavyServer) > 0 {
+			log.Debug("eth_getBlockReceipts served from flume light")
+			hitMeter.Mark(1)
+			gbrHitMeter.Mark(1)
+		}
+	
+		receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
+		if err != nil {
+			log.Error("Error getting receipts, eth_getBlockReciepts, blockHash", "err", err)
+			return nil, nil
+		}
+
+		for _, item := range receipts {
+			for k, _ := range item {
+				if k =="timestamp" {
+					delete(item, k)
+				}
+			}
+		}
+
+		return receipts, nil
+	}
+
+	return nil, nil
+}
