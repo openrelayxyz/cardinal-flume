@@ -123,6 +123,8 @@ func main() {
 	_, hasMempool := cfg.Databases["mempool"]
 	if hasMempool {
 		log.Info("has mempool", "mempool", cfg.Databases["mempool"])
+	} else {
+		log.Info("flume initailizing without a mempool database attached")
 	}
 
 	if hasBlocks {
