@@ -7,11 +7,10 @@ import (
 	"unsafe"
 	"sync"
 	"time"
-	// "encoding/json"
-	// "reflect"
 	"os"
 	"compress/gzip"
-
+	
+	"github.com/shirou/gopsutil/mem"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -19,12 +18,14 @@ type BlockBlaster struct {
 	DB unsafe.Pointer
 	TxQuit chan struct{}
 	LogsQuit chan struct{}
+	WithdrawalsQuit chan struct{}
 	Lock *sync.Mutex
 }
 
 type WithdrawalBlaster struct {
 	DB unsafe.Pointer
 	Lock *sync.Mutex
+	Quit chan struct{}
 }
 
 type TxBlaster struct {
@@ -43,7 +44,7 @@ type LogBlaster struct {
 	MIFile *gzip.Writer
 }
 
-func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitChan chan struct{}) *BlockBlaster {
+func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitChan, withdrawalsQuitChan chan struct{}) *BlockBlaster {
 
 	db := C.new_sqlite_block_blaster(C.CString(dataBase))
 
@@ -51,31 +52,76 @@ func NewBlasterBlockIndexer(dataBase string, txQuitChan, logsQuitChan chan struc
 		DB: db,
 		TxQuit: txQuitChan,
 		LogsQuit: logsQuitChan,
+		WithdrawalsQuit: withdrawalsQuitChan,
 		Lock: new(sync.Mutex),
 	}
 	log.Info("block blaster initialized")
 	return b
 }
 
+func (b *BlockBlaster) MonitorMemory() {
+	go func() {
+		time.Sleep(1 * time.Minute) // I figure the memory might spike when the application starts up so we'll give it a minute to warm up
+		for {
+			sm, err := mem.SwapMemory()
+			if err != nil {
+				log.Error("memory swap stat error", "err", err)
+			}
+			vm, err := mem.VirtualMemory()
+			if err != nil {
+				log.Error("memory virtual stat error", "err", err)
+			}
+			if vm.UsedPercent > 97 || sm.UsedPercent > 97 {
+				log.Error("flume blaster crossed memory threshold, exiting", "virtual used", vm.UsedPercent, "swap used", sm.UsedPercent)
+				b.SendTxQuit()
+				b.SendLogsQuit()
+				b.SendWtdQuit()
+				time.Sleep(500 * time.Millisecond)
+				b.Close()
+				os.Exit(1)
+			} 
+			time.Sleep(1 * time.Second)
+        }
+    }()
+}
+
+func (b *BlockBlaster) SendWtdQuit() {
+	log.Info("called quit on withdrawals from block blaster")
+	b.WithdrawalsQuit <- struct{}{}
+}
+
 func (b *BlockBlaster) SendTxQuit() {
-	log.Error("called quit on txns from block blaster")
+	log.Info("called quit on txns from block blaster")
 	b.TxQuit <- struct{}{}
 }
 
 func (b *BlockBlaster) SendLogsQuit() {
-	log.Error("called quit on logs from block blaster")
+	log.Info("called quit on logs from block blaster")
 	b.LogsQuit <- struct{}{}
 }
 
-func NewBlasterWithdrawalIndexer(dataBase string) *WithdrawalBlaster {
+func NewBlasterWithdrawalIndexer(dataBase string, quitChan chan struct{}) *WithdrawalBlaster {
 	db := C.new_sqlite_withdrawal_blaster(C.CString(dataBase))
 
 	b := &WithdrawalBlaster{
 		DB: db,
 		Lock: new(sync.Mutex),
+		Quit: quitChan,
 	}
 	log.Info("withdrawal blaster initialized")
 	return b
+}
+
+func (b *WithdrawalBlaster) ListenForWtdClose() {
+	go func() {
+		for {
+			select {
+			case <- b.Quit:
+				log.Info("Caught shutdown signal in withdrawals")
+                b.Close()
+            }
+        }
+    }()
 }
 
 func NewBlasterTxIndexer(dataBase string, quitChan chan struct{}, updates string) *TxBlaster {
@@ -110,7 +156,7 @@ func (b *TxBlaster) ListenForTxClose() {
 		for {
 			select {
 			case <- b.Quit:
-				log.Error("Caught shutdown signal in txns")
+				log.Info("Caught shutdown signal in txns")
                 b.Close()
             }
         }
@@ -150,7 +196,7 @@ func (b *LogBlaster) ListenForLogsClose() {
         for {
             select {
 			case <- b.Quit:
-				log.Error("Caught shutdown signal in logs")
+				log.Info("Caught shutdown signal in logs")
                 b.Close()
             }
         }

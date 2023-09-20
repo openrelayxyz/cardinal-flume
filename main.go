@@ -206,19 +206,22 @@ func main() {
 		log.Error(err.Error())
 	}
 	quit := make(chan struct{})
-	blastTxnsQuit := make(chan struct{}, 1)
-	blastLogsQuit := make(chan struct{}, 1)
+	blastTxnsQuit := make(chan struct{}, 10)
+	blastLogsQuit := make(chan struct{}, 10)
+	blastWithdrawalsQuit := make(chan struct{}, 10)
 	mut := &sync.RWMutex{}
 
 	indexes := []indexer.Indexer{}
 	if hasBlocks {
 		if *blastIndex!="" {
-			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], blastTxnsQuit, blastLogsQuit)
+			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], blastTxnsQuit, blastLogsQuit, blastWithdrawalsQuit)
 			if bIBlock != nil {
 			}
 			defer bIBlock.Close()
-			bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"])
+			bIBlock.MonitorMemory()
+			bIWtd := blaster.NewBlasterWithdrawalIndexer(cfg.CDatabases["withdrawals"], blastWithdrawalsQuit)
 			defer bIWtd.Close()
+			bIWtd.ListenForWtdClose()
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, bIBlock, bIWtd))	
 		} else {
 			indexes = append(indexes, indexer.NewBlockIndexer(cfg.Chainid, nil, nil))

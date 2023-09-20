@@ -203,8 +203,8 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		log.Info("blaster up to date with most current block", "number", uint64(pb.Number))
 		indexer.blastBlockIdx.SendTxQuit()
 		indexer.blastBlockIdx.SendLogsQuit()
+		indexer.blastBlockIdx.SendWtdQuit()
 		time.Sleep(500 * time.Millisecond)
-		indexer.blastWithdrawalIdx.Close()
 		indexer.blastBlockIdx.Close()
 		os.Exit(0)
 	}

@@ -9,9 +9,10 @@ require (
 	github.com/klauspost/compress v1.15.9
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/openrelayxyz/cardinal-evm v1.4.0
-	github.com/openrelayxyz/cardinal-rpc v1.1.0 
+	github.com/openrelayxyz/cardinal-rpc v1.1.0
 	github.com/openrelayxyz/cardinal-streams v1.2.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/xsleonard/go-merkle v1.1.0
 	golang.org/x/crypto v0.3.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -26,6 +27,7 @@ require (
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
@@ -49,6 +51,7 @@ require (
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e // indirect
 	github.com/xdg/scram v1.0.3 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
+	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
