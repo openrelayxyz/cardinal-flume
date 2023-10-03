@@ -102,16 +102,23 @@ func main() {
 	_, hasBlocks := cfg.Databases["blocks"]
 	if hasBlocks {
 		if *runCertaintyCheck {
-			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
+			var highestNumber uint64
+			err := logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&highestNumber)
 			if err != nil {
-				log.Error("Error occured when running certainty check on blocks database", "err", err)
+				log.Error("Error running certainty check on blocks database, highestNumber", "err", err)
+			}
+			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
+			if err != nil {
+				log.Error("Error running certainty check on blocks database, gaps query", "err", err)
 			}
 			defer rows.Close()
 			if rows.Next() {
 				var number uint64
 				rows.Scan(&number) 
-				log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)
-				os.Exit(1)
+				if number != highestNumber +1 { 
+					log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)	
+					os.Exit(1)
+				}
 			}
 		}
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
