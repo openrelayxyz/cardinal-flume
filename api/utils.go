@@ -50,20 +50,22 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	return present
 }
 
-func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB) bool {
-	present := true
+func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB, mempool bool) bool {
+	var present bool
 	var response int
-	txStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
+	txStatement := "SELECT 1 FROM transactions.transactions WHERE hash = ?;"
 	db.QueryRow(txStatement, trimPrefix(txHash.Bytes())).Scan(&response)
-	if response == 0 {
-		present = false
+	if response != 0 {
+		present = true
 		return present
 	}
-	mpStatement := "SELECT 1 FROM transactions.transactions AND mempool.transactions WHERE hash = ?;"
-	db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
-	if response == 0 {
-		present = false
-		return present
+	if mempool {
+		mpStatement := "SELECT 1 FROM mempool.transactions WHERE hash = ?;"
+		db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
+		if response != 0 {
+			present = true
+			return present
+		}
 	}
 	return present
 }

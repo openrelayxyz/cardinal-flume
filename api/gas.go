@@ -23,14 +23,19 @@ type GasAPI struct {
 	network uint64
 	pl      *plugins.PluginLoader
 	cfg     *config.Config
+	mempool bool
 }
 
-func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *GasAPI {
+func NewGasAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config, mempool bool) *GasAPI {
+	if !mempool {
+		log.Warn("Gas API initiated without mempool database")
+	}
 	return &GasAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
 		cfg:     cfg,
+		mempool: mempool,
 	}
 }
 
@@ -369,6 +374,15 @@ func (api *GasAPI) constructPendingBlock(ctx context.Context, lastBlock rpc.Bloc
 		return nil, err
 	}
 	baseFee := nbf.Uint64()
+
+	if !api.mempool {
+		return &pendingBlockSimulator{
+			baseFee: nbf,
+			gasUsedRatio: 0.0,
+			gasUsed: 0,
+			pendingTxns: []pendingTransaction{},
+		}, nil
+	}
 	
 	txRows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT gas, gasPrice, type, gasFeeCap, gasTipCap FROM mempool.transactions WHERE gasPrice > ? ORDER BY gasPrice DESC;", baseFee))
 	

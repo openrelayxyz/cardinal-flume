@@ -21,14 +21,19 @@ type TransactionAPI struct {
 	network uint64
 	pl      *plugins.PluginLoader
 	cfg     *config.Config
+	mempool bool
 }
 
-func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *TransactionAPI {
+func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config, mempool bool) *TransactionAPI {
+	if !mempool {
+		log.Warn("Transactions API initiated without mempool database")
+	}
 	return &TransactionAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
 		cfg:     cfg,
+		mempool: mempool,
 	}
 }
 
@@ -39,7 +44,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db, api.mempool) {
 		log.Debug("eth_getTransactionByHash sent to flume heavy")
 		missMeter.Mark(1)
 		gtbhMissMeter.Mark(1)
@@ -64,13 +69,15 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	var err error
 	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {
-		return nil, err
+		log.Error("Database error, getTransactionsBlock, eth_getTransactionByHash", "err", err)
+		return nil, nil
 	}
-	if len(txs) == 0 {
+	if len(txs) == 0 && api.mempool {
 		txs, err = getPendingTransactions(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			log.Error("Database error, getPendingTransactions, eth_getTransactionByHash", "err", err)
+			return nil, nil
+		}
 	}
 
 	result := returnSingleTransaction(txs)
@@ -170,7 +177,7 @@ var (
 )
 
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
-	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db, api.mempool) {
 		log.Debug("eth_getTransactionReceipt sent to flume heavy")
 		missMeter.Mark(1)
 		gtrcMissMeter.Mark(1)
@@ -221,12 +228,13 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 
 	var pending bool 
 	if int64(blockNumber) < 0 {
-		if blockNumber == rpc.PendingBlockNumber {
+		if blockNumber == rpc.PendingBlockNumber && api.mempool {
 			pending = true
 		}
 		latestBlock, err := getLatestBlock(ctx, api.db)
 		if err != nil {
-			return nil, err
+			log.Error("Database error, getLatestBlock, eth_getTransacactionCount", "err", err)
+			return nil, nil
 		}
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}

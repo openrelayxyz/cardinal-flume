@@ -85,7 +85,7 @@ func TestTransactionAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestTransactionAPI", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, mempool, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -95,7 +95,7 @@ func TestTransactionAPI(t *testing.T) {
 	}
 	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
-	tx := NewTransactionAPI(db, 1, pl, cfg)
+	tx := NewTransactionAPI(db, 1, pl, cfg, mempool)
 	blockObject, _ := blocksDecompress()
 	receiptsMap, _ := receiptsDecompress()
 	transactionLists := getTransactionsListsForTesting(blockObject)

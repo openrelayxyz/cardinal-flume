@@ -283,11 +283,11 @@ func main() {
 	}
 	if hasTx && hasBlocks {
 		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
-		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg, hasMempool))
 	}
 	if hasTx && hasBlocks && hasLogs {
-		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg))
-		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl, cfg))
+		tm.Register("eth", api.NewTransactionAPI(logsdb, cfg.Chainid, pl, cfg, hasMempool))
+		tm.Register("flume", api.NewFlumeAPI(logsdb, cfg.Chainid, pl, cfg, hasMempool))
 	}
 	tm.Register("debug", &metrics.MetricsAPI{})
 

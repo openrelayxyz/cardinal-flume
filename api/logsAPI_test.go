@@ -22,7 +22,7 @@ func TestLogsAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestLogsAPI", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, _, err := connectToDatabase(cfg)
 	if err != nil {
 		log.Error("LogsAPI test failure", "failed to load logsDB", err.Error())
 	}
