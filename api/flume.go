@@ -86,14 +86,12 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	if api.mempool {
-		txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
-		if err != nil {
-			log.Error("Error getting pending txs", "err", err.Error())
-			return nil, err
-		}
-		ctxs = append(ctxs, txs...)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
 	}
+	ctxs = append(ctxs, txs...)
 	
 	result := paginator[map[string]interface{}]{Items: ctxs}
 	if len(ctxs) >= 1000 {
@@ -150,14 +148,12 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx context.Context, address com
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	if api.mempool {
-		txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
-		if err != nil {
-			log.Error("Error getting pending txs", "err", err.Error())
-			return nil, err
-		}
-		ctxs = append(ctxs, txs...)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
 	}
+	ctxs = append(ctxs, txs...)
 	
 	result := paginator[map[string]interface{}]{Items: ctxs}
 	if len(ctxs) >= 1000 {
@@ -213,14 +209,12 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	if api.mempool {
-		txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
-		if err != nil {
-			log.Error("Error getting pending txs", "err", err.Error())
-			return nil, err
-		}
-		ctxs = append(ctxs, txs...)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
 	}
+	ctxs = append(ctxs, txs...)
 	
 	result := paginator[map[string]interface{}]{Items: ctxs}
 	if len(ctxs) >= 1000 {

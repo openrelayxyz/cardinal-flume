@@ -72,8 +72,8 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		log.Error("Database error, getTransactionsBlock, eth_getTransactionByHash", "err", err)
 		return nil, nil
 	}
-	if len(txs) == 0 && api.mempool {
-		txs, err = getPendingTransactions(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
+	if len(txs) == 0 {
+		txs, err = getPendingTransactions(ctx, api.db, api.mempool, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 		if err != nil {
 			log.Error("Database error, getPendingTransactions, eth_getTransactionByHash", "err", err)
 			return nil, nil
@@ -239,7 +239,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber, pending)
+	nonce, err := getSenderNonce(ctx, api.db, addr, blockNumber, pending, api.mempool)
 	if err != nil {
 		return nil, err
 	}

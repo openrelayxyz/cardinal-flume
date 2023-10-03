@@ -369,14 +369,17 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	return results, nil
 }
 
-func getPendingTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	results := []map[string]interface{}{}
+	if !mempool {
+		return results, nil
+	} 
 	query := fmt.Sprintf("SELECT transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, transactions.gasFeeCap, transactions.gasTipCap FROM mempool.transactions WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	results := []map[string]interface{}{}
 	for rows.Next() {
 		var amount, to, from, data, txHash, r, s, cAccessListRLP, gasFeeCapBytes, gasTipCapBytes []byte
 		var nonce, gasLimit, gasPrice, v uint64
@@ -615,7 +618,7 @@ func getTransactionReceiptsBlock(ctx context.Context, db *sql.DB, offset, limit 
 	return getTransactionReceiptsQuery(ctx, db, offset, limit, chainid, query, logsQuery, params...)
 }
 
-func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, blockNumber rpc.BlockNumber, pending bool) (hexutil.Uint64, error) {
+func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, blockNumber rpc.BlockNumber, pending, mempool bool) (hexutil.Uint64, error) {
 	
 	var count sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ? AND block <= ?", trimPrefix(sender.Bytes()), int64(blockNumber)).Scan(&count); err != nil {
@@ -623,7 +626,7 @@ func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, bloc
 	}
 
 	var nonce sql.NullInt64
-	if pending {
+	if pending && mempool{
 		if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM mempool.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&nonce); err != nil {
 			return 0, err
 		}
