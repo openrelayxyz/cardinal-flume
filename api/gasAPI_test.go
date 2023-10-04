@@ -43,7 +43,7 @@ func TestGasAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestGasAPI", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, mempool, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -53,7 +53,7 @@ func TestGasAPI(t *testing.T) {
 	}
 	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
-	g := NewGasAPI(db, 1, pl, cfg)
+	g := NewGasAPI(db, 1, pl, cfg, mempool)
 
 	price := "0x2a51edbe67"
 	fee := "0x9502f900"

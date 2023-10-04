@@ -26,7 +26,7 @@ import (
 
 var register sync.Once
 
-func connectToDatabase(cfg *config.Config) (*sql.DB, error) {
+func connectToDatabase(cfg *config.Config) (*sql.DB, bool, error) {
 
 	register.Do(func() {
 		sql.Register("sqlite3_hooked",
@@ -83,7 +83,7 @@ func connectToDatabase(cfg *config.Config) (*sql.DB, error) {
 		}
 	}
 
-	return logsdb, nil
+	return logsdb, hasMempool, nil
 }
 
 func blocksDecompress() ([]map[string]json.RawMessage, error) {
@@ -156,7 +156,7 @@ func TestBlockNumber(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestBlockNumber", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, _, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -182,7 +182,7 @@ func TestBlockAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestBlockApi", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, _, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

@@ -150,7 +150,7 @@ func TestFlumeAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestFlumeAPI", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, mempool, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -160,7 +160,7 @@ func TestFlumeAPI(t *testing.T) {
 	}
 	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
-	f := NewFlumeAPI(db, 1, pl, cfg)
+	f := NewFlumeAPI(db, 1, pl, cfg, mempool)
 
 	blockObject, _ := blocksDecompress()
 	receiptObject, _ := receiptsDecompress()

@@ -199,7 +199,7 @@ func testNumbers() []plugins.BlockNumberOrHash {
 	return result
 }
 
-func connectToDatabase(cfg *config.Config) (*sql.DB, error) {
+func connectToDatabase(cfg *config.Config) (*sql.DB, bool, error) {
 
 	register.Do(func() {
 		sql.Register("sqlite3_hooked",
@@ -218,7 +218,9 @@ func connectToDatabase(cfg *config.Config) (*sql.DB, error) {
 		log.Error(err.Error())
 	}
 
-	return logsdb, nil
+	_, hasMempool := cfg.Databases["mempool"]
+
+	return logsdb, hasMempool, nil
 }
 
 func NewBorAPI(db *sql.DB, cfg *config.Config) *PolygonBorService {
@@ -240,7 +242,7 @@ func TestPolygonApi(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	db, _ := connectToDatabase(cfg)
+	db, mempool, _ := connectToDatabase(cfg)
 	for _, path := range cfg.Databases {
 		defer os.Remove(path)
 		defer os.Remove(path + "-wal")
@@ -256,8 +258,10 @@ func TestPolygonApi(t *testing.T) {
 	if err := migrations.MigrateLogs(db, cfg.Chainid); err != nil {
 		t.Fatalf(err.Error())
 	}
-	if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
-		t.Fatalf(err.Error())
+	if mempool {
+		if err := migrations.MigrateMempool(db, cfg.Chainid); err != nil {
+			t.Fatalf(err.Error())
+		}
 	}
 	if err := Migrate(db, cfg.Chainid); err != nil {
 		t.Fatalf(err.Error())
@@ -269,7 +273,7 @@ func TestPolygonApi(t *testing.T) {
 	}
 	indexers := []indexer.Indexer{}
 	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
-	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, false))
+	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, mempool))
 	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
 	indexers = append(indexers, Indexer(cfg))
 
@@ -618,7 +622,7 @@ func TestPolygonApi(t *testing.T) {
 		})
 	}
 
-	tx := api.NewTransactionAPI(db, 137, pl, cfg)
+	tx := api.NewTransactionAPI(db, 137, pl, cfg, mempool)
 
 	for i, hash := range borTxHashes {
 		t.Run(fmt.Sprintf("GetTransactionByHash %v", i), func(t *testing.T) {

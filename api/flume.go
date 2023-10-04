@@ -23,14 +23,19 @@ type FlumeAPI struct {
 	network uint64
 	pl      *plugins.PluginLoader
 	cfg     *config.Config
+	mempool bool
 }
 
-func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config) *FlumeAPI {
+func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *config.Config, mempool bool) *FlumeAPI {
+	if !mempool {
+		log.Warn("Flume API initiated without mempool database")
+	}
 	return &FlumeAPI{
 		db:      db,
 		network: network,
 		pl:      pl,
 		cfg:     cfg,
+		mempool: mempool,
 	}
 }
 
@@ -76,20 +81,21 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx context.Context, address common
 	if offset == nil {
 		offset = new(int)
 	}
-	txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
-	if err != nil {
-		log.Error("Error getting pending txs", "err", err.Error())
-		return nil, err
-	}
 	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	txs = append(txs, ctxs...)
-	result := paginator[map[string]interface{}]{Items: txs}
-	if len(txs) >= 1000 {
-		result.Token = *offset + len(txs)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
+	}
+	ctxs = append(ctxs, txs...)
+	
+	result := paginator[map[string]interface{}]{Items: ctxs}
+	if len(ctxs) >= 1000 {
+		result.Token = *offset + len(ctxs)
 	}
 	return &result, nil
 }
@@ -137,20 +143,21 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx context.Context, address com
 	if offset == nil {
 		offset = new(int)
 	}
-	txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
-	if err != nil {
-		log.Error("Error getting pending txs", "err", err.Error())
-		return nil, err
-	}
 	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	txs = append(txs, ctxs...)
-	result := paginator[map[string]interface{}]{Items: txs}
-	if len(txs) >= 1000 {
-		result.Token = *offset + len(txs)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
+	}
+	ctxs = append(ctxs, txs...)
+	
+	result := paginator[map[string]interface{}]{Items: ctxs}
+	if len(ctxs) >= 1000 {
+		result.Token = *offset + len(ctxs)
 	}
 	return &result, nil
 }
@@ -197,20 +204,21 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx context.Context, address c
 	if offset == nil {
 		offset = new(int)
 	}
-	txs, err := getPendingTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
-	if err != nil {
-		log.Error("Error getting pending txs", "err", err.Error())
-		return nil, err
-	}
 	ctxs, err := getFlumeTransactions(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting txs", "err", err.Error())
 		return nil, err
 	}
-	txs = append(txs, ctxs...)
-	result := paginator[map[string]interface{}]{Items: txs}
-	if len(txs) >= 1000 {
-		result.Token = *offset + len(txs)
+	txs, err := getPendingTransactions(ctx, api.db, api.mempool, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+	if err != nil {
+		log.Error("Error getting pending txs", "err", err.Error())
+		return nil, err
+	}
+	ctxs = append(ctxs, txs...)
+	
+	result := paginator[map[string]interface{}]{Items: ctxs}
+	if len(ctxs) >= 1000 {
+		result.Token = *offset + len(ctxs)
 	}
 
 	return &result, nil
@@ -326,7 +334,7 @@ var (
 func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
 	// this function is not included in the api test but needs to be. 
 	
-	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db) {
+	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db, api.mempool) {
 		log.Debug("eth_getBlockByTransactionHash sent to flume heavy")
 		missMeter.Mark(1)
 		gbthMissMeter.Mark(1)
@@ -447,18 +455,18 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 
 	augmentedBytes := incrementLastByte(bytes)
 
-	mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-
 	var result []string
-
-	mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - zeros)
-	if err != nil {
-		log.Error("Error returned from mempool query in flume_transactionHashesWithPrefix", "err", err)
-		return nil, nil
-	}
-	defer mpRows.Close()
-	for mpRows.Next() {
+	
+	if api.mempool {
+		mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
+		
+		mpRows, err := api.db.QueryContext(ctx, mpStatement, bytes, augmentedBytes, 32 - zeros)
+		if err != nil {
+			log.Error("Error returned from mempool query in flume_transactionHashesWithPrefix", "err", err)
+			return nil, nil
+		}
+		defer mpRows.Close()
+		for mpRows.Next() {
 			var hashBytes []byte
 			err := mpRows.Scan(&hashBytes)
 			if err != nil {
@@ -467,6 +475,8 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 			}
 			result = append(result, hexutil.Encode(hashBytes))
 		}
+	}
+	txStatement := "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
 	
 	txRows, err := api.db.QueryContext(ctx, txStatement, bytes, augmentedBytes, 32 - zeros)
 	if err != nil {
