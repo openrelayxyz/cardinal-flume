@@ -37,7 +37,7 @@ func TestERCMethods(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestFlumeTokensAPI", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, _, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

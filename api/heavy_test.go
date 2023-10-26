@@ -21,7 +21,7 @@ func TestCallHeavy(t *testing.T) {
 	if err != nil {
 		t.Fatal("Error parsing config TestCallHeavy", "err", err.Error())
 	}
-	db, err := connectToDatabase(cfg)
+	db, mempool, err := connectToDatabase(cfg)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -115,7 +115,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetUncleCountByBlockHash did not return expected parameter hash, heavy test", "err", err.Error())
 	}
 
-	tx := NewTransactionAPI(db, 1, pl, cfg)
+	tx := NewTransactionAPI(db, 1, pl, cfg, mempool)
 
 	_, err = tx.GetTransactionByHash(context.Background(), testHash)
 	if err == nil {
@@ -202,7 +202,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetLogs did not return expected parameter address, heavy test", "err", err.Error())
 	}
 
-	g := NewGasAPI(db, 1, pl, cfg)
+	g := NewGasAPI(db, 1, pl, cfg, mempool)
 
 	var blockCount DecimalOrHex = 0x1
 	percentiles := []float64{.1, .5, .9}
@@ -226,7 +226,7 @@ func TestCallHeavy(t *testing.T) {
 		}
 	}
 
-	f := NewFlumeAPI(db, 1, pl, cfg)
+	f := NewFlumeAPI(db, 1, pl, cfg, mempool)
 
 	_, err = f.GetTransactionsBySender(context.Background(), testAddress, nil)
 	if err == nil {
