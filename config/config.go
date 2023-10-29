@@ -108,6 +108,10 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 5
+	case "holesky":
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 17000
 	case "sepolia":
 		cfg.Chainid = 11155111
 	case "kiln":
