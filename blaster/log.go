@@ -85,7 +85,7 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 
 func (b *LogBlaster) appendToFile(number uint64, data []byte, logIndex uint64) {
 
-	statement := fmt.Sprintf("UPDATE event_logs SET data = X'%x' WHERE block = X'%x' AND logIndex = X'%x';", data, number, logIndex)
+	statement := fmt.Sprintf("UPDATE event_logs SET data = X'%x' WHERE block = %v AND logIndex = %v;", data, number, logIndex)
 
 	_, err := b.MIFile.Write([]byte(statement + "\n"))
 	if err != nil {

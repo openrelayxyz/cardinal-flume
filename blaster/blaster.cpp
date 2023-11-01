@@ -141,9 +141,9 @@ void sqlb_close(void* sqibv) {
 
 void* new_sqlite_withdrawal_blaster(const char *fname) {
     sqlite_index_blaster* sqwb = new sqlite_index_blaster(
-        11, // Column count 
+        6, // Column count 
         2, // PK size
-        "block, logIndex, address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash",  // Column names
+        "block, wtdrlIndex, vldtrIndex, address, amount, blockHash",  // Column names
         "withdrawals", // Table name
         4096, // Page size
         40000, //Cache size
