@@ -33,9 +33,19 @@ type outerResult struct {
 	Id		int			   `json:"id"`
 }
 
-func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
+func genesisAppend(stmnts []string) []string {
+	filteredStatments := []string{}
+	for _, statement := range stmnts {
+		if !strings.HasPrefix(statement, "DELETE") {
+			filteredStatments = append(filteredStatments, statement)
+		}
+	}
+	return filteredStatments
+}
 
-	if cfg.LatestBlock > 0 {
+func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex, genAppend bool) error {
+
+	if !genAppend && cfg.LatestBlock > 0 {
 		log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
 		return nil
 	}
@@ -46,7 +56,7 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	for _, broker := range cfg.BrokerParams {
 		if strings.HasPrefix(broker.URL, "ws://") || strings.HasPrefix(broker.URL, "wss://") {
 			wsURL = broker.URL
-			log.Info("found websocket broker, reindexer", "broker", wsURL) 
+			log.Info("found websocket broker, genesis indexer", "broker", wsURL) 
 			break
 		}
 	}
@@ -101,6 +111,9 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 
 	for _, indexer := range indexers {
 			statements, err := indexer.Index(pb.ToPendingBatch())
+			if genAppend {
+				statements = genesisAppend(statements)
+			}
 			if err != nil {
 				log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
 				return err

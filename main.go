@@ -32,7 +32,8 @@ func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
-	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
+	genesisIndex := flag.Bool("genesisIndex", false, "initiate indexing of empty databases from genesis block, will skip if databases not empty")
+	genesisAppend := flag.Bool("genesisAppend", false, "append genesis to existing databases, application will close once completed")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	blastIndex := flag.String("blastIndex", "", "trigger to put flume into batch indexing mode, string argument will be the location of sql updates file(s)")
@@ -257,8 +258,22 @@ func main() {
 		}
 	}
 
+	
+	if *genesisAppend {
+		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut, true)
+		if err != nil {
+			log.Error("Failed to append genesis block", "err", err.Error())
+			panic(err)
+		} else {
+			log.Info("genesis block appended")
+			logsdb.Close()
+			time.Sleep(time.Second)
+			os.Exit(1)
+		}
+	}
+	
 	if *genesisIndex {
-		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut)
+		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut, false)
 		if err != nil {
 			log.Error("Failed to index genesis block", "err", err.Error())
 			panic(err)
@@ -266,6 +281,7 @@ func main() {
 			log.Info("genesis block indexed")
 		}
 	}
+
 
 	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config, *sql.DB, []indexer.Indexer) error)
