@@ -36,7 +36,6 @@ func main() {
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	blastIndex := flag.String("blastIndex", "", "trigger to put flume into batch indexing mode, string argument will be the location of sql updates file(s)")
-	blastAPI := flag.Bool("blasterAPI", false, "test blast databases")
 	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
 	
 	flag.CommandLine.Parse(os.Args[1:])
@@ -58,17 +57,10 @@ func main() {
 
 	pl.Initialize(cfg)
 
-	dbs := map[string]string{}
-	if *blastAPI {
-		dbs = cfg.CDatabases 
-	} else {
-		dbs = cfg.Databases
-	}
-
 	sql.Register("sqlite3_hooked",
 		&sqlite3.SQLiteDriver{
 			ConnectHook: func(conn *sqlite3.SQLiteConn) error {
-				for name, path := range dbs {
+				for name, path := range cfg.Databases {
 					conn.Exec(fmt.Sprintf("ATTACH DATABASE '%v' AS '%v'; PRAGMA %v.page_size = 65536 ; PRAGMA %v.journal_mode = WAL ; PRAGMA %v.synchronous = OFF ; pragma %v.max_page_count = 4294967294;", path, name, name, name, name, name), nil)
 				}
 				return nil
@@ -146,9 +138,6 @@ func main() {
 		log.Info("flume initailizing without a mempool database attached")
 	}
 
-
-	if !*blastAPI {
-
 	if hasBlocks && *blastIndex=="" {
 		if err := migrations.MigrateBlocks(logsdb, cfg.Chainid); err != nil {
 			log.Error(err.Error())
@@ -172,8 +161,6 @@ func main() {
 			log.Error(err.Error())
 		}
 	}
-
-}
 
 	// TODO: plugin migration scenerios need to be considered in a blaster context
 	
