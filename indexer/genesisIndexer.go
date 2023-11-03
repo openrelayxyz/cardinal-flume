@@ -34,13 +34,13 @@ type outerResult struct {
 }
 
 func genesisAppend(stmnts []string) []string {
-	filteredStatments := []string{}
+	filteredStatements := make([]string, 0, len(stmnts))
 	for _, statement := range stmnts {
 		if !strings.HasPrefix(statement, "DELETE") {
-			filteredStatments = append(filteredStatments, statement)
+			filteredStatements = append(filteredStatements, statement)
 		}
 	}
-	return filteredStatments
+	return filteredStatements
 }
 
 func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex, genAppend bool) error {
@@ -49,7 +49,6 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 		log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
 		return nil
 	}
-
 
 	var wsURL string
 
