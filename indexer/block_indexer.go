@@ -196,7 +196,7 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 	timestamp := time.Unix(int64(header.Time), 0)
 
 	if pb.Number % 100 == 0 {
-		log.Error("Indexed block", "number", pb.Number, "age", time.Since(timestamp))
+		log.Info("Blast indexed block", "number", pb.Number, "age", time.Since(timestamp))
 	}
 
 	if time.Since(timestamp) < 2 * time.Minute {
