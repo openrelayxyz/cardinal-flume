@@ -20,7 +20,7 @@ type BlastTx struct {
 	GasPrice uint64
 	Input []byte
 	Nonce uint64
-	Recipient [20]byte
+	Recipient []byte
 	TransactionIndex uint64
 	Value []byte
 	V uint64
@@ -49,6 +49,7 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	var accListPtr *C.char
 	var gFeePtr *C.char
 	var gTipPtr *C.char
+	var reciPtr *C.char
 	
 	blockInt := C.longlong(tx.Block)
 	hashPtr := (*C.char)(C.CBytes(tx.Hash[:32]))
@@ -63,7 +64,10 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		inputPtr = (*C.char)(C.CBytes(tx.Input[:inputLen]))
 	} 
 	nonceInt := C.longlong(tx.Nonce)
-	reciPtr := (*C.char)(C.CBytes(tx.Recipient[:20]))
+	rcptLen := (C.size_t)(len(tx.Recipient))
+	if rcptLen > 0 {
+		reciPtr = (*C.char)(C.CBytes(tx.Recipient[:rcptLen]))
+	}
 	transDexInt := C.longlong(tx.TransactionIndex)
 	valueLen := (C.size_t)(len(tx.Value))
 	if valueLen > 0 {
@@ -111,6 +115,7 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		inputLen,
 		nonceInt,
 		reciPtr,
+		rcptLen,
 		transDexInt,
 		valuePtr,
 		valueLen,

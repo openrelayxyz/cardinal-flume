@@ -26,6 +26,17 @@ func trimPrefix(data []byte) []byte {
 	return v
 }
 
+func trimSuffix(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	v := bytes.TrimRight(data, string([]byte{0}))
+	if len(v) == 0 {
+		return []byte{0}
+	}
+	return v
+}
+
 var compressor *zlib.Writer
 var compressionBuffer = bytes.NewBuffer(make([]byte, 0, 5*1024*1024))
 var blockAgeTimer = metrics.NewMajorTimer("/flume/age")

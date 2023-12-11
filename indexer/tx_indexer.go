@@ -204,30 +204,34 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 
 		// it is possible for recipients to be null as in the case of tx 42 on block 3999873
 
-		var to20Bytes [20]byte
+		// var to20Bytes []byte
+		// if reci := transaction.To(); reci != nil {
+		// 	copy(to20Bytes[:], trimPrefix(reci.Bytes()))
+		// } 
+		var toBytes []byte
 		if reci := transaction.To(); reci != nil {
-			copy(to20Bytes[:], reci.Bytes())
-		} 
+			toBytes =  trimPrefix(reci.Bytes())
+		}
 
 		rBytes := r.Bytes()
 		var r32Bytes [32]byte
-		copy(r32Bytes[:], rBytes)
+		copy(r32Bytes[32-len(rBytes):], rBytes)
 
 		sBytes := s.Bytes()
 		var s32Bytes [32]byte
-		copy(s32Bytes[:], sBytes)
+		copy(s32Bytes[32-len(sBytes):], sBytes)
 
 		funcBytes := getFuncSig(transaction.Data())
 		var func4Bytes [4]byte
 		copy(func4Bytes[:], funcBytes)
 
-		gfcBigBytes := transaction.GasFeeCap().Bytes()
-		var gfcBytes []byte
-		copy(gfcBytes[:], gfcBigBytes)
+		// gfcBigBytes := transaction.GasFeeCap().Bytes()
+		// var gfcBytes []byte
+		// copy(gfcBytes[:], gfcBigBytes)
 
-		gtcBigBytes := transaction.GasTipCap().Bytes()
-		var gtcBytes []byte
-		copy(gtcBytes[:], gtcBigBytes)
+		// gtcBigBytes := transaction.GasTipCap().Bytes()
+		// var gtcBytes []byte
+		// copy(gtcBytes[:], gtcBigBytes)
 
 		var BlstTx = blaster.BlastTx{
 			Hash: transaction.Hash(),
@@ -236,7 +240,8 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 			GasPrice: uint64(gasPrice),
 			Input: []byte(input),
 			Nonce: uint64(transaction.Nonce()),
-			Recipient: to20Bytes,
+			// Recipient: to20Bytes,
+			Recipient: toBytes,
 			TransactionIndex: uint64(i),
 			Value: []byte(transaction.Value().Bytes()),
 			V: uint64(v.Int64()),
@@ -251,8 +256,10 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 			Status: uint64(receipt.Status),
 			Type: uint64(transaction.Type()),
 			Accesslist: []byte(compress(accessListRLP)),
-			GasFeeCap: gfcBytes,
-			GasTipCap: gtcBytes,
+			// GasFeeCap: gfcBytes,
+			GasFeeCap: trimPrefix(transaction.GasFeeCap().Bytes()),
+			// GasTipCap: gtcBytes,
+			GasTipCap: trimPrefix(transaction.GasTipCap().Bytes()),
 		}
 		indexer.blastIdx.PutTx(BlstTx)
 

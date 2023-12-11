@@ -62,7 +62,7 @@ void* new_sqlite_tx_blaster(const char *fname) {
 
 const uint8_t tx_col_types[] = {SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
-void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, long long transactionIndex, 
+void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, size_t recipientLength, long long transactionIndex, 
 char* value, size_t valueLength, long long v, char* r, char* s, char* sender, char* func, char* contractAddress, size_t contractAddressLength, long long cumulativeGasUsed, 
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength) {
@@ -71,7 +71,7 @@ char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength
     int rec_len;
     sqtb = (sqlite_index_blaster*)sqibv;
     const void *rec_values[] = {hash, &block, &gas, &gasPrice, input, &nonce, recipient, &transactionIndex, value, &v, r, s, sender, func, contractAddress, &cumulativeGasUsed, &gasUsed, logsBloom, &status, &type, accessList, gasFeeCap, gasTipCap};
-    const size_t value_lens[] = {32, 8, 8, 8, inputLength, 8, 20, 8, valueLength, 8, 32, 32, 20, 4, contractAddressLength, 8, 8, logsBloomLength, 8, 8, accessListLength, gasFeeCapLength, gasTipCapLength};
+    const size_t value_lens[] = {32, 8, 8, 8, inputLength, 8, recipientLength, 8, valueLength, 8, 32, 32, 20, 4, contractAddressLength, 8, 8, logsBloomLength, 8, 8, accessListLength, gasFeeCapLength, gasTipCapLength};
     size_t buf_size = 0;
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
