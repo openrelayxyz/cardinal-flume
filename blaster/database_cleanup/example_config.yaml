@@ -1,0 +1,8 @@
+blocks_db: '/path/to/blaster/blocks.sqlite'
+tx_db: '/path/to/blaster/transactions.sqlite'
+logs_db: '/path/to/blaster/logs.sqlite'
+wdls_db: '/path/to/blaster/withdrawals.sqlite'
+
+missing_statements : '/path/to/blaster/missing/'
+tmp_dir: '/path/to/desired/directory`
+
