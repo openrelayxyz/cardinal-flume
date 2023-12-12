@@ -10,10 +10,10 @@ import (
 
 type BlastLog struct {
 	Address [20]byte
-	Topic0 [32]byte
-	Topic1 [32]byte
-	Topic2 [32]byte
-	Topic3 [32]byte
+	Topic0 []byte
+	Topic1 []byte
+	Topic2 []byte
+	Topic3 []byte
 	Data []byte
 	Block uint64
 	LogIndex uint64
@@ -36,10 +36,22 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 	blockInt := C.longlong(lg.Block)
 	logDexInt := C.longlong(lg.LogIndex)
 	addressPtr = (*C.char)(C.CBytes(lg.Address[:20]))
-	topic0Ptr = (*C.char)(C.CBytes(lg.Topic0[:32]))
-	topic1Ptr = (*C.char)(C.CBytes(lg.Topic1[:32]))
-	topic2Ptr = (*C.char)(C.CBytes(lg.Topic2[:32]))
-	topic3Ptr = (*C.char)(C.CBytes(lg.Topic3[:32]))
+	topic0len := (C.size_t)(len(lg.Topic0))
+	if topic0len > 0 {
+		topic0Ptr = (*C.char)(C.CBytes(lg.Topic0[:topic0len]))
+	}
+	topic1len := (C.size_t)(len(lg.Topic1))
+	if topic1len > 0 {
+		topic1Ptr = (*C.char)(C.CBytes(lg.Topic1[:topic1len]))
+	}
+	topic2len := (C.size_t)(len(lg.Topic2))
+	if topic2len > 0 {
+		topic2Ptr = (*C.char)(C.CBytes(lg.Topic2[:topic2len]))
+	}
+	topic3len := (C.size_t)(len(lg.Topic3))
+	if topic3len > 0 {
+		topic3Ptr = (*C.char)(C.CBytes(lg.Topic3[:topic3len]))
+	}
 	dataLen := (C.size_t)(len(lg.Data))
 	if dataLen > 20000 { // This value may need to be adjusted
 		dataPtr = (*C.char)(C.CBytes([]byte{}))
@@ -60,9 +72,13 @@ func (b *LogBlaster) PutLog(lg BlastLog) {
 		logDexInt,
 		addressPtr,
 		topic0Ptr,
+		topic0len,
 		topic1Ptr,
+		topic1len,
 		topic2Ptr,
+		topic2len,
 		topic3Ptr,
+		topic3len,
 		dataPtr,
 		dataLen,
 		transHashPtr,

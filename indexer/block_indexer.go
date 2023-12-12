@@ -215,19 +215,8 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 	var baseFee [32]byte
 	copy(baseFee[32-(len(header.BaseFee.Bytes())):], header.BaseFee.Bytes())
 
-	// var wHash [32]byte
-	// if header.WithdrawalsHash != nil {
-	// 	copy(wHash[:], header.WithdrawalsHash.Bytes())
-	// }
-
-	// var blockHash [32]byte
-	// if len(pb.Hash) != 0 {
-	// 	copy(blockHash[:], trimPrefix(pb.Hash.Bytes()))
-	// }
-
 	var BlstBlck = blaster.BlastBlock{
 		Number: uint64(pb.Number),
-		// Hash: blockHash,
 		Hash: [32]byte(pb.Hash),
 		ParentHash: [32]byte(pb.ParentHash),
 		UncleHash: [32]byte(header.UncleHash),
@@ -247,7 +236,6 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		Size: uint64(size),
 		Td: totalD,
 		BaseFee: baseFee,
-		// WithdrawalHash: wHash,
 		WithdrawalHash: [32]byte(*header.WithdrawalsHash),
 	}
 
@@ -259,14 +247,10 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 
 		for _, wtdrl := range withdrawals {
 
-			// var address [20]byte
-			// copy(address[:], trimPrefix(wtdrl.Address[:]))
-
 			var BlstWthdrl = blaster.BlastWithdrawal{
 			Block: uint64(pb.Number),
 			WithdrawalIndex: uint64(wtdrl.Index),
 			ValidatorIndex: uint64(wtdrl.Validator),
-			// Address: address,
 			Address: [20]byte(wtdrl.Address),
 			Amount: wtdrl.Amount,
 			BlockHash: [32]byte(pb.Hash),

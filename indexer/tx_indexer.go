@@ -170,22 +170,8 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Header, txData map[int]*evm.Transaction, receiptData map[int]*cardinalReceiptMeta, senderMap map[types.Hash]<-chan common.Address) ([]string, error) {
 
-	// go func() {
-    //     for {
-    //         select {
-	// 		case <-indexer.blastIdx.Quit:
-	// 			log.Error("Caught shutdown signal in txns")
-    //             indexer.blastIdx.Close()
-    //         }
-    //     }
-    // }()
-
 	for i := 0; i < len(txData); i++ {
 
-		// if pb.Number != block {
-		// 	log.Error("block", "tx block", pb.Number)
-		// }
-		// block = pb.Number
 		transaction := txData[int(i)]
 		receipt := receiptData[int(i)]
 		sender := <-senderMap[transaction.Hash()]
@@ -202,12 +188,6 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 		}
 		input := getCopy(compress(transaction.Data()))
 
-		// it is possible for recipients to be null as in the case of tx 42 on block 3999873
-
-		// var to20Bytes []byte
-		// if reci := transaction.To(); reci != nil {
-		// 	copy(to20Bytes[:], trimPrefix(reci.Bytes()))
-		// } 
 		var toBytes []byte
 		if reci := transaction.To(); reci != nil {
 			toBytes =  trimPrefix(reci.Bytes())
@@ -225,24 +205,15 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 		var func4Bytes [4]byte
 		copy(func4Bytes[:], funcBytes)
 
-		// gfcBigBytes := transaction.GasFeeCap().Bytes()
-		// var gfcBytes []byte
-		// copy(gfcBytes[:], gfcBigBytes)
-
-		// gtcBigBytes := transaction.GasTipCap().Bytes()
-		// var gtcBytes []byte
-		// copy(gtcBytes[:], gtcBigBytes)
-
 		var BlstTx = blaster.BlastTx{
-			Hash: transaction.Hash(),
 			Block: uint64(pb.Number),
+			TransactionIndex: uint64(i),
+			Hash: transaction.Hash(),
 			Gas: uint64(transaction.Gas()),
 			GasPrice: uint64(gasPrice),
 			Input: []byte(input),
 			Nonce: uint64(transaction.Nonce()),
-			// Recipient: to20Bytes,
 			Recipient: toBytes,
-			TransactionIndex: uint64(i),
 			Value: []byte(transaction.Value().Bytes()),
 			V: uint64(v.Int64()),
 			R: r32Bytes,
@@ -256,9 +227,7 @@ func (indexer TxIndexer) batchTxIndex(pb *delivery.PendingBatch, header *evm.Hea
 			Status: uint64(receipt.Status),
 			Type: uint64(transaction.Type()),
 			Accesslist: []byte(compress(accessListRLP)),
-			// GasFeeCap: gfcBytes,
 			GasFeeCap: trimPrefix(transaction.GasFeeCap().Bytes()),
-			// GasTipCap: gtcBytes,
 			GasTipCap: trimPrefix(transaction.GasTipCap().Bytes()),
 		}
 		indexer.blastIdx.PutTx(BlstTx)

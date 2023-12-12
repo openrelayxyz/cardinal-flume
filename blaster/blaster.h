@@ -19,12 +19,12 @@ void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash,
 
 void sqib_put_withdrawal(void* sqibv, long long block, long long wthdrlIndex, long long vldtrIndex, char* address, long long amount, char* blockHash);
 
-void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, size_t recipientLength, long long transactionIndex, 
+void sqib_put_tx(void* sqibv, long long block, long long transactionIndex, char* hash, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, size_t recipientLength, 
 char* value, size_t valueLength, long long v, char* r, char* s, char* sender, char* func, char* contractAddress, size_t contractAddressLength, long long cumulativeGasUsed, 
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength);
 
-void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, char* topic1, char* topic2, char* topic3, char* data, size_t dataLength, char* transactionHash, char* transacitonIndex, char* blockHash);
+void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, size_t topic0Length, char* topic1, size_t topic1Length, char* topic2, size_t topic2Length, char* topic3, size_t topic3Length, char* data, size_t dataLength, char* transactionHash, char* transacitonIndex, char* blockHash);
 
 void sqbb_close(void* sqibv);
 void sqwb_close(void* sqibv);

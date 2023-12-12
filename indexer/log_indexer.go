@@ -102,38 +102,28 @@ func (indexer *LogIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 
 func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map[int64]*evm.Log, txData map[uint]types.Hash) ([]string, error) {
 
-	// go func() {
-    //     for {
-    //         select {
-	// 		case <-indexer.blastIdx.Quit:
-	// 			log.Error("Caught shutdown signal in logs")
-	// 			indexer.blastIdx.Close()
-    //         }
-    //     }
-    // }()
-
 	for i := 0; i < len(logData); i++ {
 
 		logRecord := logData[int64(i)]
 
-		var topicZero32Bytes [32]byte
+		var topicZeroBytes []byte
 		if t := getTopicIndex(logRecord.Topics, 0); t != nil {
-			copy(topicZero32Bytes[:], t)
+			topicZeroBytes = t
 		} 
 
-		var topicOne32Bytes [32]byte
+		var topicOneBytes []byte
 		if t := getTopicIndex(logRecord.Topics, 1); t != nil {
-			copy(topicOne32Bytes[:], t)
+			topicOneBytes = t
 		} 
 
-		var topicTwo32Bytes [32]byte
-		if t := getTopicIndex(logRecord.Topics, 1); t != nil {
-			copy(topicTwo32Bytes[:], t)
+		var topicTwoBytes []byte
+		if t := getTopicIndex(logRecord.Topics, 2); t != nil {
+			topicTwoBytes = t
 		} 
 
-		var topicThree32Bytes [32]byte
+		var topicThreeBytes []byte
 		if t := getTopicIndex(logRecord.Topics, 3); t != nil {
-			copy(topicThree32Bytes[:], t)
+			topicThreeBytes =  t
 		} 
 
 		var txDex [32]byte
@@ -143,10 +133,10 @@ func (indexer *LogIndexer) batchLogIndex (pb *delivery.PendingBatch, logData map
 			Block: uint64(pb.Number),
 			LogIndex: uint64(logRecord.Index),
 			Address: logRecord.Address,
-			Topic0:	topicZero32Bytes,
-			Topic1: topicOne32Bytes,
-			Topic2:	topicTwo32Bytes,
-			Topic3:	topicThree32Bytes,
+			Topic0:	topicZeroBytes,
+			Topic1: topicOneBytes,
+			Topic2:	topicTwoBytes,
+			Topic3:	topicThreeBytes,
 			Data: compress(logRecord.Data),
 			TransactionHash: txData[logRecord.TxIndex],
 			TransactionIndex: txDex,

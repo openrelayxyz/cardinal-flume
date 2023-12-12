@@ -6,11 +6,6 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
-	// "encoding/json"
-	// log "github.com/inconshreveable/log15"
-
-	// "github.com/openrelayxyz/cardinal-types/hexutil"
-	// "github.com/openrelayxyz/cardinal-types"
 )
 
 type BlastTx struct {
@@ -107,8 +102,9 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 
 	C.sqib_put_tx(
 		b.DB,
-		hashPtr,
 		blockInt, 
+		transDexInt,
+		hashPtr,
 		gasInt,
 		gasPriceInt,
 		inputPtr,
@@ -116,7 +112,6 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 		nonceInt,
 		reciPtr,
 		rcptLen,
-		transDexInt,
 		valuePtr,
 		valueLen,
 		vInt,

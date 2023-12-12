@@ -50,8 +50,9 @@ void sqbb_close(void* sqibv) {
 void* new_sqlite_tx_blaster(const char *fname) {
     sqlite_index_blaster* sqtb = new sqlite_index_blaster(
         23, // Column count 
-        1, // PK size
-        "hash, block, gas, gasPrice, input, nonce, recipient, transactionIndex, value, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, status, type, access_list, gasFeeCap, gasTipCap",  // Column names
+        2, // PK size
+        // "hash, block, gas, gasPrice, input, nonce, recipient, transactionIndex, value, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, status, type, access_list, gasFeeCap, gasTipCap",  // Column names
+        "block, transactionIndex, hash, gas, gasPrice, input, nonce, recipient, value, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, status, type, access_list, gasFeeCap, gasTipCap",  // Column names
         "transactions", // Table name
         4096, // Page size
         40000, //Cache size
@@ -60,9 +61,9 @@ void* new_sqlite_tx_blaster(const char *fname) {
     return (void*)sqtb;
 }
 
-const uint8_t tx_col_types[] = {SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
+const uint8_t tx_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
-void sqib_put_tx(void* sqibv, char* hash, long long block, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, size_t recipientLength, long long transactionIndex, 
+void sqib_put_tx(void* sqibv, long long block, long long transactionIndex, char* hash, long long gas, long long gasPrice, char* input, size_t inputLength, long long nonce, char* recipient, size_t recipientLength, 
 char* value, size_t valueLength, long long v, char* r, char* s, char* sender, char* func, char* contractAddress, size_t contractAddressLength, long long cumulativeGasUsed, 
 long long gasUsed, char* logsBloom, size_t logsBloomLength, long long status, long long type, char* accessList, size_t accessListLength, 
 char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength) {
@@ -70,8 +71,8 @@ char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength
     sqlite_index_blaster* sqtb;
     int rec_len;
     sqtb = (sqlite_index_blaster*)sqibv;
-    const void *rec_values[] = {hash, &block, &gas, &gasPrice, input, &nonce, recipient, &transactionIndex, value, &v, r, s, sender, func, contractAddress, &cumulativeGasUsed, &gasUsed, logsBloom, &status, &type, accessList, gasFeeCap, gasTipCap};
-    const size_t value_lens[] = {32, 8, 8, 8, inputLength, 8, recipientLength, 8, valueLength, 8, 32, 32, 20, 4, contractAddressLength, 8, 8, logsBloomLength, 8, 8, accessListLength, gasFeeCapLength, gasTipCapLength};
+    const void *rec_values[] = {&block, &transactionIndex, hash, &gas, &gasPrice, input, &nonce, recipient, value, &v, r, s, sender, func, contractAddress, &cumulativeGasUsed, &gasUsed, logsBloom, &status, &type, accessList, gasFeeCap, gasTipCap};
+    const size_t value_lens[] = {8, 8, 32, 8, 8, inputLength, 8, recipientLength, valueLength, 8, 32, 32, 20, 4, contractAddressLength, 8, 8, logsBloomLength, 8, 8, accessListLength, gasFeeCapLength, gasTipCapLength};
     size_t buf_size = 0;
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
@@ -114,13 +115,13 @@ void* new_sqlite_log_blaster(const char *fname) {
 
 const uint8_t log_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
-void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, char* topic1, char* topic2, char* topic3, char* data, size_t dataLength, char* transactionHash, char* transactionIndex, char* blockHash) {
+void sqib_put_log(void* sqibv, long long block, long long logIndex, char* address, char* topic0, size_t topic0length, char* topic1, size_t topic1length, char* topic2, size_t topic2length, char* topic3, size_t topic3length, char* data, size_t dataLength, char* transactionHash, char* transactionIndex, char* blockHash) {
 
     sqlite_index_blaster* sqlb;
     int rec_len;
     sqlb = (sqlite_index_blaster*)sqibv;
     const void *rec_values[] = {&block, &logIndex, address, topic0, topic1, topic2, topic3, data, transactionHash, transactionIndex, blockHash};
-    const size_t value_lens[] = {8, 8, 20, 32, 32, 32, 32, dataLength, 32, 32, 32};
+    const size_t value_lens[] = {8, 8, 20, topic0length, topic1length, topic2length, topic3length, dataLength, 32, 32, 32};
     size_t buf_size = 0;
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
