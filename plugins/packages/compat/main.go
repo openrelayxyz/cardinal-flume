@@ -165,18 +165,38 @@ func accountTxList(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	if headBlockNumber > uint64(endBlock) {
 		endBlock = int(headBlockNumber)
 	}
-	rows, err := db.QueryContext(
-		r.Context(),
-		fmt.Sprintf(`SELECT
-      transactions.block, blocks.time, transactions.hash, transactions.nonce, blocks.hash, transactions.transactionIndex, transactions.recipient, transactions.sender, transactions.value, transactions.gas, transactions.gasPrice, transactions.status, transactions.input, transactions.contractAddress, transactions.cumulativeGasUsed, transactions.gasUsed
+
+	var selectStmt string
+	var postBlast int
+	statement := "SELECT 1 FROM transactions.transactions WHERE id > 0 LIMIT 1;"
+	db.QueryRow(statement).Scan(&postBlast)
+	if postBlast == 0 {
+		selectStmt = fmt.Sprintf(`SELECT
+	transactions.block, blocks.time, transactions.hash, transactions.nonce, blocks.hash, transactions.transactionIndex, transactions.recipient, transactions.sender, transactions.value, transactions.gas, transactions.gasPrice, transactions.status, transactions.input, transactions.contractAddress, transactions.cumulativeGasUsed, transactions.gasUsed
+  	FROM transactions.transactions
+  	INNER JOIN blocks on blocks.number = transactions.block
+  	WHERE (transactions.block, transactions.transactionIndex) IN (
+		SELECT block, transactionIndex FROM transactions.transactions WHERE sender = ? AND (block >= ? AND block <= ?)
+		UNION SELECT block, transactionIndex FROM transactions.transactions WHERE recipient = ? AND (block >= ? AND block <= ?)
+		UNION SELECT block, transactionIndex FROM transactions.transactions WHERE contractAddress = ? AND (block >= ? AND block <= ?)
+		ORDER BY block %v, transactionIndex %v LIMIT ? OFFSET ?
+  	) ORDER BY transactions.block %v, transactions.transactionIndex %v;`, sort, sort, sort, sort)
+	} else {
+		selectStmt = fmt.Sprintf(`SELECT 
+	transactions.block, blocks.time, transactions.hash, transactions.nonce, blocks.hash, transactions.transactionIndex, transactions.recipient, transactions.sender, transactions.value, transactions.gas, transactions.gasPrice, transactions.status, transactions.input, transactions.contractAddress, transactions.cumulativeGasUsed, transactions.gasUsed
     FROM transactions.transactions
     INNER JOIN blocks on blocks.number = transactions.block
-    WHERE transactions.rowid in (
-      SELECT rowid FROM transactions.transactions WHERE sender = ? AND (block >= ? AND block <= ?)
-      UNION SELECT rowid FROM transactions.transactions WHERE recipient = ? AND (block >= ? AND block <= ?)
-      UNION SELECT rowid FROM transactions.transactions WHERE contractAddress = ? AND (block >= ? AND block <= ?)
-      ORDER BY rowid %v LIMIT ? OFFSET ?
-    ) ORDER BY transactions.block %v, transactions.transactionIndex %v;`, sort, sort, sort),
+    WHERE transactions.rowid IN (
+      	SELECT rowid FROM transactions.transactions WHERE sender = ? AND (block >= ? AND block <= ?)
+      	UNION SELECT rowid FROM transactions.transactions WHERE recipient = ? AND (block >= ? AND block <= ?)
+      	UNION SELECT rowid FROM transactions.transactions WHERE contractAddress = ? AND (block >= ? AND block <= ?)
+      	ORDER BY rowid %v LIMIT ? OFFSET ?
+    ) ORDER BY transactions.block %v, transactions.transactionIndex %v;`, sort, sort, sort)
+	}
+
+	rows, err := db.QueryContext(
+		r.Context(),
+		selectStmt,
 		plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
 	if handleApiError(err, w, "database error", "Error! Database error", "Error querying", 500) {
 		return
@@ -295,20 +315,42 @@ func accountTokenTransferList(w http.ResponseWriter, r *http.Request, db *sql.DB
 	if nft {
 		topic3Comparison = "IS NOT"
 	}
+
+	var selectStmt string
+	var postBlast int
+	statement := "SELECT 1 FROM transactions.transactions WHERE id > 0 LIMIT 1;"
+	db.QueryRow(statement).Scan(&postBlast)
+	if postBlast == 0 {
+		selectStmt = fmt.Sprintf(`SELECT
+  	blocks.number, blocks.time, transactions.hash, transactions.nonce, blocks.hash, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.address, event_logs.data, transactions.transactionIndex, transactions.gas, transactions.gasPrice, transactions.input, transactions.cumulativeGasUsed, transactions.gasUsed
+	FROM event_logs NOT INDEXED
+	INNER JOIN blocks on blocks.number = event_logs.block
+	INNER JOIN transactions.transactions on event_logs.transactionHash = transactions.hash
+	WHERE
+  	(event_logs.block, event_logs.logIndex) IN (
+		SELECT block, logIndex FROM event_logs INDEXED BY topic1_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic1 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
+		UNION SELECT block, logIndex FROM event_logs INDEXED BY topic2_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic2 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
+		ORDER BY block %v, logIndex %v LIMIT ? OFFSET ?
+  	)
+	ORDER BY blocks.number %v, event_logs.logIndex %v`, topic3Comparison, topic3Comparison, sort, sort, sort, sort)
+	} else {
+		selectStmt = fmt.Sprintf(`SELECT
+	blocks.number, blocks.time, transactions.hash, transactions.nonce, blocks.hash, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.address, event_logs.data, transactions.transactionIndex, transactions.gas, transactions.gasPrice, transactions.input, transactions.cumulativeGasUsed, transactions.gasUsed
+  	FROM event_logs NOT INDEXED
+  	INNER JOIN blocks on blocks.number = event_logs.block
+  	INNER JOIN transactions.transactions on event_logs.transactionHash = transactions.hash
+  	WHERE
+	event_logs.rowid IN (
+	  SELECT rowid FROM event_logs INDEXED BY topic1_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic1 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
+	  UNION SELECT rowid FROM event_logs INDEXED BY topic2_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic2 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
+	  ORDER BY rowid %v LIMIT ? OFFSET ?
+	)
+  	ORDER BY blocks.number %v, event_logs.logIndex %v`, topic3Comparison, topic3Comparison, sort, sort, sort)
+	} 
+
 	rows, err := db.QueryContext(
 		r.Context(),
-		fmt.Sprintf(`SELECT
-      blocks.number, blocks.time, transactions.hash, transactions.nonce, blocks.hash, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.address, event_logs.data, transactions.transactionIndex, transactions.gas, transactions.gasPrice, transactions.input, transactions.cumulativeGasUsed, transactions.gasUsed
-    FROM event_logs NOT INDEXED
-    INNER JOIN blocks on blocks.number = event_logs.block
-    INNER JOIN transactions.transactions on event_logs.transactionHash = transactions.hash
-    WHERE
-      event_logs.rowid IN (
-        SELECT rowid FROM event_logs INDEXED BY topic1_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic1 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
-        UNION SELECT rowid FROM event_logs INDEXED BY topic2_partial WHERE event_logs.topic0 = X'ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' AND event_logs.topic2 = ? AND event_logs.topic3 %v NULL AND (block >= ? AND block <= ?)
-        ORDER BY rowid %v LIMIT ? OFFSET ?
-      )
-    ORDER BY blocks.number %v, event_logs.logIndex %v`, topic3Comparison, topic3Comparison, sort, sort, sort),
+		selectStmt,
 		plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, plugins.TrimPrefix(addr.Bytes()), startBlock, endBlock, offset, (page-1)*offset)
 	if handleApiError(err, w, "database error", "Error! Database error", "Error processing", 500) {
 		return
