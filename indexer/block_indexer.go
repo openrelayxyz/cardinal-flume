@@ -215,6 +215,11 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 	var baseFee [32]byte
 	copy(baseFee[32-(len(header.BaseFee.Bytes())):], header.BaseFee.Bytes())
 
+	var wh []byte
+	if header.WithdrawalsHash != nil {
+		wh = header.WithdrawalsHash.Bytes()
+	}
+
 	var BlstBlck = blaster.BlastBlock{
 		Number: uint64(pb.Number),
 		Hash: [32]byte(pb.Hash),
@@ -236,7 +241,7 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		Size: uint64(size),
 		Td: totalD,
 		BaseFee: baseFee,
-		WithdrawalHash: [32]byte(*header.WithdrawalsHash),
+		WithdrawalHash: wh,
 	}
 
 	indexer.blastBlockIdx.PutBlock(BlstBlck)

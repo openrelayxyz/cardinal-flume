@@ -21,13 +21,13 @@ void* new_sqlite_block_blaster(const char *fname) {
 const uint8_t block_col_types[] = {SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_INT64, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB, SQLT_TYPE_BLOB};
 
 
-void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash, char* uncleHash, char* coinbase, char* root, char* txRoot, char* receiptRoot, char* bloom, size_t bloomLength, long long difficulty, long long gasLimit, long long gasUsed, long long time, char* extra, size_t extraLength, char* mixDigest, long long nonce, char* uncles, size_t unclesLength, long long size, char* td, char* baseFee, char* withdrawalHash) {
+void sqib_put_block(void* sqibv, long long number, char* hash, char* parentHash, char* uncleHash, char* coinbase, char* root, char* txRoot, char* receiptRoot, char* bloom, size_t bloomLength, long long difficulty, long long gasLimit, long long gasUsed, long long time, char* extra, size_t extraLength, char* mixDigest, long long nonce, char* uncles, size_t unclesLength, long long size, char* td, char* baseFee, char* withdrawalHash, size_t whLength) {
 
     sqlite_index_blaster* sqbb;
     int rec_len;
     sqbb = (sqlite_index_blaster*)sqibv;
     const void *rec_values[] = {&number, hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, &difficulty, &gasLimit, &gasUsed, &time, extra, mixDigest, &nonce, uncles, &size, td, baseFee, withdrawalHash};
-    const size_t value_lens[] = {8, 32, 32, 32, 20, 32, 32, 32, bloomLength, 8, 8, 8, 8, extraLength, 32, 8, unclesLength, 8, 32, 32, 32};
+    const size_t value_lens[] = {8, 32, 32, 32, 20, 32, 32, 32, bloomLength, 8, 8, 8, 8, extraLength, 32, 8, unclesLength, 8, 32, 32, whLength};
     size_t buf_size = 0;
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];

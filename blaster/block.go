@@ -28,7 +28,7 @@ type BlastBlock struct {
 	Size uint64
 	Td [32]byte
 	BaseFee [32]byte
-	WithdrawalHash [32]byte
+	WithdrawalHash []byte
 }
 
 func (b *BlockBlaster) PutBlock(bck BlastBlock) {
@@ -67,7 +67,10 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 	sInt := C.longlong(bck.Size)
 	tdPtr := (*C.char)(C.CBytes(bck.Td[:32]))
 	bfPtr := (*C.char)(C.CBytes(bck.BaseFee[:32]))
-	wthdHashPtr = (*C.char)(C.CBytes(bck.WithdrawalHash[:32]))
+	whLen := (C.size_t)(len(bck.WithdrawalHash))
+	if whLen > 0 {
+		wthdHashPtr = (*C.char)(C.CBytes(bck.WithdrawalHash[:whLen]))
+	}
 
 	b.Lock.Lock()
 
@@ -97,6 +100,7 @@ func (b *BlockBlaster) PutBlock(bck BlastBlock) {
 		tdPtr,
 		bfPtr,
 		wthdHashPtr,
+		whLen,
 	)
 
 	defer C.free(unsafe.Pointer(hPtr))
