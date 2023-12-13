@@ -59,11 +59,13 @@ In this mode, a table is created with just 2 columns, `key` and `value` as shown
 
 int main() {
 
-    std::string col_names = "key, value"; // -std >= c++11
-    sqlite_index_blaster sqib(2, 1, col_names, "kv_index", 4096, 40, "kv_idx.db");
-    sqib.put_string("hello", "world");
+    std::string col_names = "key, value";
+    sqib::sqlite_index_blaster sqib(2, 1, col_names, "kv_index", 4096, 40, "kv_idx.db");
+    std::string key = "hello";
+    std::string val = "world";
+    sqib.put_string(key, val);
+    sqib.close();
     return 0;
-    // db file is flushed and closed when sqib is destroyed
 
 }
 ```
@@ -91,10 +93,13 @@ To retrieve the inserted values, use `get` method as shown below
 #include <string>
 
 int main() {
-    std::string col_names = "key, value"; // -std >= c++11
-    sqlite_index_blaster sqib(2, 1, col_names, "kv_index", 4096, 40, "kv_idx.db");
-    sqib.put_string("hello", "world");
-    std::cout << "Value of hello is " << sqib.get_string("hello", "not_found") << std::endl;
+    std::string col_names = "key, value";
+    sqib::sqlite_index_blaster sqib(2, 1, col_names, "kv_index", 4096, 40, "kv_idx.db");
+    std::string key = "hello";
+    std::string val = "world";
+    sqib.put_string(key, val);
+    std::cout << "Value of hello is " << sqib.get_string(key, "not_found") << std::endl;
+    sqib.close();
     return 0;
 }
 ```
@@ -107,14 +112,17 @@ In this mode, a table is created with just 2 columns, `key` and `doc` as shown b
 #include "sqlite_index_blaster.h"
 #include <string>
 
-const char * json1 = "{\"name\": \"Alice\", \"age\": 25, \"email\": \"alice@example.com\"}";
-const char * json2 = "{\"name\": \"George\", \"age\": 32, \"email\": \"george@example.com\"}";
+std::string json1 = "{\"name\": \"Alice\", \"age\": 25, \"email\": \"alice@example.com\"}";
+std::string json2 = "{\"name\": \"George\", \"age\": 32, \"email\": \"george@example.com\"}";
 
 int main() {
-    std::string col_names = "key, doc"; // -std >= c++11
-    sqlite_index_blaster sqib(2, 1, col_names, "doc_index", 4096, 40, "doc_store.db");
-    sqib.put_string("primary_contact", json1);
-    sqib.put_string("secondary_contact", json2);
+    std::string col_names = "key, doc";
+    sqib::sqlite_index_blaster sqib(2, 1, col_names, "doc_index", 4096, 40, "doc_store.db");
+    std::string pc = "primary_contact";
+    sqib.put_string(pc, json1);
+    std::string sc = "secondary_contact";
+    sqib.put_string(sc, json2);
+    sqib.close();
     return 0;
 }
 ```
@@ -142,7 +150,7 @@ const uint8_t col_types[] = {SQLT_TYPE_TEXT, SQLT_TYPE_INT8, SQLT_TYPE_INT8, SQL
 int main() {
 
     std::string col_names = "student_name, age, maths_marks, physics_marks, chemistry_marks, average_marks";
-    sqlite_index_blaster sqib(6, 2, col_names, "student_marks", 4096, 40, "student_marks.db");
+    sqib::sqlite_index_blaster sqib(6, 2, col_names, "student_marks", 4096, 40, "student_marks.db");
 
     int8_t maths, physics, chemistry, age;
     double average;
@@ -247,6 +255,18 @@ Sqlite Index Blaster and its command line tools are dual-licensed under the MIT 
 
 - The MIT License
 - The GNU Affero General Public License v3 (AGPL-3.0)
+
+# License for AI bots
+
+The license mentioned is only applicable for humans and this work is NOT available for AI bots.
+
+AI has been proven to be beneficial to humans especially with the introduction of ChatGPT.  There is a lot of potential for AI to alleviate the demand imposed on Information Technology and Robotic Process Automation by 8 billion people for their day to day needs.
+
+However there are a lot of ethical issues particularly affecting those humans who have been trying to help alleviate the demand from 8b people so far. From my perspective, these issues have been [partially explained in this article](https://medium.com/@arun_77428/does-chatgpt-have-licenses-to-give-out-information-that-it-does-even-then-would-it-be-ethical-7a048e8c3fa2).
+
+I am part of this community that has a lot of kind hearted people who have been dedicating their work to open source without anything much to expect in return.  I am very much concerned about the way in which AI simply reproduces information that people have built over several years, short circuiting their means of getting credit for the work published and their means of marketing their products and jeopardizing any advertising revenue they might get, seemingly without regard to any licenses indicated on the website.
+
+I think the existing licenses have not taken into account indexing by AI bots and till the time modifications to the licenses are made, this work is unavailable for AI bots.
 
 # Support
 

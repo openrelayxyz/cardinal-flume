@@ -34,8 +34,12 @@
 #include <vector>
 
 #include "sqlite_index_blaster.h"
+#include "sqlite_appendix.h"
 
 using namespace std;
+using namespace sqib;
+
+const char *dir_name = "tests_out";
 
 void print_usage() {
   printf("\nTesting Sqlite Index Blaster\n");
@@ -109,14 +113,14 @@ void release_parsed_csv(char *parsed_csv[], int col_count) {
 int create_db(int argc, char *argv[]) {
   int page_size = atoi(argv[3]);
   if (!validate_page_size(page_size))
-    return SQLT_RES_ERR;
+    return SQIB_RES_ERR;
   int col_count = atoi(argv[5]);
   int pk_col_count = atoi(argv[6]);
   remove(argv[2]);
   cout << "Creating db " << argv[2] << ", table " << argv[4] << ", page size: " << page_size << endl;
   cout << "Col count: " << col_count << ", pk count: " << pk_col_count << ", Cols: " << argv[7] << endl;
   sqlite_index_blaster sqib(col_count, pk_col_count, argv[7], argv[4], page_size, 400, argv[2]);
-  return SQLT_RES_OK;
+  return SQIB_RES_OK;
 }
 
 bool file_exists(const char *filename) {
@@ -129,7 +133,7 @@ int insert_db(int argc, char *argv[]) {
     cout << "File does not exist" << endl;
   int page_size = atoi(argv[3]);
   if (!validate_page_size(page_size))
-    return SQLT_RES_ERR;
+    return SQIB_RES_ERR;
   int col_count = atoi(argv[4]);
   int pk_col_count = atoi(argv[5]);
   sqlite_index_blaster sqib(col_count, pk_col_count, "", "", page_size, 320, argv[2]);
@@ -141,7 +145,7 @@ int insert_db(int argc, char *argv[]) {
     sqib.put(rec, -rec_len, NULL, 0);
     release_parsed_csv(parsed_csv, col_count);
   }
-  return SQLT_RES_OK;
+  return SQIB_RES_OK;
 }
 
 int read_db(int argc, char *argv[]) {
@@ -149,7 +153,7 @@ int read_db(int argc, char *argv[]) {
     cout << "File does not exist" << endl;
   int page_size = atoi(argv[3]);
   if (!validate_page_size(page_size))
-    return SQLT_RES_ERR;
+    return SQIB_RES_ERR;
   int col_count = atoi(argv[4]);
   int pk_col_count = atoi(argv[5]);
   sqlite_index_blaster sqib(col_count, pk_col_count, "", "", page_size, 320, argv[2]);
@@ -174,7 +178,7 @@ int read_db(int argc, char *argv[]) {
   free(val);
   free(rec);
   release_parsed_csv(parsed_csv, pk_col_count);
-  return SQLT_RES_OK;
+  return SQIB_RES_OK;
 }
 
 // Returns how many bytes the given integer will
@@ -324,8 +328,8 @@ bool run_cmd(char cmd[]) {
 }
 
 const string census_col_names = "cum_prop100k, rank, name, year, count, prop100k, pctwhite, pctblack, pctapi, pctaian, pct2prace, pcthispanic";
-const uint8_t census_col_types[] = {SQLT_TYPE_REAL, SQLT_TYPE_INT32, SQLT_TYPE_TEXT, SQLT_TYPE_INT32, SQLT_TYPE_INT32, SQLT_TYPE_REAL,
-                               SQLT_TYPE_REAL, SQLT_TYPE_REAL, SQLT_TYPE_REAL, SQLT_TYPE_REAL, SQLT_TYPE_REAL, SQLT_TYPE_REAL};
+const uint8_t census_col_types[] = {SQIB_TYPE_REAL, SQIB_TYPE_INT32, SQIB_TYPE_TEXT, SQIB_TYPE_INT32, SQIB_TYPE_INT32, SQIB_TYPE_REAL,
+                               SQIB_TYPE_REAL, SQIB_TYPE_REAL, SQIB_TYPE_REAL, SQIB_TYPE_REAL, SQIB_TYPE_REAL, SQIB_TYPE_REAL};
 
 bool test_census(int page_size, int cache_size, const char *filename) {
 
@@ -410,9 +414,9 @@ bool test_census(int page_size, int cache_size, const char *filename) {
   sprintf(cmd, "sqlite3 %s \"pragma integrity_check\"", filename);
   if (run_cmd(cmd)) {
       sprintf(cmd, "sqlite3 %s \"select cum_prop100k, rank, name, year, count, prop100k, pctwhite, pctblack, pctapi,"
-                    " pctaian, pct2prace, pcthispanic from surnames order by name, rank\" > census.txt", filename);
+                    " pctaian, pct2prace, pcthispanic from surnames order by name, rank\" > tests_out/census.txt", filename);
       run_cmd(cmd);
-      strcpy(cmd, "cmp census.txt sample_data/census_cmp.txt");
+      strcpy(cmd, "cmp tests_out/census.txt sample_data/census_cmp.txt");
       return run_cmd(cmd);
   }
 
@@ -424,7 +428,7 @@ bool test_census() {
   for (int i = 9; i < 17; i++) {
     char filename[30];
     int page_size = 1 << i;
-    sprintf(filename, "census_%d.db", page_size);
+    sprintf(filename, "tests_out/census_%d.db", page_size);
     cout << "Testing " << filename << endl;
     bool ret = test_census(page_size, 4096, filename);
     if (!ret)
@@ -434,7 +438,7 @@ bool test_census() {
 }
 
 const string baby_col_names = "year, state, name, total_babies, primary_sex, primary_sex_ratio, per_100k_in_state";
-const uint8_t baby_col_types[] = {SQLT_TYPE_INT32, SQLT_TYPE_TEXT, SQLT_TYPE_TEXT, SQLT_TYPE_INT32, SQLT_TYPE_TEXT, SQLT_TYPE_REAL, SQLT_TYPE_REAL};
+const uint8_t baby_col_types[] = {SQIB_TYPE_INT32, SQIB_TYPE_TEXT, SQIB_TYPE_TEXT, SQIB_TYPE_INT32, SQIB_TYPE_TEXT, SQIB_TYPE_REAL, SQIB_TYPE_REAL};
 
 bool test_babynames(int page_size, int cache_size, const char *filename) {
 
@@ -496,12 +500,12 @@ bool test_babynames(int page_size, int cache_size, const char *filename) {
       file.close();
   }
   delete sqib;
-  char cmd[100];
+  char cmd[150];
   sprintf(cmd, "sqlite3 %s \"pragma integrity_check\"", filename);
   if (run_cmd(cmd)) {
-      sprintf(cmd, "sqlite3 %s \"select * from gendered_names order by state,name\" > babynames.txt", filename);
+      sprintf(cmd, "sqlite3 %s \"select * from gendered_names order by state,name\" > tests_out/babynames.txt", filename);
       run_cmd(cmd);
-      strcpy(cmd, "cmp babynames.txt sample_data/babynames_cmp.txt");
+      strcpy(cmd, "cmp tests_out/babynames.txt sample_data/babynames_cmp.txt");
       return run_cmd(cmd);
   }
 
@@ -513,7 +517,7 @@ bool test_babynames() {
   for (int i = 9; i < 17; i++) {
     char filename[30];
     int page_size = 1 << i;
-    sprintf(filename, "babynames_%d.db", page_size);
+    sprintf(filename, "tests_out/babynames_%d.db", page_size);
     cout << "Testing " << filename << endl;
     bool ret = test_babynames(page_size, 4096, filename);
     if (!ret)
@@ -523,6 +527,87 @@ bool test_babynames() {
 }
 
 const string const_kv = "key, value";
+
+bool test_wordfreq() {
+  for (int i = 9; i < 17; i++) {
+    char filename[30];
+    int page_size = 1 << i;
+    sprintf(filename, "tests_out/wordfreq_%d.db", page_size);
+    cout << "Testing " << filename << endl;
+    remove(filename);
+    sqlite_index_blaster *sqib = new sqlite_index_blaster(2, 1, const_kv,
+                                    "word_freq", page_size, 1024, filename);
+    ifstream file("sample_data/word_freq.txt");
+    if (file.is_open()) {
+        string line;
+        while (getline(file, line)) {
+          uint8_t rec[line.length() + 100];
+          const void *col_values[1] = {line.c_str()};
+          int rec_len = sqib->make_new_rec(rec, 1, col_values, NULL, NULL);
+          sqib->put(rec, -rec_len, NULL, 0);
+        }
+    }
+    file.close();
+    delete sqib;
+    char cmd[150];
+    sprintf(cmd, "sqlite3 %s \"pragma integrity_check\"", filename);
+    if (run_cmd(cmd)) {
+        sprintf(cmd, "sqlite3 -separator '' %s \"select * from word_freq\" > tests_out/word_freq_sorted.txt", filename);
+        run_cmd(cmd);
+        strcpy(cmd, "cmp tests_out/word_freq_sorted.txt sample_data/word_freq_sorted_uniq.txt");
+        if (!run_cmd(cmd)) {
+          cout << "Compare failed: " << filename << endl;
+          return false;
+        }
+    }
+  }
+  return true;
+}
+
+bool test_appendix() {
+  for (int i = 9; i < 17; i++) {
+  //for (int i = 15; i < 17; i++) {
+    for (int j = 0; j < 4; j++) {
+      char filename[50];
+      int page_size = 1 << i;
+      sprintf(filename, "tests_out/wf_append_%d_%d.db", page_size, j);
+      cout << "Testing " << filename << endl;
+      remove(filename);
+      sqlite_appendix *sqa = new sqlite_appendix(filename, page_size, 0, 1, 1, "key", "word_freq");
+      ifstream file("sample_data/word_freq_sorted_uniq.txt");
+      ofstream file_out("tests_out/word_freq_out.txt");
+      if (file.is_open()) {
+          string line;
+          while (getline(file, line)) {
+            uint8_t rec[line.length() + 100];
+            const void *col_values[1] = {line.c_str()};
+            if (sqa->append_rec(col_values) != SQIB_RES_OK) {
+              file.close();
+              return false;
+            }
+            file_out << line << endl;
+            if (sqa->is_testcase(j))
+              break;
+          }
+      }
+      file.close();
+      file_out.close();
+      delete sqa;
+      char cmd[150];
+      sprintf(cmd, "sqlite3 %s \"pragma integrity_check\"", filename);
+      if (run_cmd(cmd)) {
+          sprintf(cmd, "sqlite3 -separator '' %s \"select * from word_freq\" > tests_out/word_freq_appended.txt", filename);
+          run_cmd(cmd);
+          strcpy(cmd, "cmp tests_out/word_freq_appended.txt tests_out/word_freq_out.txt");
+          if (!run_cmd(cmd)) {
+            cout << "Compare failed: " << filename << endl;
+            return true;
+          }
+      }
+    }
+  }
+  return true;
+}
 
 bool test_random_data(int page_size, long start_count, int cache_size, char *filename) {
   remove(filename);
@@ -576,13 +661,14 @@ bool test_random_data(long start_count, int cache_size) {
   for (int i = 9; i < 17; i++) {
     char filename[30];
     int page_size = 1 << i;
-    sprintf(filename, "test_%d.db", page_size);
+    sprintf(filename, "tests_out/test_%d.db", page_size);
     bool ret = test_random_data(page_size, start_count, cache_size, filename);
     if (!ret)
       return false;
-    char cmd[100];
+    char cmd[150];
     sprintf(cmd, "sqlite3 %s \"pragma integrity_check\"", filename);
-    return run_cmd(cmd);
+    if (!run_cmd(cmd))
+      return false;
   }
   return true;
 }
@@ -600,21 +686,29 @@ int main(int argc, char *argv[]) {
   } else
   if (argc == 2 && strcmp(argv[1], "-t") == 0) {
     int ret = 1;
+    if (!file_exists(dir_name))
+      // 777 (rwx) not required, but getting Permission denied otherwise
+      mkdir(dir_name, 0777);
     // test with lowest possible cache size
     if (test_random_data(150000, 256)) {
-      // test file > 1gb
-      //if (test_random_data(1400000, 64 * 1024)) {
+      // // test file > 1gb - disabled as it requires much resources
+      // if (test_random_data(1400000, 64 * 1024)) {
         if (test_babynames()) {
           if (test_census()) {
-            cout << "All tests ok" << endl;
-            ret = 0;
+            if (test_wordfreq()) {
+              if (test_appendix()) {
+                cout << "All tests ok" << endl;
+                ret = 0;
+              }
+            }
           }
         }
-      //}
+      // }
     }
     return ret;
-  } else
+  } else {
     print_usage();
+  }
 
   return 0;
 
