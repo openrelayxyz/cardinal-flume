@@ -199,15 +199,15 @@ func (indexer *BlockIndexer) blockBatchIndex(header *evm.Header, pb *delivery.Pe
 		log.Info("Blast indexed block", "number", pb.Number, "age", time.Since(timestamp))
 	}
 
-	if pb.Number == 483978 {
-		log.Info("Closing for problematic holesky gap")
-		indexer.blastBlockIdx.SendTxQuit()
-		indexer.blastBlockIdx.SendLogsQuit()
-		indexer.blastBlockIdx.SendWtdQuit()
-		time.Sleep(500 * time.Millisecond)
-		indexer.blastBlockIdx.Close()
-		os.Exit(0)
-	}
+	// if pb.Number == 483978 {
+	// 	log.Info("Closing for problematic holesky gap")
+	// 	indexer.blastBlockIdx.SendTxQuit()
+	// 	indexer.blastBlockIdx.SendLogsQuit()
+	// 	indexer.blastBlockIdx.SendWtdQuit()
+	// 	time.Sleep(500 * time.Millisecond)
+	// 	indexer.blastBlockIdx.Close()
+	// 	os.Exit(0)
+	// }
 
 	if time.Since(timestamp) < 2 * time.Minute {
 		log.Info("blaster up to date with most current block", "number", uint64(pb.Number))
