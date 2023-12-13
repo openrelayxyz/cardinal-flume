@@ -344,7 +344,7 @@ public:
     }
     uint8_t *get_disk_page_in_cache(int disk_page, uint8_t *block_to_keep = NULL, bool is_new = false) {
         if (disk_page < skip_page_count)
-            std::cout << "WARNING: asking disk_page: " << disk_page << std::endl;
+            std::cout << "WARNING: asking disk_page: " << disk_page << " skip_page_count: " << skip_page_count << std::endl;
         if (disk_page == skip_page_count)
             return root_block;
         int cache_pos = 0;
