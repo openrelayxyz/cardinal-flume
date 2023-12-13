@@ -6,6 +6,8 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
+
+	log "github.com/inconshreveable/log15"
 )
 
 type BlastTx struct {
@@ -96,6 +98,15 @@ func (b *TxBlaster) PutTx(tx BlastTx) {
 	gTipLen := (C.size_t)(len(tx.GasTipCap))
 	if gTipLen > 0 {
 		gTipPtr = (*C.char)(C.CBytes(tx.GasTipCap[:gTipLen]))
+	}
+
+	if tx.Block == 483978 {
+		log.Error("this is the block", "block", blockInt, "tdex", transDexInt, "hashptr", hashPtr, "gasint", gasInt,
+		"gasprice", gasPriceInt, "inputptr", inputPtr, "inputLen", inputLen, "nonceint", nonceInt, "reciptr", reciPtr,
+		"rcptLen", rcptLen, "valueptr", valuePtr, "valueLen", valueLen, "vint", vInt, "rptr", rPtr, "sptr", sPtr, "sendptr", sendPtr,
+		"funcptr", funcPtr, "conaddptr", conAddPtr, "conaddlen", conAddLen, "cumgas", cumulativeGasUsedInt, "gasuse", gasUsedInt,
+		"bloomptr", bloomPtr, "bloomlen", bloomLen, "statint", statInt, "typeInt", typeInt, "acclistptr", accListPtr,
+		"acclistlen", accListLen, "gfeePtr", gFeePtr, "gfeelen", gFeeLen, "gtipptr", gTipPtr, "gtiplen", gTipLen)
 	}
 
 	b.Lock.Lock()
