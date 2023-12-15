@@ -23,7 +23,7 @@ union page_ptr {
     uint8_t *ptr;
 };
 
-#define BPT_MAX_LVL_COUNT 10
+#define BPT_MAX_LVL_COUNT 16
 class bptree_iter_ctx {
     public:
         page_ptr pages[BPT_MAX_LVL_COUNT];
