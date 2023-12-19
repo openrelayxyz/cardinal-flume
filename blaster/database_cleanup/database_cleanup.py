@@ -65,7 +65,10 @@ def copy_table(source_db, target_db):
 
     print("copying migrations table initiated")
     source_cursor.execute(f"ATTACH DATABASE '{target_db}' AS target")
-    source_cursor.execute(f"CREATE TABLE target.withdrawals AS SELECT * FROM withdrawals")
+    source_cursor.execute("CREATE TABLE withdrawals(block, wtdrlIndex, vldtrIndex, address, amount, blockHash, PRIMARY KEY (block, wtdrlIndex,)) WITHOUT ROWID;")
+    source_cursor(f"INSERT INTO withdrawls SELECT * FROM target.withdrawals;")
+    # source_cursor.execute(f"CREATE TABLE target.withdrawals AS SELECT * FROM withdrawals")
+    # needs t be edited such that the primary key is block. withdrawl index
     source_conn.commit()
 
     source_cursor.close()
