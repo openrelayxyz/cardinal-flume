@@ -55,24 +55,26 @@ def migrate_database(db_file, data_type):
     cursor.close()
     conn.close()
 
-def copy_table(source_db, target_db):
-    source_conn = sqlite3.connect(source_db)
-    target_conn = sqlite3.connect(target_db)
-    # target_conn.execute(f"PRAGMA temp_store_directory = {tmp_dir};")
-
+def copy_table(withdrawals_db, blocks_db):
+    source_conn = sqlite3.connect(withdrawals_db)
     source_cursor = source_conn.cursor()
+    
+    target_conn = sqlite3.connect(blocks_db)
     target_cursor = target_conn.cursor()
 
-    print("copying migrations table initiated")
-    source_cursor.execute(f"ATTACH DATABASE '{target_db}' AS target")
-    source_cursor.execute("CREATE TABLE withdrawals(block, wtdrlIndex, vldtrIndex, address, amount, blockHash, PRIMARY KEY (block, wtdrlIndex,)) WITHOUT ROWID;")
-    source_cursor(f"INSERT INTO withdrawls SELECT * FROM target.withdrawals;")
+    # target_conn.execute(f"PRAGMA temp_store_directory = {tmp_dir};")
+
+    print("copying withdrawals table initiated")
+    target_cursor.execute(f"ATTACH DATABASE '{withdrawals_db}' AS source")
+    target_cursor.execute("CREATE TABLE withdrawals(block, wtdrlIndex, vldtrIndex, address, amount, blockHash, PRIMARY KEY (block, wtdrlIndex,)) WITHOUT ROWID;")
+    target_cursor(f"INSERT INTO withdrawls SELECT * FROM source.withdrawals;")
     # source_cursor.execute(f"CREATE TABLE target.withdrawals AS SELECT * FROM withdrawals")
     # needs t be edited such that the primary key is block. withdrawl index
-    source_conn.commit()
+    target_conn.commit()
 
     source_cursor.close()
     target_cursor.close()
+    
     source_conn.close()
     target_conn.close()
 
