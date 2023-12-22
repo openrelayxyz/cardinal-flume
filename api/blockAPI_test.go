@@ -152,17 +152,7 @@ func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []types.Hash {
 	return result
 }
 
-func accessListRoutine(t *testing.T, test interface{}, control json.RawMessage, method, numHash interface{}, txIndex int) {
-	var delineator interface{}
-	switch method{
-	case "GetBlockByNumber":
-		delineator = numHash.(rpc.BlockNumber)
-	case "GetBlockByHash":
-		delineator = numHash.(types.Hash)
-	default:
-		t.Fatalf("unrecognized method type in accessListRoutine, method %v", method)
-	}
-
+func accessListRoutine(t *testing.T, test interface{}, control json.RawMessage, method string, delineator, txIndex interface{}) {
 	testList := test.(*ctypes.AccessList)
 	if len(*testList) > 0 {
 		var controlList *ctypes.AccessList

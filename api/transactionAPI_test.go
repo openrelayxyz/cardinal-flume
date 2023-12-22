@@ -110,6 +110,9 @@ func TestTransactionAPI(t *testing.T) {
 			}
 			for k, v := range *actual {
 				if k == "accessList" {
+					var indexable map[string]interface{}
+					indexable = *actual
+					accessListRoutine(t, indexable["accessList"], transactions[i][k], "GetTransactionByHash", hash, indexable["transactionIndex"])
 					continue
 				}
 				data, err := json.Marshal(v)
@@ -145,6 +148,9 @@ func TestTransactionAPI(t *testing.T) {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
 				for k, v := range *actual {
 					if k == "accessList" {
+						var indexable map[string]interface{}
+						indexable = *actual
+						accessListRoutine(t, indexable["accessList"], transactionLists[i][j][k], "GetTransactionByBlockHashAndIndex", h, hexutil.Uint64(j))
 						continue
 					}
 					data, err := json.Marshal(v)
@@ -164,6 +170,9 @@ func TestTransactionAPI(t *testing.T) {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
 				for k, v := range *actual {
 					if k == "accessList" {
+						var indexable map[string]interface{}
+						indexable = *actual
+						accessListRoutine(t, indexable["accessList"], transactionLists[i][j][k], "GetTransactionByBlockNumberAndIndex", n, hexutil.Uint64(j))
 						continue
 					}
 					data, err := json.Marshal(v)
