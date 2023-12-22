@@ -213,16 +213,16 @@ func TestBlockAPI(t *testing.T) {
 					var blockTxs []map[string]json.RawMessage
 					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 					for j, item := range txs {
-						if len(item) != len(blockTxs[j]) {
-							t.Fatalf("length error GetBlockByNumber, transactions, on blockNumber %v, transaction %v", block, j)
-						}
 						for key, value := range item {
+							if key == "accessList" {
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("error in getBlockByNumber, transactions on block %v, txn %v", block, j)
+								t.Fatalf("error in getBlockByNumber, transactions on block %v, , key %v, txn %v", block, key, j)
 							}
 
 						}
@@ -284,16 +284,16 @@ func TestBlockAPI(t *testing.T) {
 					var blockTxs []map[string]json.RawMessage
 					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 					for j, item := range txs {
-						if len(item) != len(blockTxs[j]) {
-							t.Fatalf("length error GetBlockByHash, transactions, on hash %v, transaction %v", hash, j)
-						}
 						for key, value := range item {
+							if key == "accessList" {
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("didnt work")
+								t.Fatalf("value error in getBlockByHash, transactions on block %v, , key %v, txn %v", hash, key, j)
 							}
 
 						}

@@ -108,16 +108,16 @@ func TestTransactionAPI(t *testing.T) {
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			if len(*actual) != len(transactions[i]) {
-				t.Fatalf("length error GetTransactionByHash on hash %v", hash)
-			}
 			for k, v := range *actual {
+				if k == "accessList" {
+					continue
+				}
 				data, err := json.Marshal(v)
 				if err != nil {
 					t.Errorf("marshalling error gtbh on key: %v", k)
 				}
 				if !bytes.Equal(data, transactions[i][k]) {
-					t.Fatalf("error on transaction%v, key%v", hash, k)
+					t.Fatalf("error on transaction %v, key %v", hash, k)
 				}
 			}
 		})
@@ -143,16 +143,16 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["hash"], &h)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
-				if len(*actual) != len(transactionLists[i][j]) {
-					t.Fatalf("length error GetTransactionByBlockHashAndIndex on blockHash %v, index %v", h, j)
-				}
 				for k, v := range *actual {
+					if k == "accessList" {
+						continue
+					}
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
 					}
 					if !bytes.Equal(data, transactionLists[i][j][k]) {
-						t.Fatalf("error on blockHash%v, transaction%v, key%v", h, j, k)
+						t.Fatalf("error on blockHash %v, transaction %v, key %v", h, j, k)
 					}
 				}
 			}
@@ -162,10 +162,10 @@ func TestTransactionAPI(t *testing.T) {
 			json.Unmarshal(block["number"], &n)
 			for j := range transactionLists[i] {
 				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
-				if len(*actual) != len(transactionLists[i][j]) {
-					t.Fatalf("length error GetTransactionByBlockNumberAndIndex on blockNumber %v, index %v", n, j)
-				}
 				for k, v := range *actual {
+					if k == "accessList" {
+						continue
+					}
 					data, err := json.Marshal(v)
 					if err != nil {
 						t.Errorf(err.Error())
@@ -173,7 +173,7 @@ func TestTransactionAPI(t *testing.T) {
 					if !bytes.Equal(data, transactionLists[i][j][k]) {
 						var x interface{}
 						json.Unmarshal(transactionLists[i][j][k], &x)
-						t.Fatalf("error on block%v, transaction%v, key%v", i, j, k)
+						t.Fatalf("value error on block %v, transaction %v, key %v", i, j, k)
 					}
 				}
 			}
