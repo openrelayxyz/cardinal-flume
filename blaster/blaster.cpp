@@ -77,15 +77,7 @@ char* gasFeeCap, size_t gasFeeCapLength, char* gasTipCap, size_t gasTipCapLength
     for(int i = 0; i < sizeof(value_lens) / sizeof(value_lens[0]); i++) {
         buf_size += value_lens[i];
     } 
-     if (block < 0) {
-        std::cerr << "Error: block value is less than zero." << std::endl;
-    }
-    if (block == 4095971) {
-        std::cerr << "This proves our condition is working." << buf_size << std::endl;
-    }
-    if (block > 5000000) {
-        std::cerr << "Error: block value is greater than 5 million." << std::endl;
-    }
+  
     uint8_t rec_buf[buf_size];
     rec_len = sqtb->make_new_rec(rec_buf, 23, rec_values, value_lens, tx_col_types);
     sqtb->put(rec_buf, -rec_len, NULL, 0);
