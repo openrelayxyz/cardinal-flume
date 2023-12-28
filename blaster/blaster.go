@@ -202,12 +202,6 @@ func (b *LogBlaster) ListenForLogsClose() {
         }
     }()
 }
-
-// type sliceHeader struct {
-// 	p   unsafe.Pointer
-// 	len int
-// 	cap int
-// }
  
 func (b *BlockBlaster) Close() {
 	defer log.Info("close called on blocks blaster")

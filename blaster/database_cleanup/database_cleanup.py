@@ -35,12 +35,17 @@ migration_statements = {"blocks" : ["CREATE TABLE migrations (version integer PR
     "INSERT INTO migrations(version) VALUES(3);"]
 }
 
-def migrate_database(db_file, data_type):
+def migrate_database(db_file, data_type, tmp_dir):
     conn = sqlite3.connect(db_file)
-
-    # conn.execute(f"PRAGMA temp_store_directory = {tmp_dir};")
-    
     cursor = conn.cursor()
+
+    try:
+        cursor.execute(f'PRAGMA temp_store_directory = "{tmp_dir}"')
+        conn.commit()
+    except Exception as e:
+        print(f"Error setting temporary directory in migrate_database(), for {data_type}, in {db_file}: {e}")
+        raise
+
 
     statements = migration_statements[data_type]
 
@@ -55,21 +60,25 @@ def migrate_database(db_file, data_type):
     cursor.close()
     conn.close()
 
-def copy_table(withdrawals_db, blocks_db):
+def copy_table(withdrawals_db, blocks_db, tmp_dir):
     source_conn = sqlite3.connect(withdrawals_db)
     source_cursor = source_conn.cursor()
     
     target_conn = sqlite3.connect(blocks_db)
     target_cursor = target_conn.cursor()
 
-    # target_conn.execute(f"PRAGMA temp_store_directory = {tmp_dir};")
+    target_conn.execute(f'PRAGMA temp_store_directory = "{tmp_dir};"')
+    try:
+        target_cursor.execute(f'PRAGMA temp_store_directory = "{tmp_dir}"')
+        target_conn.commit()
+    except Exception as e:
+        print(f"Error setting temporary directory in copy_table: {e}")
+        raise
 
     print("copying withdrawals table initiated")
     target_cursor.execute(f"ATTACH DATABASE '{withdrawals_db}' AS source")
     target_cursor.execute("CREATE TABLE withdrawals(block, wtdrlIndex, vldtrIndex, address, amount, blockHash, PRIMARY KEY (block, wtdrlIndex)) WITHOUT ROWID;")
     target_cursor.execute(f"INSERT INTO withdrawals SELECT * FROM source.withdrawals;")
-    # source_cursor.execute(f"CREATE TABLE target.withdrawals AS SELECT * FROM withdrawals")
-    # needs t be edited such that the primary key is block. withdrawl index
     target_conn.commit()
 
     source_cursor.close()
@@ -80,19 +89,29 @@ def copy_table(withdrawals_db, blocks_db):
 
     print("copying migrations table completed")
 
-def inject_missing_statements(database, statements):
-
+def inject_missing_statements(database, statements, tmp_dir):
     conn = sqlite3.connect(database)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(f'PRAGMA temp_store_directory = "{tmp_dir}"')
+        conn.commit()
+    except Exception as e:
+        print(f"Error setting temporary directory in inject_missing_statements(), for {statements}, in {database}: {e}")
+        raise
+
 
     with open(statements, 'r') as sql_file:
         sql_commands = sql_file.read().split(';')[:-1]
         for command in tqdm(sql_commands, desc=f"injecting missing statments into {database}"):
-            conn.execute(command)
+            cursor.execute(command)
 
     conn.commit()
     conn.close()
 
-def gzip_test(statements):
+
+# at this point this function is inactive, it appears the os library has a problem identifying the files
+def gunzip_statements(statements):
     base_name = os.path.splitext(os.path.basename(statements))[0]
 
     try:
@@ -103,121 +122,66 @@ def gzip_test(statements):
     except Exception as e:
         print(f"error encountered in test. Error: {e}")
 
-def test():
-    print("success")
+def main(args, config=None):
 
-# def tmp_dir_check(arg):
-#     print("checking")
-#     if args.tmp_dir == "":
-#         print("empty")
-#     else:
-#         print(f"{args.tmp_dir}")
-
-def main(args):
-
-    config = parse_yaml(args.config)
+    if config == None:
+        print("No config file found")
+        return
 
     if args.mode == 'all':
-        # print(config)
-        # print(config['missing_statements'])
-    #     if args.missing_dir == None:
-    #       print("'all' argument requires missing statements location")
-    #     if args.blocks_db == None:
-    #         print("'all' argument requires blocks database location")
-    #     if args.wdls_db == None:
-    #         print("'all' argument requires missing statements location")
-    #     if args.tx_db == None:
-    #         print("'all' argument requires transactios database location")
-    #     if args.logs_db == None:
-    #         print("'all' argument requires logs database location")
-    #     # if args.tmp_dir == None:
-    #     #     print("'all' argument requires pragma tmp dir location")
-    #     else:
-        
+
         for stmnt_file in os.listdir(config['missing_statements']):
             if stmnt_file[0:2] == 'lo':
                 log_statements = os.path.join(config['missing_statements'], stmnt_file)
             if stmnt_file[0:2] == 'tx':
                 tx_statements = os.path.join(config['missing_statements'], stmnt_file)
 
-        # print(f"logs: {log_statements}, tx: {tx_statements}")
-        # print(config['tx_db'])
-
         inject_missing_statements(config['tx_db'], tx_statements)
 
         inject_missing_statements(config['logs_db'], log_statements)
 
-        copy_table(config['wdls_db'], config['blocks_db'])
+        copy_table(config['wdls_db'], config['blocks_db'], config['tmp_dir'])
 
-        migrate_database(config['blocks_db'], 'blocks')
+        migrate_database(config['blocks_db'], 'blocks', config['tmp_dir'])
 
-        migrate_database(config['tx_db'], 'transactions')
+        migrate_database(config['tx_db'], 'transactions', config['tmp_dir'])
 
-        migrate_database(config['logs_db'], 'logs')
+        migrate_database(config['logs_db'], 'logs', config['tmp_dir'])
 
-    # if args.mode == 'wdls':
-    #     # tmp_dir_check(args)
-    #     # if args.tmp_dir == None:
-    #     #     print("'withdrawals' argument requires pragma tmp dir location")
-    #     if args.blocks_db == None:
-    #         print("'withdrawals' argument requires blocks database location")
-    #     if args.wdls_db == None:
-    #         print("'withdrawals' argument requires missing statements location")
-    #     else:
-    #         # tm_dir = tmp_dir_check(args.tmp_dir)
-    #         copy_table(args.wdls_db, args.blocks_db)
+    if args.mode == 'inject':
 
-    # if args.injection:
-    #     if args.tx_db and args.logs_db == None:
-    #         print("'injection' argument requires either the logs or transactions database location")
-    #     if args.temp_dir == None:
-    #         print("'injection' argument requires pragma temp dir location")
-    #     else:
-    #         for file in [args.tx_db, args.logs_db]:
-    #             if file != None:
-    #                 db = file
-                    
-    #     for stmnt_file in os.listdir(args.statements_dir):
-    #             if stmnt_file[0:2] == 'lo' and db == args.logs_db:
-    #                 statements = os.path.join(args.statements_dir, stmnt_file)
-    #             if stmnt_file[0:2] == 'tx' and db == args.tx_db:
-    #                 statements = os.path.join(args.statements_dir, stmnt_file)
+        for stmnt_file in os.listdir(config['missing_statements']):
+            if stmnt_file[0:2] == 'lo':
+                log_statements = os.path.join(config['missing_statements'], stmnt_file)
+            if stmnt_file[0:2] == 'tx':
+                tx_statements = os.path.join(config['missing_statements'], stmnt_file)
 
-    #     # if db == args.tx_db 
-        
-    #     inject_missing_statements(db, statements)
-        
-        
-            
+        inject_missing_statements(config['tx_db'], tx_statements, config['tmp_dir'])
 
+        inject_missing_statements(config['logs_db'], log_statements, config['tmp_dir'])
 
-    # if args.migrate:
-    #     migrate(args)
+    if args.mode == 'copy':
 
+        copy_table(config['wdls_db'], config['blocks_db'], config['tmp_dir'])
 
+    if args.mode == 'migrate':
 
+        migrate_database(config['blocks_db'], 'blocks', config['tmp_dir'])
 
+        migrate_database(config['tx_db'], 'transactions', config['tmp_dir'])
 
-# if __name__ == "__main__":
-# #     main(sys.argv[1], sys.argv[2])
-#     # main(sys.argv[1], sys.argv[2])
-#     # test(sys.argv[0])
-#     # inject_missing_statements(sys.argv[1], sys.argv[2])
-#     # copy_table(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
-#     migrate_database(sys.argv[1], sys.argv[2])
+        migrate_database(config['logs_db'], 'logs', config['tmp_dir'])
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flume blaster, post indexing database transformation")
 
-    parser.add_argument('mode', choices=['all', 'wdls'], help='specify action to perform')
+    parser.add_argument('mode', choices=['all', 'inject', 'copy', 'migrate'], help='specify action to perform')
 
-    parser.add_argument('--config', help="config file")
-    # parser.add_argument('--blocks_db', help="location of blocks database")
-    # parser.add_argument('--wdls_db', help="location of withdrawals database")
-    # parser.add_argument('--tx_db', help="location of transactions database")
-    # parser.add_argument('--logs_db', help="location of logs database")
-    # parser.add_argument('--tmp_dir', help="location of pragma temporary directory")
+    parser.add_argument('config', help="config file")
 
     args = parser.parse_args()
 
-    main(args)
+    config = parse_yaml(args.config)
+
+    main(args, config)
