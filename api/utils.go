@@ -269,7 +269,7 @@ var emptyStateTrieHash types.Hash = types.HexToHash("0x56e81f171bcc55a6ff8345e69
 
 
 func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash FROM blocks.blocks WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash, blobGasUsed, excessBlobGas, parentBeaconBlockRoot FROM blocks.blocks WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -277,10 +277,11 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes []byte
+		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes, parentBeaconBlockRootBytes []byte
 		var number, gasLimit, gasUsed, time, size, difficulty uint64
 		var nonce int64
-		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes)
+		var intermediateBGU, intermediateEBG interface{}
+		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes, &intermediateBGU, &intermediateEBG, &parentBeaconBlockRootBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -328,6 +329,23 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"totalDifficulty":  bytesToHexBig(td),
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
+		}
+		if intermediateBGU != nil {
+			blobGasUsed, ok := intermediateBGU.(uint64)
+			if !ok {
+				log.Error("Failed to convert blobGasUsed to uint64, getBlocks")
+			}
+			fields["blobGasUsed"] = blobGasUsed
+		}
+		if intermediateEBG != nil {
+			excessBlobGas, ok := intermediateEBG.(uint64)
+			if !ok {
+				log.Error("Failed to convert excessBlobGas to uint64, getBlocks")
+			}
+			fields["excessBlobGas"] = excessBlobGas
+		}
+		if len(parentBeaconBlockRootBytes) > 0 {
+			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
 		}
 		if len(withdrawalHashBytes) > 0 {
 			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
