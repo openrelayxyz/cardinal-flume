@@ -153,7 +153,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			trimPrefix(transaction.GasFeeCap().Bytes()),
 			trimPrefix(transaction.GasTipCap().Bytes()),
 			blobFeeCap,
-			compress(blobVersionedHashes),
+			blobVersionedHashes,
 		))
 		if indexer.hasMempool {
 			statements = append(statements, ApplyParameters(

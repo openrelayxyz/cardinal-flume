@@ -164,10 +164,8 @@ func ApplyParameters(query string, params ...interface{}) string {
 			if value == nil {
 				preparedParams[i] = "NULL"
 				continue
-			} else {
-				var val uint64
-				val = *value 
-				preparedParams[i] = fmt.Sprintf("%v", val)
+			} else { 
+				preparedParams[i] = fmt.Sprintf("%v", *value)
 			}
 		default:
 			preparedParams[i] = fmt.Sprintf("%v", value)

@@ -169,6 +169,16 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	return 0, zeroInputError
 }
 
+func nilCheck[T any](intermediate interface{}, result map[string]interface{}, key string) {
+	if intermediate != nil {
+		value, ok := intermediate.(T)
+		if !ok {
+			log.Error("failed to convert intermediate", "key", key)
+		}
+		result[key] = value
+	}
+}
+
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -258,16 +268,12 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			if intermediateBFC != nil {
-				blobFeeCap, ok := intermediateBFC.(uint64)
-				if !ok {
-					log.Error("Failed to convert blobFeeCap to uint64, getTransactionsQuery")
-				}
-				item["maxFeePerBlobGas"] = blobFeeCap
-			}
+			nilCheck[uint64](intermediateBFC, item, "maxFeePerBlobGas")
 			if len(bVHashesRLP) > 0 {
-				bVHashes := types.Hash{}
-				rlp.DecodeBytes(bVHashesRLP, bVHashes)
+				bVHashes := []types.Hash{}
+				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
+					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
+				}
 				item["blobVersionedHashes"] = bVHashes
 			}
 		}
@@ -352,20 +358,8 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
 		}
-		if intermediateBGU != nil {
-			blobGasUsed, ok := intermediateBGU.(uint64)
-			if !ok {
-				log.Error("Failed to convert blobGasUsed to uint64, getBlocks")
-			}
-			fields["blobGasUsed"] = blobGasUsed
-		}
-		if intermediateEBG != nil {
-			excessBlobGas, ok := intermediateEBG.(uint64)
-			if !ok {
-				log.Error("Failed to convert excessBlobGas to uint64, getBlocks")
-			}
-			fields["excessBlobGas"] = excessBlobGas
-		}
+		nilCheck[uint64](intermediateBGU, fields, "blobGasUsed")
+		nilCheck[uint64](intermediateEBG, fields, "excessBlobGas")
 		if len(parentBeaconBlockRootBytes) > 0 {
 			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
 		}
