@@ -268,7 +268,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			if len(bVHashesRLP) > 0 {
 				bVHashes := types.Hash{}
 				rlp.DecodeBytes(bVHashesRLP, bVHashes)
-				item["BlobVersionedHashes"] = bVHashes
+				item["blobVersionedHashes"] = bVHashes
 			}
 		}
 
