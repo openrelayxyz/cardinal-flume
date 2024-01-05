@@ -111,6 +111,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		sender := <-senderMap[transaction.Hash()]
 		v, r, s := transaction.RawSignatureValues()
 
+		var blobFeeCap uint64
 		var accessListRLP, blobVersionedHashes []byte
 		gasPrice := transaction.GasPrice().Uint64()
 		switch transaction.Type() {
@@ -122,14 +123,12 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		case evm.BlobTxType:
 			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
-			// BlobFeeCap *uint256.Int
+			blobFeeCap = transaction.BlobGas()
 			blobVersionedHashes, _ = rlp.EncodeToBytes(transaction.BlobHashes())
 		}
-		
-		//blob tx will do the same as above and also the the special fields
 		input := getCopy(compress(transaction.Data()))
 		statements = append(statements, ApplyParameters(
-			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap, blobVersionedHashes) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap, maxFeePerBlobGas, blobVersionedHashes) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),
 			gasPrice,
@@ -153,6 +152,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			compress(accessListRLP),
 			trimPrefix(transaction.GasFeeCap().Bytes()),
 			trimPrefix(transaction.GasTipCap().Bytes()),
+			blobFeeCap,
 			compress(blobVersionedHashes),
 		))
 		if indexer.hasMempool {
