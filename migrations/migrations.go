@@ -137,7 +137,26 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("blocks v4 migrations done")
 	}
-	
+	if schemaVersion < 5 {
+		log.Info("Applying blocks v5 migration")
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN blobGasUsed BIGINT`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks blobGasUsed error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN excessBlobGas BIGINT`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks excessBlobGas error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN parentBeaconRoot varchar(32)`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks parentBeaconRoot error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 5;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v5 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v5 migrations done")
+	}
 
 	log.Info("blocks migration up to date")
 	return nil
@@ -222,7 +241,22 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("transacitons migrations v2 done")
 	}
-
+	if schemaVersion < 3 {
+		log.Info("Applying transactions v3 migration")
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN maxFeePerBlobGas BIGINT`); err != nil {
+			log.Error("migrations ALTER TABLE transactions.transactions maxFeePerBlobGas error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN blobVersionedHashes blob`); err != nil {
+			log.Error("migrations ALTER TABLE transactions.transactions blobVersionedHashes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE transactions.migrations SET version = 3;"); err != nil {
+			log.Error("migrations UPDATE transactions.migrations v3 error", "err", err.Error())
+		}
+		log.Info("transacitons migrations v3 done")
+	}
+	
 	log.Info("transactions migrations up to date")
 	return nil
 }

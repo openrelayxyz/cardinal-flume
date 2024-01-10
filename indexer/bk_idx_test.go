@@ -99,7 +99,10 @@ func TestBlockIndexer(t *testing.T) {
 				size        BIGINT,
 				td          varchar(32),
 				baseFee varchar(32),
-				withdrawalHash varchar(32))`); err != nil {
+				withdrawalHash varchar(32), 
+				blobGasUsed BIGINT,
+				excessBlobGas BIGINT,
+				parentBeaconRoot varchar(32))`); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -136,7 +139,7 @@ func TestBlockIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	log.Warn("The test database does not reflect changes post Shanghai and so will need to be altered")
+	log.Warn("The test database does not reflect changes post Shanghai or post Cancun and so will need to be altered")
 
 	query := "SELECT b.number = blocks.number, b.hash = blocks.hash, b.parentHash = blocks.parentHash, b.uncleHash = blocks.uncleHash, b.coinbase = blocks.coinbase, b.root = blocks.root, b.txRoot = blocks.txRoot, b.receiptRoot = blocks.receiptRoot, b.bloom IS blocks.bloom, b.difficulty = blocks.difficulty, b.gasLimit = blocks.gasLimit, b.gasUsed = blocks.gasUsed, b.time = blocks.time, b.extra = blocks.extra, b.mixDigest = blocks.mixDigest, b.nonce = blocks.Nonce, b.uncles = blocks.uncles, b.size =  blocks.size, b.td = blocks.td, b.baseFee IS blocks.baseFee FROM blocks INNER JOIN control.blocks as b on blocks.number = b.number"
 	results := make([]any, 20)

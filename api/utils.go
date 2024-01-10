@@ -169,6 +169,16 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	return 0, zeroInputError
 }
 
+func nilCheck[T any](intermediate interface{}, result map[string]interface{}, key string) {
+	if intermediate != nil {
+		value, ok := intermediate.(T)
+		if !ok {
+			log.Error("failed to convert intermediate", "key", key)
+		}
+		result[key] = value
+	}
+}
+
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -177,8 +187,9 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
+		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes, bVHashesRLP []byte
 		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v uint64
+		var intermediateBFC interface{}
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
 			&blockHashBytes,
@@ -200,6 +211,8 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			&baseFeeBytes,
 			&gasFeeCapBytes,
 			&gasTipCapBytes,
+			&intermediateBFC,
+			&bVHashesRLP,
 		)
 		if err != nil {
 			return nil, err
@@ -248,6 +261,21 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		case evm.BlobTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainId"] = uintToHexBig(chainid)
+			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			nilCheck[uint64](intermediateBFC, item, "maxFeePerBlobGas")
+			if len(bVHashesRLP) > 0 {
+				bVHashes := []types.Hash{}
+				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
+					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
+				}
+				item["blobVersionedHashes"] = bVHashes
+			}
 		}
 
 		results = append(results, item)
@@ -261,7 +289,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 }
 
 func getTransactionsBlock(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
 	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
@@ -269,7 +297,7 @@ var emptyStateTrieHash types.Hash = types.HexToHash("0x56e81f171bcc55a6ff8345e69
 
 
 func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash FROM blocks.blocks WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash, blobGasUsed, excessBlobGas, parentBeaconRoot FROM blocks.blocks WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -277,10 +305,11 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes []byte
+		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes, parentBeaconBlockRootBytes []byte
 		var number, gasLimit, gasUsed, time, size, difficulty uint64
 		var nonce int64
-		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes)
+		var intermediateBGU, intermediateEBG interface{}
+		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes, &intermediateBGU, &intermediateEBG, &parentBeaconBlockRootBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -328,6 +357,11 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"totalDifficulty":  bytesToHexBig(td),
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
+		}
+		nilCheck[uint64](intermediateBGU, fields, "blobGasUsed")
+		nilCheck[uint64](intermediateEBG, fields, "excessBlobGas")
+		if len(parentBeaconBlockRootBytes) > 0 {
+			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
 		}
 		if len(withdrawalHashBytes) > 0 {
 			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
@@ -466,7 +500,7 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 }
 
 func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.blobVersionedHashes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
 	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
