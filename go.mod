@@ -8,7 +8,7 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/klauspost/compress v1.15.15
 	github.com/mattn/go-sqlite3 v1.14.16
-	github.com/openrelayxyz/cardinal-evm v1.11.0-cancun5
+	github.com/openrelayxyz/cardinal-evm v1.11.0-cancun7
 	github.com/openrelayxyz/cardinal-rpc v1.2.0-sf1
 	github.com/openrelayxyz/cardinal-streams v1.4.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
@@ -46,7 +46,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/openrelayxyz/drumline v1.0.1 // indirect
-	github.com/openrelayxyz/plugeth-utils v1.5.0-rc3 // indirect
+	github.com/openrelayxyz/plugeth-utils v1.5.0-rc7 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect

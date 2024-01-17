@@ -99,8 +99,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJ
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
-github.com/openrelayxyz/cardinal-evm v1.11.0-cancun5 h1:bJkMG9+ONB+EIgng6tLjVV5/Eb8AM2Te3VOSezyrEJo=
-github.com/openrelayxyz/cardinal-evm v1.11.0-cancun5/go.mod h1:2tHBp5DxWUm5Myy9GOJpWEjiFsMy8Vd6h5YGFW8nonw=
+github.com/openrelayxyz/cardinal-evm v1.11.0-cancun7 h1:IXAJI64r4tL8Cp299vlkY1Nf///+3aC7C1V7r3Y3gOU=
+github.com/openrelayxyz/cardinal-evm v1.11.0-cancun7/go.mod h1:Xltce0GcP15GhqmoVVCdZ3V9N1llJBxP71zpJ22k/Bk=
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
 github.com/openrelayxyz/cardinal-rpc v1.2.0-sf1 h1:hWQtpcq8eLuttFX+dG1hNge7qZW2HS0GmyHR4IElaq4=
 github.com/openrelayxyz/cardinal-rpc v1.2.0-sf1/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
@@ -111,8 +111,8 @@ github.com/openrelayxyz/cardinal-types v1.1.1 h1:Lw6Lr/eiHYCnLi851rciCzw/1S3UytU
 github.com/openrelayxyz/cardinal-types v1.1.1/go.mod h1:8aaMg6i94V0hhWe3V6Fzc0RSggMx+/Kabsf5o7wMf/E=
 github.com/openrelayxyz/drumline v1.0.1 h1:/gEvJff+AwJ4zU6SuDhXvDczxGBHcAI0P41xZ1kXSys=
 github.com/openrelayxyz/drumline v1.0.1/go.mod h1:wHb9N0b4UBYtxa8+atz9b3F5kIb70p7NMmWxNeSxhJ0=
-github.com/openrelayxyz/plugeth-utils v1.5.0-rc3 h1:CZJflDwkjBkY08bR4B/N+kLy3933lVjigjW6EvLvbEw=
-github.com/openrelayxyz/plugeth-utils v1.5.0-rc3/go.mod h1:4c6CMYUVCsaFUeVjIw35Apsix5bgOo64Fx1mdrMGWhQ=
+github.com/openrelayxyz/plugeth-utils v1.5.0-rc7 h1:9Bw4PWaMXeeP1DypVqRoNFLhCu20D/++QQJNv4lsRZU=
+github.com/openrelayxyz/plugeth-utils v1.5.0-rc7/go.mod h1:COwKAuTZIsCouCOrIDBhvHZqpbOO1Ojgdy5KTvL8mJg=
 github.com/openrelayxyz/sarama v0.0.0-20200619041629-a7760f73892f h1:3owlAAVcR2ovMr/frh4a1dbo7qlZS8fbjgzSY+/L4U4=
 github.com/openrelayxyz/sarama v0.0.0-20200619041629-a7760f73892f/go.mod h1:n15tbMY1a+QNW5mjOLsYBvxm7/dqJQah45YC/Wd2zTM=
 github.com/pierrec/lz4 v2.5.2+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
@@ -126,7 +126,7 @@ github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b/go.mod h1
 github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 h1:N/ElC8H3+5XpJzTSTfLsJV/mx9Q9g7kxmchpfZyxgzM=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
-github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
+github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=
 github.com/rs/cors v1.7.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/rs/cors v1.8.2 h1:KCooALfAYGs415Cwu5ABvv9n9509fSiG5SQJn/AQo4U=
 github.com/rs/cors v1.8.2/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
