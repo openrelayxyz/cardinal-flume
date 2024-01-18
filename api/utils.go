@@ -254,6 +254,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			rlp.DecodeBytes(accessListRLP, accessList)
 			item["accessList"] = accessList
 			item["chainId"] = uintToHexBig(chainid)
+			item["yParity"] = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -261,6 +262,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)		
 		case evm.BlobTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -268,6 +270,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)			
 			nilCheck[uint64](intermediateBFC, item, "maxFeePerBlobGas")
 			if len(bVHashesRLP) > 0 {
 				bVHashes := []types.Hash{}
@@ -448,19 +451,21 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			return nil, err
 		}
 		var accessList *evm.AccessList
-		var chainID, gasFeeCap, gasTipCap *hexutil.Big
+		var chainID, gasFeeCap, gasTipCap, yParity *hexutil.Big
 		//move below and assign to mao conditionally
 		switch txType {
 		case evm.AccessListTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
+			yParity = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
 			gasTipCap = bytesToHexBig(gasTipCapBytes)
+			yParity = uintToHexBig(v)
 		case evm.LegacyTxType:
 			chainID = nil
 		}
@@ -481,6 +486,7 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			"type":       hexutil.Uint64(txType),
 			"chainID":    chainID,
 			"accessList": accessList,
+			"yParity": yParity,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -783,6 +789,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		rlp.DecodeBytes(accessListRLP, accessList)
 		item["accessList"] = accessList
 		item["chainId"] = uintToHexBig(chainid)
+		item["yParity"] = uintToHexBig(v)
 	case evm.DynamicFeeTxType:
 		accessList = &evm.AccessList{}
 		rlp.DecodeBytes(accessListRLP, accessList)
@@ -790,6 +797,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		item["chainId"] = uintToHexBig(chainid)
 		item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 		item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		item["yParity"] = uintToHexBig(v)
 	}
 
 	results = append(results, item)

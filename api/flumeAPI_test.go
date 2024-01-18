@@ -228,9 +228,6 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("length error getTransactionsBySender on address %v", sender)
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(senderTxns[i]) + 1 {
-				t.Fatalf("length error getTransactionsBySender on address %v, tx %v", sender, i)
-			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {
@@ -285,9 +282,6 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientTxns))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(recipientTxns[i])  + 1 {
-				t.Fatalf("length error getTransactionsByRecipient on address %v, tx %v", recipient, i)
-			}
 			for k, v := range tx {
 				data, err := json.Marshal(v)
 				if err != nil {

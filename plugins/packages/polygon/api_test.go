@@ -502,12 +502,16 @@ func TestPolygonApi(t *testing.T) {
 					json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
 					for j, item := range txs {
 						for key, value := range item {
+							// yParity is returned by the underlying transactions api functions, the behavior is optimised for mainnet and so is ignored here.
+							if key == "yParity" {
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v tx index %v", testBlock["number"], j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("didnt work")
+								t.Fatalf("value error, polygon plugin, getBlockByNumber on block %v, transactions, index %v, key %v", testBlock["number"], j, key)
 							}
 						}
 					}
@@ -546,12 +550,16 @@ func TestPolygonApi(t *testing.T) {
 					json.Unmarshal(testBlocks[i]["transactions"], &blockTxs)
 					for j, item := range txs {
 						for key, value := range item {
+							// yParity is returned by the underlying transactions api functions, the behavior is optimised for mainnet and so is ignored here. 
+							if key == "yParity" {
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v tx index %v", testBlock["number"], j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("mismatch todo fix this")
+								t.Fatalf("value error, polygon plugin, getBlockByHash on block %v, transactions, index %v, key %v", testBlock["number"], j, key)
 							}
 						}
 					}
