@@ -243,7 +243,7 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 	}
 	if schemaVersion < 3 {
 		log.Info("Applying transactions v3 migration")
-		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN maxFeePerBlobGas BIGINT`); err != nil {
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN maxFeePerBlobGas varchar(32)`); err != nil {
 			log.Error("migrations ALTER TABLE transactions.transactions maxFeePerBlobGas error", "err", err.Error())
 			return nil
 		}
