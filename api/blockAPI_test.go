@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	log "github.com/inconshreveable/log15"
+	ctypes "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -151,6 +152,28 @@ func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []types.Hash {
 	return result
 }
 
+func accessListRoutine(t *testing.T, test interface{}, control json.RawMessage, method string, delineator, txIndex interface{}) {
+	testList := test.(*ctypes.AccessList)
+	if len(*testList) > 0 {
+		var controlList *ctypes.AccessList
+		json.Unmarshal(control, &controlList)
+		var iterable ctypes.AccessList
+		iterable = *controlList
+		for i, testItem := range *testList {
+			if testItem.Address != iterable[i].Address {
+				t.Fatalf("address value error in %v accessListRoutine block %v, txn %v, accessTuple %v, test %v, control %v", method, delineator, txIndex, i, testItem.Address, iterable[i].Address)
+			}
+			if len(testItem.StorageKeys) > 0 {
+				for j, key := range testItem.StorageKeys {
+					if key != iterable[i].StorageKeys[j] {
+						t.Fatalf("storageKey value error in %v accessListRoutine block %v, txn %v, accessTuple %v, key %v, test %v, control %v", method, delineator, txIndex, i, j, testItem.Address, iterable[i].Address)
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestBlockNumber(t *testing.T) {
 	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
@@ -213,16 +236,18 @@ func TestBlockAPI(t *testing.T) {
 					var blockTxs []map[string]json.RawMessage
 					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 					for j, item := range txs {
-						if len(item) != len(blockTxs[j]) {
-							t.Fatalf("length error GetBlockByNumber, transactions, on blockNumber %v, transaction %v", block, j)
-						}
 						for key, value := range item {
+							if key == "accessList" {
+								control := item["accessList"]
+								accessListRoutine(t, control, blockTxs[j]["accessList"], "GetBlockByNumber", block, j)
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("error in getBlockByNumber, transactions on block %v, txn %v", block, j)
+								t.Fatalf("error in getBlockByNumber, transactions on block %v, , key %v, txn %v", block, key, j)
 							}
 
 						}
@@ -235,7 +260,7 @@ func TestBlockAPI(t *testing.T) {
 					if !bytes.Equal(data, blockObject[i][k]) {
 						var generic interface{}
 						json.Unmarshal(blockObject[i][k], &generic)
-						t.Fatalf("not equal on block %v, index %v, key %v", block, i, k,)
+						t.Fatalf("value error GetBlockByNumber on block %v, index %v, key %v", block, i, k)
 					}
 				}
 			}
@@ -284,16 +309,18 @@ func TestBlockAPI(t *testing.T) {
 					var blockTxs []map[string]json.RawMessage
 					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
 					for j, item := range txs {
-						if len(item) != len(blockTxs[j]) {
-							t.Fatalf("length error GetBlockByHash, transactions, on hash %v, transaction %v", hash, j)
-						}
 						for key, value := range item {
+							if key == "accessList" {
+								control := item["accessList"]
+								accessListRoutine(t, control, blockTxs[j]["accessList"], "GetBlockByHash", hash, j)
+								continue
+							}
 							d, err := json.Marshal(value)
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("didnt work")
+								t.Fatalf("value error in getBlockByHash, transactions on block %v, , key %v, txn %v", hash, key, j)
 							}
 
 						}
@@ -304,7 +331,7 @@ func TestBlockAPI(t *testing.T) {
 						t.Errorf("nope %v", k)
 					}
 					if !bytes.Equal(data, blockObject[i][k]) {
-						t.Fatalf("not equal on hash %v, index %v, key %v", hash, i, k,)
+						t.Fatalf("value error GetBlockByHash on hash %v, index %v, key %v", hash, i, k)
 					}
 				}
 			}

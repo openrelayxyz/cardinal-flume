@@ -111,7 +111,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		sender := <-senderMap[transaction.Hash()]
 		v, r, s := transaction.RawSignatureValues()
 
-		var blobFeeCap uint64
+		var blobFeeCap []byte
 		var accessListRLP, blobVersionedHashes []byte
 		gasPrice := transaction.GasPrice().Uint64()
 		switch transaction.Type() {
@@ -123,7 +123,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		case evm.BlobTxType:
 			accessListRLP, _ = rlp.EncodeToBytes(transaction.AccessList())
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
-			blobFeeCap = transaction.BlobGas()
+			blobFeeCap = trimPrefix(transaction.BlobGasFeeCap().Bytes())
 			blobVersionedHashes, _ = rlp.EncodeToBytes(transaction.BlobHashes())
 		}
 		input := getCopy(compress(transaction.Data()))

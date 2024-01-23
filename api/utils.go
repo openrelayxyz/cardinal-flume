@@ -168,17 +168,6 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	}
 	return 0, zeroInputError
 }
-
-func nilCheck[T any](intermediate interface{}, result map[string]interface{}, key string) {
-	if intermediate != nil {
-		value, ok := intermediate.(T)
-		if !ok {
-			log.Error("failed to convert intermediate", "key", key)
-		}
-		result[key] = value
-	}
-}
-
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -187,9 +176,8 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes, bVHashesRLP []byte
+		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes, blobGasFeeBytes, bVHashesRLP []byte
 		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v uint64
-		var intermediateBFC interface{}
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
 			&blockHashBytes,
@@ -211,7 +199,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			&baseFeeBytes,
 			&gasFeeCapBytes,
 			&gasTipCapBytes,
-			&intermediateBFC,
+			&blobGasFeeBytes,
 			&bVHashesRLP,
 		)
 		if err != nil {
@@ -254,6 +242,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			rlp.DecodeBytes(accessListRLP, accessList)
 			item["accessList"] = accessList
 			item["chainId"] = uintToHexBig(chainid)
+			item["yParity"] = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -261,6 +250,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)		
 		case evm.BlobTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -268,9 +258,10 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			nilCheck[uint64](intermediateBFC, item, "maxFeePerBlobGas")
+			item["yParity"] = uintToHexBig(v)			
+			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(bVHashesRLP) > 0 {
-				bVHashes := []types.Hash{}
+				bVHashes := &[]types.Hash{}
 				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
 					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
 				}
@@ -308,7 +299,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes, parentBeaconBlockRootBytes []byte
 		var number, gasLimit, gasUsed, time, size, difficulty uint64
 		var nonce int64
-		var intermediateBGU, intermediateEBG interface{}
+		var intermediateBGU, intermediateEBG nullable[int64]
 		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes, &intermediateBGU, &intermediateEBG, &parentBeaconBlockRootBytes)
 		if err != nil {
 			return nil, err
@@ -358,8 +349,12 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
 		}
-		nilCheck[uint64](intermediateBGU, fields, "blobGasUsed")
-		nilCheck[uint64](intermediateEBG, fields, "excessBlobGas")
+		if intermediateBGU.Valid {
+			fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(intermediateBGU.Actual))
+		}
+		if intermediateBGU.Valid {
+			fields["excessBlobGas"] = hexutil.EncodeUint64(uint64(intermediateEBG.Actual)) 
+		}
 		if len(parentBeaconBlockRootBytes) > 0 {
 			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
 		}
@@ -448,19 +443,21 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			return nil, err
 		}
 		var accessList *evm.AccessList
-		var chainID, gasFeeCap, gasTipCap *hexutil.Big
+		var chainID, gasFeeCap, gasTipCap, yParity *hexutil.Big
 		//move below and assign to mao conditionally
 		switch txType {
 		case evm.AccessListTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
+			yParity = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
 			gasTipCap = bytesToHexBig(gasTipCapBytes)
+			yParity = uintToHexBig(v)
 		case evm.LegacyTxType:
 			chainID = nil
 		}
@@ -481,6 +478,7 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			"type":       hexutil.Uint64(txType),
 			"chainID":    chainID,
 			"accessList": accessList,
+			"yParity": yParity,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -783,6 +781,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		rlp.DecodeBytes(accessListRLP, accessList)
 		item["accessList"] = accessList
 		item["chainId"] = uintToHexBig(chainid)
+		item["yParity"] = uintToHexBig(v)
 	case evm.DynamicFeeTxType:
 		accessList = &evm.AccessList{}
 		rlp.DecodeBytes(accessListRLP, accessList)
@@ -790,6 +789,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		item["chainId"] = uintToHexBig(chainid)
 		item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 		item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		item["yParity"] = uintToHexBig(v)
 	}
 
 	results = append(results, item)
