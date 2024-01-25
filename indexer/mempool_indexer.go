@@ -84,10 +84,13 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 	// Delete the transaction we just inserted if the confirmed transactions
 	// pool has a conflicting entry
 	statements = append(statements, ApplyParameters(
-		"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions)",
+		"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions.transactions WHERE sender = %v AND nonce = %v)",
+		sender,
+		tx.Nonce(),
 		sender,
 		tx.Nonce(),
 	))
+
 	if _, err := db.Exec(strings.Join(statements, " ; ") + ";"); err != nil {
 		log.Error("Error on insert:", strings.Join(statements, " ; "), "err", err.Error())
 		return []string{}
