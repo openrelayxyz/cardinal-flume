@@ -165,7 +165,7 @@ def main(args, config=None):
 
         copy_table(config['wdls_db'], config['blocks_db'], config['tmp_dir'])
 
-    if args.mode == 'midgrate':
+    if args.mode == 'migrate':
 
         migrate_database(config['blocks_db'], 'blocks', config['tmp_dir'])
 

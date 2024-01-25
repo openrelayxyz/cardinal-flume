@@ -24,17 +24,6 @@ def parse_yaml(file):
         except yaml.YAMLError as e:
             print("Error parsing YAML file:", e)
 
-    # config = {
-    #     'blocks_db': data['blocks_db'],
-    #     'tx_db': os.path.dirname(data['transactions_db']),
-    #     'logs_db': os.path.dirname(data['logs_db']),
-    #     'ws_db': os.path.dirname(data['withdrawals_db']),
-    #     'missing_dir': os.path.dirname(data['missing_statements']),
-    # }
-
     return data
-    
-
-    # print(blocks_dir, tx_dir, logs_dir, ws_dir, data)
 
 
