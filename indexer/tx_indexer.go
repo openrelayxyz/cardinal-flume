@@ -157,7 +157,9 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		))
 		if indexer.hasMempool {
 			statements = append(statements, ApplyParameters(
-				"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions.transactions INDEXED BY senderNonce)",
+				"DELETE FROM mempool.transactions WHERE sender = %v AND nonce = %v AND (sender, nonce) IN (SELECT sender, nonce FROM transactions.transactions WHERE sender = %v AND nonce = %v)",
+				sender,
+				transaction.Nonce(),
 				sender,
 				transaction.Nonce(),
 			))
