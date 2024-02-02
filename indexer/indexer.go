@@ -189,9 +189,12 @@ func (hc *HealthCheck) Healthy() rpc.HealthStatus {
 	return rpc.Healthy
 }
 
-func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan int64) {
+func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *sql.DB, quit <-chan struct{}, eip155Block, homesteadBlock uint64, mut *sync.RWMutex, mempoolSlots int, indexers []Indexer, hc *HealthCheck, memTxThreshold int64, rhf chan *rpc.HeightRecord, chainid uint64) {
 	heightGauge := metrics.NewMajorGauge("/flume/height")
 	blockTimer  := metrics.NewMajorTimer("/flume/blockProcessingTime")
+	safeNumKey := fmt.Sprintf("c/%x/n/safe", chainid)
+	finalizedNumKey := fmt.Sprintf("c/%x/n/finalized", chainid)
+	var safeNum, finalizedNum *big.Int
 
 	log.Info("Processing data feed")
 	txCh := make(chan *evm.Transaction, 200)
@@ -233,14 +236,23 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				megaStatement := []string{}
 				megaParameters := []interface{}{}
 				for _, pb := range chainUpdate.Added() {
-					for _, indexer := range indexers {
-						s, err := indexer.Index(pb)
-						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
-						if err != nil {
-							log.Error("Error computing updates", "err", err.Error())
-							continue UPDATELOOP
+					for k, v := range pb.Values {
+						switch k {
+						case safeNumKey:
+							safeNum = new(big.Int).SetBytes(v)
+						case finalizedNumKey:
+							finalizedNum = new(big.Int).SetBytes(v)
+						default:
+							for _, indexer := range indexers {
+								s, err := indexer.Index(pb)
+								log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
+								if err != nil {
+									log.Error("Error computing updates", "err", err.Error())
+									continue UPDATELOOP
+								}
+								megaStatement = append(megaStatement, s...)
+							}
 						}
-						megaStatement = append(megaStatement, s...)
 					}
 					lastBatch = pb
 					if blockTime != nil { blockAgeTimer.UpdateSince(*blockTime) }
@@ -292,7 +304,19 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				mut.Unlock()
 				processed = true
 				hc.lastBlockTime = time.Now()
-				rhf <- lastBatch.Number
+				// add condition to check safe or finalized
+				heightRecord := &rpc.HeightRecord{
+					Latest: lastBatch.Number,
+				}
+				if safeNum != nil{
+					i := safeNum.Int64()
+					heightRecord.Safe = &i
+				}
+				if finalizedNum != nil {
+					i := finalizedNum.Int64()
+					heightRecord.Finalized = &i
+				}
+				rhf <- heightRecord
 				hc.processedCount++
 				heightGauge.Update(lastBatch.Number)
 				blockTimer.UpdateSince(start)
