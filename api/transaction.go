@@ -40,6 +40,9 @@ func NewTransactionAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg
 var (
 	gtbhHitMeter  = metrics.NewMinorMeter("/flume/gtbh/hit")
 	gtbhMissMeter = metrics.NewMinorMeter("/flume/gtbh/miss")
+
+	heavyTxHit = metrics.NewMinorMeter("/flume/htc/hit")
+	heavyTxMiss = metrics.NewMinorMeter("/flume/htc/miss")
 )
 
 func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
@@ -52,6 +55,10 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		if err != nil {
 			return nil, err
 		}
+		if responseShell == nil {
+			heavyTxMiss.Mark(1)
+		}
+		heavyTxHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -110,6 +117,10 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 		if err != nil {
 			return nil, err
 		}
+		if responseShell == nil {
+			heavyTxMiss.Mark(1)
+		}
+		heavyTxHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -144,6 +155,10 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
+		if responseShell == nil {
+			heavyTxMiss.Mark(1)
+		}
+		heavyTxHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -185,6 +200,10 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 		if err != nil {
 			return nil, err
 		}
+		if responseShell == nil {
+			heavyTxMiss.Mark(1)
+		}
+		heavyTxHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -252,6 +271,10 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		if err != nil {
 			return nil, err
 		}
+		if count == nil {
+			heavyTxMiss.Mark(1)
+		}
+		heavyTxHit.Mark(1)
 		return count, nil
 	}
 
