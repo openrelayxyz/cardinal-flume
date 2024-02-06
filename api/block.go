@@ -45,16 +45,17 @@ func (api *BlockAPI) ChainId(ctx context.Context) hexutil.Uint64 {
 	return hexutil.Uint64(api.cfg.Chainid)
 }
 
-func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+func (api *BlockAPI) BlockNumber(ctx context.Context) hexutil.Uint64 {
 
 	log.Debug("eth_blockNumber served from flume light by default")
 	hitMeter.Mark(1)
 
 	blockNo, err := getLatestBlock(ctx, api.db)
 	if err != nil {
-		return 0, err
+		log.Error("Error returned from getLatestBlock", "err", err)
+		return 0
 	}
-	return hexutil.Uint64(blockNo), nil
+	return hexutil.Uint64(blockNo)
 }
 
 var (

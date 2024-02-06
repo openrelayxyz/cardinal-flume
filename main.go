@@ -15,10 +15,12 @@ import (
 	log "github.com/inconshreveable/log15"
 	
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
 	"github.com/openrelayxyz/cardinal-flume/api"
 	"github.com/openrelayxyz/cardinal-flume/config"
+	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/indexer"
 	"github.com/openrelayxyz/cardinal-flume/migrations"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
@@ -33,6 +35,7 @@ func main() {
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
+	runHeavyCheck := flag.Bool("heavyCheck", false, "run heavy instance connectivity and overlap check")
 
 	flag.CommandLine.Parse(os.Args[1:])
 
@@ -101,26 +104,7 @@ func main() {
 	}
 	_, hasBlocks := cfg.Databases["blocks"]
 	if hasBlocks {
-		if *runCertaintyCheck {
-			var highestNumber uint64
-			err := logsdb.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&highestNumber)
-			if err != nil {
-				log.Error("Error running certainty check on blocks database, highestNumber", "err", err)
-			}
-			rows, err := logsdb.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
-			if err != nil {
-				log.Error("Error running certainty check on blocks database, gaps query", "err", err)
-			}
-			defer rows.Close()
-			if rows.Next() {
-				var number uint64
-				rows.Scan(&number) 
-				if number != highestNumber +1 { 
-					log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)	
-					os.Exit(1)
-				}
-			}
-		}
+		runStartupChecks(*runCertaintyCheck, *runHeavyCheck, logsdb, cfg)
 		log.Info("has blocks", "blocks", cfg.Databases["blocks"])
 	}
 	_, hasTx := cfg.Databases["transactions"]
@@ -348,4 +332,52 @@ func main() {
 	logsdb.Close()
 	metrics.Clear()
 	time.Sleep(time.Second)
+}
+
+func runStartupChecks(certainty, heavyCheck bool, database *sql.DB, config *config.Config) {
+	var earliestBlock, latestBlock uint64
+	if err := database.QueryRowContext(context.Background(), "SELECT min(number), max(number) FROM blocks.blocks;").Scan(&earliestBlock, &latestBlock); err != nil {
+		log.Error("Error aquiring highest block from blocks db for startup checks", "err", err)
+	}
+	
+	if certainty {
+		rows, err := database.QueryContext(context.Background(), "SELECT number + 1 FROM blocks.blocks WHERE number + 1 NOT IN (SELECT number FROM blocks.blocks);")		
+		if err != nil {
+			log.Error("Error running certainty check on blocks database, gaps query", "err", err)
+		}
+		defer rows.Close()
+		if rows.Next() {
+			var number uint64
+			rows.Scan(&number) 
+			if number != latestBlock +1 { 
+				log.Error("gaps found in blocks database", "missing blocks beginning at block number", number)	
+				os.Exit(1)
+			}
+		}
+	}
+
+	if heavyCheck {
+		if config.HeavyServer == "" {
+			log.Error("No heavy server found")
+			os.Exit(1)
+		}
+		heavyLatest, err := heavy.CallHeavy[string](context.Background(), config.HeavyServer, "eth_blockNumber")
+		if err != nil {
+			log.Error(fmt.Sprintf("Error calling heavy service at %v, unable to run test, exiting", config.HeavyServer), "err", err)
+			os.Exit(1)
+		}
+		hl, err := hexutil.DecodeUint64(*heavyLatest)
+		if err != nil {
+			log.Error("Error decoding response from call to heavy server eth_blockNumber, unable to run test, exiting", "err", err)
+			os.Exit(1)
+		}
+		if earliestBlock > hl {
+			log.Error("Gap found between local and heavy database", "local earliest", earliestBlock, "heavy latest", heavyLatest)
+			os.Exit(1)
+		}
+		if hl - earliestBlock < 128 {
+			log.Error("Overlap between local and heavy databases is too small", "local earliest", earliestBlock, "heavy latest", heavyLatest) 
+			os.Exit(1)
+		}
+	}
 }
