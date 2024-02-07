@@ -9,6 +9,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -38,13 +39,20 @@ var (
 	glgMissMeter = metrics.NewMinorMeter("/flume/glg/miss")
 )
 
-func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
+func (api *LogsAPI) trimFilterQuery(fq FilterQuery) {
+	if fq.BlockHash == nil {
+		var tb *rpc.BlockNumber
+		val := rpc.BlockNumber(api.cfg.EarliestBlock - 1)
+		tb = &val
+		fq.ToBlock = tb
+	}
+}
 
-	log.Debug("filter query", "fq", crit)
+func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, error) {
 
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
-		log.Error("Error retrieving latest block, call.ID, 500", "err", err.Error())
+		log.Error("Error retrieving latest block, call.ID, 500", "err", err)
 		return nil, err
 	}
 
@@ -81,15 +89,25 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 	}
 
+	heavyResult := make(chan []*logType,)
+	errChan := make(chan error)
+
 	if goHeavy && len(api.cfg.HeavyServer) > 0 {
+
+		api.trimFilterQuery(crit)
 		log.Debug("eth_getLogs sent to flume heavy")
 		missMeter.Mark(1)
 		glgMissMeter.Mark(1)
-		logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
-		if err != nil {
-			return nil, err
-		}
-		return *logs, nil
+		go func() {
+			logs, err := heavy.CallHeavy[[]*logType](ctx, api.cfg.HeavyServer, "eth_getLogs", crit)
+			if err != nil {
+				log.Error("Error processing request in eth_getLogs", "err", err)
+				errChan <- err
+			}
+			heavyResult <- *logs 
+		}()
+	} else {
+		close(heavyResult)
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -122,6 +140,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if len(topicsClause) > 0 {
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
 	}
+	
 	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
 	pluginMethods := api.pl.Lookup("AppendBorLogs", func(v interface{}) bool {
 		_, ok := v.(func(string, string, []interface{}) (string, []interface{}))
@@ -144,8 +163,9 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
 	if err != nil {
-		log.Error("Error selecting query", "query", query, "err", err.Error())
-		return nil, err
+		exhaustChannels[[]*logType](heavyResult, errChan)
+		log.Error("Error selecting query", "query", query, "err", err)
+		return nil, fmt.Errorf("database error")
 	}
 	defer rows.Close()
 	logs := sortLogs{}
@@ -156,8 +176,8 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		var transactionIndex, logIndex uint
 		err := rows.Scan(&address, &topic0, &topic1, &topic2, &topic3, &data, &blockNumber, &transactionHash, &transactionIndex, &blockHash, &logIndex)
 		if err != nil {
-			log.Error("Error scanning", "err", err.Error())
-			// handleError("database error", call.ID, 500)
+			exhaustChannels[[]*logType](heavyResult, errChan)
+			log.Error("Error scanning", "err", err)
 			return nil, fmt.Errorf("database error")
 		}
 		blockNumbersInResponse[blockNumber] = struct{}{}
@@ -176,8 +196,8 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		}
 		input, err := decompress(data)
 		if err != nil {
-			log.Error("Error decompressing data", "err", err.Error())
-			// handleError("database error", call.ID, 500)
+			exhaustChannels[[]*logType](heavyResult, errChan)
+			log.Error("Error decompressing data in getLogs", "err", err)
 			return nil, fmt.Errorf("database error")
 		}
 		logs = append(logs, &logType{
@@ -191,16 +211,27 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			Index:       hexutil.Uint(logIndex),
 		})
 		if len(logs) > 10000 && len(blockNumbersInResponse) > 1 {
-			// handleError("query returned more than 10,000 results spanning multiple blocks", call.ID, 413)
+			exhaustChannels[[]*logType](heavyResult, errChan)
 			return nil, fmt.Errorf("query returned more than 10,000 results spanning multiple blocks")
 		}
 	}
 	if err := rows.Err(); err != nil {
-		log.Error("Error scanning", "err", err.Error())
-		// handleError("database error", call.ID, 500)
+		exhaustChannels[[]*logType](heavyResult, errChan)
+		log.Error("Error scanning rows getLogs", "err", err)
 		return nil, fmt.Errorf("database error")
 	}
+	
 	sort.Sort(logs)
+
+	select {
+		case hr, ok := <- heavyResult:
+			if ok {
+				logs = append(hr, logs...)
+			}
+		case err := <- errChan:
+			return nil, err
+	}
+
 
 	return logs, nil
 }
