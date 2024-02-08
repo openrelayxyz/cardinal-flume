@@ -49,7 +49,9 @@ func (api *FlumeTokensAPI) Erc20ByAccount(ctx *rpc.CallContext, addr common.Addr
 				log.Error("Error processing request in flume_erc20ByAccount", "err", err) 
 				errChan <- err
 			}
-			heavyResult <- *address
+			if address != nil {
+				heavyResult <- *address
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -128,7 +130,9 @@ func (api *FlumeTokensAPI) Erc20Holders(ctx *rpc.CallContext, addr common.Addres
 				log.Error("Error processing request in flume_erc20Holders", "err", err) 
 				errChan <- err
 			}
-			heavyResult <- *address
+			if address != nil {
+				heavyResult <- *address
+			}
 		}()
 	} else {
 		close(heavyResult)

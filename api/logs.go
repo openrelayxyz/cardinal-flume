@@ -104,7 +104,9 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 				log.Error("Error processing request in eth_getLogs", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *logs 
+			if logs != nil {
+				heavyResult <- *logs
+			} 
 		}()
 	} else {
 		close(heavyResult)

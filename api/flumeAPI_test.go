@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	// "net/http"
 	"fmt"
 	"testing"
 	"os"
+
+	// log "github.com/inconshreveable/log15"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
@@ -145,7 +148,14 @@ func (ms sortTxMap) TransactionIndexes() []hexutil.Uint64 {
 	return result
 }
 
+var mockContext *rpc.CallContext = rpc.NewContext(context.Background())
+
 func TestFlumeAPI(t *testing.T) {
+
+	// go func() {
+	// 	log.Info("pprof running", "port", http.ListenAndServe("localhost:6060", nil))
+	// }()
+
 	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config TestFlumeAPI", "err", err.Error())
@@ -223,7 +233,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(senderTxns))
 	}
 	t.Run(fmt.Sprintf("GetTransactionsBySender"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsBySender(context.Background(), sender, nil)
+		actual, _ := f.GetTransactionsBySender(mockContext, sender, nil)
 		if len(actual.Items) != len(senderTxns) {
 			t.Fatalf("length error getTransactionsBySender on address %v", sender)
 		}
@@ -248,7 +258,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(senderReceipts))
 	}
 	t.Run(fmt.Sprintf("GetTransactionReceiptsBySender"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsBySender(context.Background(), sender, nil)
+		actual, _ := f.GetTransactionReceiptsBySender(mockContext, sender, nil)
 		if len(actual.Items) != len(senderReceipts) {
 			t.Fatalf("getTransactionReceiptsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderReceipts))
 		}
@@ -277,7 +287,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatalf("recipient transactions list of incorrect length expected 107 got %v", len(recipientTxns))
 	}
 	t.Run(fmt.Sprintf("GetTransactionsByRecipient"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsByRecipient(context.Background(), recipient, nil)
+		actual, _ := f.GetTransactionsByRecipient(mockContext, recipient, nil)
 		if len(actual.Items) != len(recipientTxns) {
 			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientTxns))
 		}
@@ -302,7 +312,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Fatalf("recipient transactions list of incorrect length expected 107 got %v", len(recipientReceipts))
 	}
 	t.Run(fmt.Sprintf("GetTransactionsReceiptsByRecipient"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsByRecipient(context.Background(), recipient, nil)
+		actual, _ := f.GetTransactionReceiptsByRecipient(mockContext, recipient, nil)
 		if len(actual.Items) != len(recipientReceipts) {
 			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientReceipts))
 		}
@@ -328,7 +338,7 @@ func TestFlumeAPI(t *testing.T) {
 	participantTxns := getParticipantTransactionList(blockObject, genericAddr, "to", "from")
 	participant := common.HexToAddress(genericAddr)
 	t.Run(fmt.Sprintf("GetTransactionsByParicipant"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsByParticipant(context.Background(), participant, nil)
+		actual, _ := f.GetTransactionsByParticipant(mockContext, participant, nil)
 		if len(actual.Items) != len(participantTxns) {
 			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
 		}
@@ -353,7 +363,7 @@ func TestFlumeAPI(t *testing.T) {
 	})
 	participantReceipts := getParticipantReceiptList(receiptObject, genericAddr, "to", "from")
 	t.Run(fmt.Sprintf("GetTransactionsReceiptsByParticipant"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsByParticipant(context.Background(), participant, nil)
+		actual, _ := f.GetTransactionReceiptsByParticipant(mockContext, participant, nil)
 		if len(actual.Items) != len(participantReceipts) {
 			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantReceipts))
 		}

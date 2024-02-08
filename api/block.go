@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	log "github.com/inconshreveable/log15"
+	
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"

@@ -79,7 +79,9 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 				log.Error("Error processing request in flume_getTransactionsBySender", "err", err) 
 				errChan <- err
 			}
-			heavyResult <- *tx
+			if tx != nil {
+				heavyResult <- *tx
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -145,7 +147,9 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx *rpc.CallContext, addres
 				log.Error("Error processing request in flume_getTransactionReceiptsBySender", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *rt
+			if rt != nil {
+				heavyResult <- *rt
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -204,7 +208,9 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 				log.Error("Error processing request in flume_getTransactionsByRecipient", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *tx
+			if tx != nil {
+				heavyResult <- *tx
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -270,7 +276,9 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, add
 				log.Error("Error processing request in flume_getTransactionReceiptsByRecipient", "err", err) 
 				errChan <- err
 			}
-			heavyResult <- *rt
+			if rt != nil {
+				heavyResult <- *rt
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -329,7 +337,9 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 				log.Error("Error processing request in flume_getTransactionByParticipant", "err", err) 
 				errChan <- err
 			}
-			heavyResult <- *tx
+			if tx != nil {
+				heavyResult <- *tx
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -396,8 +406,14 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx *rpc.CallContext, a
 				log.Error("Error processing request in flume_getTransactionReceiptsByParticipant", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *rt
+			if rt == nil {
+				return 
+			} else {
+				heavyResult <- *rt
+			}
 		}()
+	} else {
+		close(heavyResult)
 	}
 
 	if offset == nil {
@@ -572,7 +588,9 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx *rpc.CallContext, partialHexStrin
 				log.Error("Error calling heavy server, flume_blockHashesWithPrefix", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *hashes
+			if hashes != nil {
+				heavyResult <- *hashes
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -658,7 +676,9 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx *rpc.CallContext, partialHe
 				log.Error("Error calling heavy server, flume_transactionHashesWithPrefix", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *hashes
+			if hashes != nil {
+				heavyResult <- *hashes
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -764,7 +784,9 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 				log.Error("Error calling heavy server, flume_addressWithPrefix", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *addresses
+			if addresses != nil {
+				heavyResult <- *addresses
+			}
 		}()
 	} else {
 		close(heavyResult)
@@ -843,7 +865,9 @@ func (api *FlumeAPI) ResolvePrefix(ctx *rpc.CallContext, partialHexString string
 				log.Error("Error calling heavy server, flume_ResolvePrefix", "err", err)
 				errChan <- err
 			}
-			heavyResult <- *hashes
+			if hashes != nil {
+				heavyResult <- *hashes
+			}
 		}()
 	} else {
 		close(heavyResult)
