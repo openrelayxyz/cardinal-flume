@@ -65,16 +65,6 @@ func (api *FlumeAPI) HeavyClientVersion(ctx context.Context) (string, error) {
 	return name, nil
 }
 
-func exhaustChannels[T any](ch chan T, errChan chan error) {
-	go func() {
-		select {
-		case <- ch:
-		case <- errChan:
-		}
-	}()
-}
-
-
 func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
 
 	heavyResult := make(chan *paginator[map[string]interface{}])

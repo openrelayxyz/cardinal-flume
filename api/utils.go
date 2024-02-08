@@ -29,6 +29,32 @@ var (
 	zeroInputError = errors.New("Input must contain non zero characters")
 )
 
+func dedup[T comparable](sliceA, sliceB []T) []T {
+	set := make(map[T]bool)
+
+	for _, slice := range [][]T{sliceA, sliceB} {
+		for _, item := range slice {
+			set[item] = true
+		}
+	}
+
+	unique := make([]T, 0, len(set))
+	for item := range set {
+		unique = append(unique, item)
+	}
+
+	return unique
+}
+
+func exhaustChannels[T any](ch chan T, errChan chan error) {
+	go func() {
+		select {
+		case <- ch:
+		case <- errChan:
+		}
+	}()
+}
+
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
