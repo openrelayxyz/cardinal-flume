@@ -238,7 +238,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionsBySender did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionsBySender did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
@@ -252,7 +252,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionReceiptsBySender did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionReceiptsBySender did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
@@ -266,7 +266,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionsByRecipient did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionsByRecipient did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
@@ -280,7 +280,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionReceiptsByRecipient did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionReceiptsByRecipient did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
@@ -294,7 +294,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionsByParticipant did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionsByParticipant did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
@@ -308,7 +308,7 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Params[0].(common.Address) != testAddress {
 		t.Fatal("GetTransactionReceiptsByParticipant did not return expected parameter address, heavy test", "err", err.Error())
 	}
-	if *err.(*heavy.MockError).Params[1].(*int) != 0 {
+	if err.(*heavy.MockError).Params[1].(*int) != nil {
 		t.Fatal("GetTransactionReceiptsByParticipant did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 

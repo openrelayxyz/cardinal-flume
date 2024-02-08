@@ -73,7 +73,7 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionsBySender sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			tx, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionsBySender", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionsBySender", "err", err) 
@@ -82,7 +82,7 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 			if tx != nil {
 				heavyResult <- *tx
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -141,7 +141,7 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx *rpc.CallContext, addres
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionReceiptsBySender sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			rt, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionReceiptsBySender", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionReceiptsBySender", "err", err)
@@ -150,7 +150,7 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx *rpc.CallContext, addres
 			if rt != nil {
 				heavyResult <- *rt
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -202,7 +202,7 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionsByRecipient sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			tx, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionsByRecipient", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionsByRecipient", "err", err)
@@ -211,7 +211,7 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 			if tx != nil {
 				heavyResult <- *tx
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -270,7 +270,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, add
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionReceiptsByRecipient sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			rt, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionReceiptsByRecipient", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionReceiptsByRecipient", "err", err) 
@@ -279,7 +279,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, add
 			if rt != nil {
 				heavyResult <- *rt
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -331,7 +331,7 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionByParticipant sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			tx, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionsByParticipant", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionByParticipant", "err", err) 
@@ -340,7 +340,7 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 			if tx != nil {
 				heavyResult <- *tx
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -400,7 +400,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx *rpc.CallContext, a
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionReceiptsByParticipant sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			rt, err := heavy.CallHeavy[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, "flume_getTransactionReceiptsByParticipant", address, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_getTransactionReceiptsByParticipant", "err", err)
@@ -411,7 +411,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx *rpc.CallContext, a
 			} else {
 				heavyResult <- *rt
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}

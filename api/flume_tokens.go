@@ -43,7 +43,7 @@ func (api *FlumeTokensAPI) Erc20ByAccount(ctx *rpc.CallContext, addr common.Addr
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_erc20ByAccount sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			address, err := heavy.CallHeavyDiscrete[*paginator[common.Address]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_erc20ByAccount", addr, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_erc20ByAccount", "err", err) 
@@ -52,7 +52,7 @@ func (api *FlumeTokensAPI) Erc20ByAccount(ctx *rpc.CallContext, addr common.Addr
 			if address != nil {
 				heavyResult <- *address
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
@@ -124,7 +124,7 @@ func (api *FlumeTokensAPI) Erc20Holders(ctx *rpc.CallContext, addr common.Addres
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_erc20Holders sent to flume heavy by default")
 		missMeter.Mark(1)
-		go func() {
+		go func(offset *int) {
 			address, err := heavy.CallHeavyDiscrete[*paginator[common.Address]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_erc20Holders", addr, offset)
 			if err != nil {
 				log.Error("Error processing request in flume_erc20Holders", "err", err) 
@@ -133,7 +133,7 @@ func (api *FlumeTokensAPI) Erc20Holders(ctx *rpc.CallContext, addr common.Addres
 			if address != nil {
 				heavyResult <- *address
 			}
-		}()
+		}(offset)
 	} else {
 		close(heavyResult)
 	}
