@@ -106,7 +106,14 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			}
 			if logs != nil {
 				heavyResult <- *logs
-			} 
+				if crit.BlockHash != nil {
+					heavyBlockHashHit.Mark(1)
+				}
+			} else {
+				if crit.BlockHash != nil {
+					heavyBlockHashMiss.Mark(1)
+				}
+			}
 		}()
 	} else {
 		close(heavyResult)

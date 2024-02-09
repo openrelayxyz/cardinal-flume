@@ -21,8 +21,8 @@ var (
 	hitMeter  = metrics.NewMajorMeter("/flume/hit")
 	missMeter = metrics.NewMajorMeter("/flume/miss")
 
-	heavyBlockHit = metrics.NewMinorMeter("/flume/hbc/hit")
-	heavyBlockMiss = metrics.NewMinorMeter("/flume/hbc/miss")
+	heavyBlockHashHit = metrics.NewMinorMeter("/flume/hbh/hit")
+	heavyBlockHashMiss = metrics.NewMinorMeter("/flume/hbh/miss")
 )
 
 type BlockAPI struct {
@@ -78,10 +78,6 @@ func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber rpc.Block
 		if err != nil {
 			return nil, err
 		}
-		if responseShell == nil {
-			heavyBlockMiss.Mark(1)
-		}
-		heavyBlockHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -146,9 +142,9 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 			return nil, err
 		}
 		if responseShell == nil {
-			heavyBlockMiss.Mark(1)
+			heavyBlockHashMiss.Mark(1)
 		}
-		heavyBlockHit.Mark(1)
+		heavyBlockHashHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -205,10 +201,6 @@ func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, block
 		if err != nil {
 			return nil, err
 		}
-		if count == nil {
-			heavyBlockMiss.Mark(1)
-		}
-		heavyBlockHit.Mark(1)
 		return count, nil
 	}
 
@@ -252,9 +244,9 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 			return nil, err
 		}
 		if count == nil {
-			heavyBlockMiss.Mark(1)
+			heavyBlockHashMiss.Mark(1)
 		}
-		heavyBlockHit.Mark(1)
+		heavyBlockHashHit.Mark(1)
 		return count, nil
 	}
 
@@ -297,10 +289,6 @@ func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber
 		if err != nil {
 			return nil, err
 		}
-		if count == nil {
-			heavyBlockMiss.Mark(1)
-		}
-		heavyBlockHit.Mark(1)
 		return count, nil
 	}
 
@@ -347,9 +335,9 @@ func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash typ
 			return nil, err
 		}
 		if count == nil {
-			heavyBlockMiss.Mark(1)
+			heavyBlockHashMiss.Mark(1)
 		}
-		heavyBlockHit.Mark(1)
+		heavyBlockHashHit.Mark(1)
 		return count, nil
 	}
 
@@ -392,10 +380,6 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			if err != nil {
 				return nil, err
 			}
-			if rt == nil {
-				heavyBlockMiss.Mark(1)
-			}
-			heavyBlockHit.Mark(1)
 			return *rt, nil
 		}
 	
@@ -442,9 +426,9 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 				return nil, err
 			}
 			if rt == nil {
-				heavyBlockMiss.Mark(1)
+				heavyBlockHashMiss.Mark(1)
 			}
-			heavyBlockHit.Mark(1)
+			heavyBlockHashHit.Mark(1)
 			return *rt, nil
 		}
 	
