@@ -469,7 +469,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 		if err != nil {
 			return nil, err
 		}
-		if responseShell == nil {
+		if rt == nil {
 			heavyBlockHashMiss.Mark(1)
 		}
 		heavyBlockHashHit.Mark(1)
@@ -551,7 +551,7 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 		if responseShell == nil {
 			heavyTxHashMiss.Mark(1)
 		}
-		heavyBlockTxHit.Mark(1)
+		heavyTxHashHit.Mark(1)
 		return responseShell, nil
 	}
 
