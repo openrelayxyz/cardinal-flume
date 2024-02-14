@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"fmt"
 	"sync"
 	"context"
 	"database/sql"
@@ -33,11 +34,16 @@ type outerResult struct {
 	Id		int			   `json:"id"`
 }
 
-func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
+func IndexSingleBlock(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex, block int64) error {
 
-	if cfg.LatestBlock > 0 {
-		log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
-		return nil
+	// if cfg.LatestBlock > 0 {
+	// 	log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
+	// 	return nil
+	// }
+
+	job := "single block"
+	if block == 0 {
+		job = "genesis"
 	}
 
 
@@ -46,7 +52,7 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	for _, broker := range cfg.BrokerParams {
 		if strings.HasPrefix(broker.URL, "ws://") || strings.HasPrefix(broker.URL, "wss://") {
 			wsURL = broker.URL
-			log.Info("found websocket broker, reindexer", "broker", wsURL) 
+			log.Info(fmt.Sprintf("found websocket broker, %v indexer", job), "broker", wsURL) 
 			break
 		}
 	}
@@ -59,13 +65,13 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	
 	conn, _, err := dialer.Dial(wsURL, nil)
     if err != nil {
-		log.Error("Websocket dial error, genesis indexer", "err", err.Error())
+		log.Error(fmt.Sprintf("Websocket dial error, %v indexer", job), "err", err)
 		return err
 	}
 
-	genesis := uint64(0)
+	blk := uint64(block)
 
-	params := []string{hexutil.EncodeUint64(genesis)}
+	params := []string{hexutil.EncodeUint64(blk)}
 
 	message := message{
 		Id: 1,
@@ -75,23 +81,23 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 
 	msg, err := json.Marshal(message)
 	if err != nil {
-		log.Error("cannot json marshal message, reindexer, block", genesis, "err", err.Error())
+		log.Error(fmt.Sprintf("cannot json marshal message, %v indexer", job), "block", block, "err", err)
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Error("failed to send message, genesis indexer", "err", err.Error())
+		log.Error(fmt.Sprintf("failed to send message, %v indexer", job), "err", err)
 	}
 
 	_, resultBytes, err := conn.ReadMessage()
 	if err != nil {
-		log.Error("Error reading transport batch, reindexer, on block", genesis, "err", err.Error())
+		log.Error(fmt.Sprintf("Error reading transport batch, %v indexer", job), "err", err)
 		return err
 	}
 
 	var or *outerResult
 
 	if err := json.Unmarshal(resultBytes, &or); err != nil {
-		log.Error("cannot unmarshal transportBytes, reindexer, on block", genesis, "err", err.Error())
+		log.Error(fmt.Sprintf("cannot unmarshal transportBytes, %v indexer", job), "err", err)
 		return err
 	}
 
@@ -102,7 +108,7 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	for _, indexer := range indexers {
 		statements, err := indexer.Index(pb.ToPendingBatch())
 		if err != nil {
-			log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
+			log.Error(fmt.Sprintf("Error generating statement %v indexer, on indexer", job), indexer, "err", err)
 			return err
 		}
 		genesisStatements = append(genesisStatements, statements...)
@@ -111,15 +117,15 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	mut.Lock()
 	dbtx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		log.Error("Error creating database transaction genesis indexer", "err", err.Error())
+		log.Error(fmt.Sprintf("Error creating database transaction %v indexer", job), "err", err)
 		return err
 	}
 	if _, err := dbtx.Exec(strings.Join(genesisStatements, " ; ")); err != nil {
-		log.Error("Failed to execute statement genesis indexer", "err", err.Error())
+		log.Error(fmt.Sprintf("Failed to execute statement %v indexer", job), "err", err)
 		return err
 	}
 	if err := dbtx.Commit(); err != nil {
-		log.Error("Failed to commit genesis block genesis indexer", "err", err.Error())
+		log.Error(fmt.Sprintf("Failed to commit block %v indexer", job), "err", err)
 		return err
 	}
 

@@ -29,7 +29,8 @@ func main() {
 	exitWhenSynced := flag.Bool("shutdownSync", false, "Shutdown server once sync is completed")
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
-	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
+	genesisIndex := flag.Bool("genesisIndex", false, "index genesis block, meant to be run on a new istance of flume archive or heavy once some range of block have been indexed")
+	singleIndex := flag.Int64("singleBlockIndex", 0, "index a single block other than genesis")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
@@ -224,13 +225,39 @@ func main() {
 	}
 
 	if *genesisIndex {
-		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut)
+		err := indexer.IndexSingleBlock(cfg, logsdb, indexes, mut, 0)
 		if err != nil {
 			log.Error("Failed to index genesis block", "err", err.Error())
 			panic(err)
 		} else {
 			log.Info("genesis block indexed")
 		}
+	}
+
+	if *singleIndex > 0 {
+		var earliestBlock int 
+		if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&earliestBlock); err != nil {
+			log.Error("Error when querying for earliest block for single block indexing", "err", err)
+			logsdb.Close()
+			time.Sleep(time.Second)
+			return
+
+		}
+		if *singleIndex < (earliestBlock -1) || *singleIndex > (cfg.LatestBlock + 1) {
+			log.Error("Single block specified is outside of existing block range and will create a data gap")
+			logsdb.Close()
+			time.Sleep(time.Second)
+			return
+		}
+		if err := indexer.IndexSingleBlock(cfg, logsdb, indexes, mut, *singleIndex); err != nil {
+			log.Error("Failed to index specified block", "err", err.Error())
+			panic(err)
+		} else {
+			log.Info("single block indexed", "block", *singleIndex)
+		}
+		logsdb.Close()
+		time.Sleep(time.Second)
+		return
 	}
 
 	pluginReIndexers := pl.Lookup("ReIndexer", func(v interface{}) bool {
@@ -302,7 +329,7 @@ func main() {
 	var minBlock int
 	if cfg.Brokers[0].URL != "null://" {
 		for {
-			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+				if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
 				log.Debug("Earliest block set", "block", minBlock)
 				break
 			}
