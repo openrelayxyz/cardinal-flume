@@ -236,23 +236,23 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				megaStatement := []string{}
 				megaParameters := []interface{}{}
 				for _, pb := range chainUpdate.Added() {
-					for k, v := range pb.Values {
-						switch k {
-						case safeNumKey:
+					for _, v := range pb.Values {
+						var ok bool
+						if v, ok = pb.Values[safeNumKey]; ok {
 							safeNum = new(big.Int).SetBytes(v)
-						case finalizedNumKey:
-							finalizedNum = new(big.Int).SetBytes(v)
-						default:
-							for _, indexer := range indexers {
-								s, err := indexer.Index(pb)
-								log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
-								if err != nil {
-									log.Error("Error computing updates", "err", err.Error())
-									continue UPDATELOOP
-								}
-								megaStatement = append(megaStatement, s...)
-							}
 						}
+						if v, ok = pb.Values[finalizedNumKey]; ok {
+							finalizedNum = new(big.Int).SetBytes(v)
+						}
+					}
+					for _, indexer := range indexers {
+						s, err := indexer.Index(pb)
+						log.Debug("inside indexer loop", "idx", indexer, "len", len(s))
+						if err != nil {
+							log.Error("Error computing updates", "err", err.Error())
+							continue UPDATELOOP
+						}
+						megaStatement = append(megaStatement, s...)
 					}
 					lastBatch = pb
 					if blockTime != nil { blockAgeTimer.UpdateSince(*blockTime) }
