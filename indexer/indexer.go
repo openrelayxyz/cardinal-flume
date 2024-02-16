@@ -235,15 +235,13 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 			for {
 				megaStatement := []string{}
 				megaParameters := []interface{}{}
+				// var ok bool
 				for _, pb := range chainUpdate.Added() {
-					for _, v := range pb.Values {
-						var ok bool
-						if v, ok = pb.Values[safeNumKey]; ok {
-							safeNum = new(big.Int).SetBytes(v)
-						}
-						if v, ok = pb.Values[finalizedNumKey]; ok {
-							finalizedNum = new(big.Int).SetBytes(v)
-						}
+					if v, ok := pb.Values[safeNumKey]; ok {
+						safeNum = new(big.Int).SetBytes(v)
+					}
+					if v, ok := pb.Values[finalizedNumKey]; ok {
+						finalizedNum = new(big.Int).SetBytes(v)
 					}
 					for _, indexer := range indexers {
 						s, err := indexer.Index(pb)
