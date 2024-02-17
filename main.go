@@ -372,11 +372,11 @@ func runStartupChecks(certainty, heavyCheck bool, database *sql.DB, config *conf
 			os.Exit(1)
 		}
 		if earliestBlock > hl {
-			log.Error("Gap found between local and heavy database", "local earliest", earliestBlock, "heavy latest", heavyLatest)
+			log.Error("Gap found between local and heavy database", "local earliest", earliestBlock, "heavy latest", hl)
 			os.Exit(1)
 		}
 		if hl - earliestBlock < 128 {
-			log.Error("Overlap between local and heavy databases is too small", "local earliest", earliestBlock, "heavy latest", heavyLatest) 
+			log.Error("Overlap between local and heavy databases is too small", "local earliest", earliestBlock, "heavy latest", hl) 
 			os.Exit(1)
 		}
 	}
