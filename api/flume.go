@@ -679,7 +679,7 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx *rpc.CallContext, partialHe
 		log.Debug("flume_TransactionHashesWithPrefix sent to flume heavy by default")
 		missMeter.Mark(1)
 		go func() {
-			hashes, err := heavy.CallHeavy[[]string](ctx.Context(), api.cfg.HeavyServer, "flume_TransactionHashesWithPrefix", partialHexString)
+			hashes, err := heavy.CallHeavy[[]string](ctx.Context(), api.cfg.HeavyServer, "flume_transactionHashesWithPrefix", partialHexString)
 			if err != nil {
 				log.Error("Error calling heavy server, flume_transactionHashesWithPrefix", "err", err)
 				errChan <- err
