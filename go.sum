@@ -102,8 +102,8 @@ github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLA
 github.com/openrelayxyz/cardinal-evm v1.11.0 h1:HUsS1OChmnTxY3TBg46fTkQpTv34Uci4ZXYSj3Lzl64=
 github.com/openrelayxyz/cardinal-evm v1.11.0/go.mod h1:GXka2Ug8HtNER3uYBSCZKJdcCGkhYeHwIJWaAjPbm2k=
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
-github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext1 h1:Amm6aVEo9CnmCAqG1Ewov8vrGuabL07yCtrHTMdFly4=
-github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext1/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
+github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext3 h1:0bOeHJh5O7ZF3vQ4bCQhEDVJZ3Z/KrEIfOzVE1d571o=
+github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext3/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
 github.com/openrelayxyz/cardinal-streams v1.4.1 h1:v0jrxk8iyZpWnccQ+uGRfrktdoTuY/sZMGumLz/x7Ic=
 github.com/openrelayxyz/cardinal-streams v1.4.1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
 github.com/openrelayxyz/cardinal-types v1.0.0/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=

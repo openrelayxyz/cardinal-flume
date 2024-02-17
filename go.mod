@@ -9,7 +9,7 @@ require (
 	github.com/klauspost/compress v1.15.15
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/openrelayxyz/cardinal-evm v1.11.0
-	github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext1
+	github.com/openrelayxyz/cardinal-rpc v1.2.1-newcontext3
 	github.com/openrelayxyz/cardinal-streams v1.4.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	github.com/xsleonard/go-merkle v1.1.0
