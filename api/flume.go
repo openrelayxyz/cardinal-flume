@@ -530,6 +530,9 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 
 	augmentedBytes := incrementLastByte(bytes)
 
+
+	// the following query  needs to be modified into multiple queries which are structured similar to below but look in transactions for senders and recipients
+	// as well as blocks for miners. The rusults from the distinct quieries can be concatenated into one rows loop. 
 	statement := "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20"
 	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - zeros)
 	if err != nil {
