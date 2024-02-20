@@ -370,6 +370,7 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 
 func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
+	// we need to check for empty strings as well as not return unless it is an acutal hash
 	if len(partialHexString) == 66 {
 		return []string{partialHexString}, nil
 	}
@@ -424,6 +425,7 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 
 func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
+	// we need to check for empty strings as well as not return unless it is an acutal hash
 	if len(partialHexString) == 66 {
 		return []string{partialHexString}, nil
 	}
@@ -499,6 +501,7 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 
 func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
+	// we need to check for empty strings as well as not return here unless is it an acutal address
 	if len(partialHexString) == 42 {
 		return []string{partialHexString}, nil
 	}
