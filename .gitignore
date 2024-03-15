@@ -1,3 +1,6 @@
 flumeserver/flumeserver
 flumeserver/tokens/tokens.go
 flumeserver/sig4byte/sigs.go
+demo
+cardinal-flume
+.DS_store
