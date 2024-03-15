@@ -6,23 +6,27 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/mattn/go-sqlite3"
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 
+	"github.com/mattn/go-sqlite3"
+
+	_ "net/http/pprof"
+
 	log "github.com/inconshreveable/log15"
 	ctypes "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/migrations"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	"github.com/openrelayxyz/cardinal-rpc"
-	_ "net/http/pprof"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 var register sync.Once
@@ -117,6 +121,62 @@ func receiptsDecompress() ([]map[string]json.RawMessage, error) {
 	return receiptsObject, nil
 }
 
+func blockReceiptsTransform() (map[[2]interface{}][]map[string]json.RawMessage, error) {
+	results := make(map[[2]interface{}][]map[string]json.RawMessage)
+	k := [2]interface{}{} // hold a pair of block number and hashes
+	unmodified, err := receiptsDecompress()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var previousNum uint64
+
+	for i, item := range unmodified {
+		var blockNumber interface{}
+		json.Unmarshal(item["blockNumber"], &blockNumber)
+
+		var blockHash interface{}
+		json.Unmarshal(item["blockHash"], &blockHash)
+
+		if hexutil.MustDecodeUint64(blockNumber.(string)) > previousNum {
+			k = [2]interface{}{blockNumber, blockHash}
+			results[k] = []map[string]json.RawMessage{item}
+			previousNum = hexutil.MustDecodeUint64(blockNumber.(string))
+		} else if hexutil.MustDecodeUint64(blockNumber.(string)) == previousNum {
+			results[k] = append(results[k], item)
+		} else {
+			return nil, errors.New(fmt.Sprintf("Expectations violated in blockReceiptsTransform on index %v", i))
+		}
+	}
+
+	return results, nil
+}
+
+func isolateReceiptMap(arg interface{}, object map[[2]interface{}][]map[string]json.RawMessage) []map[string]json.RawMessage {
+	num, ok := arg.(rpc.BlockNumber)
+	if ok {
+		for k, v := range object {
+			if k[0].(rpc.BlockNumber) == num {
+				return v
+			}
+		}
+	}
+	return nil
+}
+
+func TestReceiptFunc(t *testing.T) {
+	r, err := blockReceiptsTransform()
+	if err != nil {
+		log.Error("error getting data", "err", err)
+	}
+	for k, v := range r {
+		if k[0].(string) == "0xf4240" {
+			log.Info("ok you got one", "len", len(v))
+		}
+	}
+}
+
 func withdrawalsDecompress() ([][]map[string]json.RawMessage, error) {
 	file, _ := ioutil.ReadFile("../testing-resources/withdrawal_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
@@ -138,6 +198,21 @@ func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []rpc.BlockNu
 		var x rpc.BlockNumber
 		json.Unmarshal(block["number"], &x)
 		result = append(result, x)
+	}
+	return result
+}
+
+func getReceiptBlockNumber(receiptObject []map[string]json.RawMessage) []rpc.BlockNumber {
+	uniqueBlockNumbers := make(map[rpc.BlockNumber]bool)
+	result := []rpc.BlockNumber{}
+	for _, block := range receiptObject {
+		var num rpc.BlockNumber
+		json.Unmarshal(block["blockNumber"], &num)
+		_, exists := uniqueBlockNumbers[num]
+		if !exists {
+			result = append(result, num)
+			uniqueBlockNumbers[num] = true
+		}
 	}
 	return result
 }
@@ -289,7 +364,42 @@ func TestBlockAPI(t *testing.T) {
 				t.Fatalf("uncle count by block %v %v", actual, hexutil.Uint64(len(uncleSlice)))
 			}
 		})
+
 	}
+
+	receiptData, err := blockReceiptsTransform()
+	if err != nil {
+		log.Error(err.Error())
+	}
+
+	receiptObject, err := receiptsDecompress()
+	if err != nil {
+		log.Error(err.Error())
+	}
+	receiptBlockNumbers := getReceiptBlockNumber(receiptObject)
+	for _, block := range receiptBlockNumbers {
+		receiptList := isolateReceiptMap(block, receiptData)
+		t.Run("GetBlockReceipts", func(t *testing.T) {
+			blockNo := BlockNumberOrHashWithNumber(block)
+			actual, err := b.GetBlockReceipts(context.Background(), blockNo)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+
+			for j, item := range actual {
+				for k, v := range item {
+					if k == "blockNumber" {
+						log.Error("These are the types", "Type", reflect.TypeOf(v), "Second type", j, reflect.TypeOf(receiptList[j][k]))
+						// if v != receiptList[j][k] {
+						// 	t.Fatal("There was a problem")
+						// }
+					}
+				}
+			}
+
+		})
+	}
+
 	blockHashes := getBlockHashes(blockObject)
 	for i, hash := range blockHashes {
 		t.Run(fmt.Sprintf("GetBlockByHash %v", i), func(t *testing.T) {
@@ -389,4 +499,5 @@ func TestBlockAPI(t *testing.T) {
 			}
 		})
 	}
+
 }
