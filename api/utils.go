@@ -398,19 +398,135 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	return results, nil
 }
 
+// func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+// 	results := []map[string]interface{}{}
+// 	if !mempool {
+// 		return results, nil
+// 	} 
+// 	query := fmt.Sprintf("SELECT transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, transactions.gasFeeCap, transactions.gasTipCap FROM mempool.transactions WHERE %v LIMIT ? OFFSET ?;", whereClause)
+// 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer rows.Close()
+// 	for rows.Next() {
+// 		var amount, to, from, data, txHash, r, s, cAccessListRLP, gasFeeCapBytes, gasTipCapBytes []byte
+// 		var nonce, gasLimit, gasPrice, v uint64
+// 		var txTypeRaw sql.NullInt32
+// 		err := rows.Scan(
+// 			&gasLimit,
+// 			&gasPrice,
+// 			&txHash,
+// 			&data,
+// 			&nonce,
+// 			&to,
+// 			&amount,
+// 			&v,
+// 			&r,
+// 			&s,
+// 			&from,
+// 			&txTypeRaw,
+// 			&cAccessListRLP,
+// 			&gasFeeCapBytes,
+// 			&gasTipCapBytes,
+// 		)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		txType := uint8(txTypeRaw.Int32)
+// 		inputBytes, err := decompress(data)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		accessListRLP, err := decompress(cAccessListRLP)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		var accessList *evm.AccessList
+
+// 		var chainID, gasFeeCap, gasTipCap, yParity *hexutil.Big
+// 		//move below and assign to mao conditionally
+// 		switch txType {
+// 		case evm.AccessListTxType:
+// 			accessList = &evm.AccessList{}
+// 			rlp.DecodeBytes(accessListRLP, accessList)
+// 			chainID = uintToHexBig(chainid)
+// 			yParity = uintToHexBig(v)
+// 		case evm.DynamicFeeTxType:
+// 			accessList = &evm.AccessList{}
+// 			rlp.DecodeBytes(accessListRLP, accessList)
+// 			chainID = uintToHexBig(chainid)
+// 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
+// 			gasTipCap = bytesToHexBig(gasTipCapBytes)
+// 			yParity = uintToHexBig(v)
+// 		case evm.LegacyTxType:
+// 			chainID = nil
+// 		case evm.BlobTxType:
+// 			accessList = &evm.AccessList{}
+// 			rlp.DecodeBytes(accessListRLP, accessList)
+// 			item["accessList"] = accessList
+// 			item["chainId"] = uintToHexBig(chainid)
+// 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+// 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+// 			item["yParity"] = uintToHexBig(v)			
+// 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
+// 			if len(bVHashesRLP) > 0 {
+// 				bVHashes := &[]types.Hash{}
+// 				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
+// 					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
+// 				}
+// 				item["blobVersionedHashes"] = bVHashes
+// 			}
+// 		}
+// 		results = append(results, map[string]interface{}{
+// 			"from":       bytesToAddress(from),
+// 			"gas":        hexutil.Uint64(gasLimit),
+// 			"gasPrice":   uintToHexBig(gasPrice),
+// 			"gasFeeCap":  gasFeeCap,
+// 			"gasTipCap":  gasTipCap,
+// 			"hash":       bytesToHash(txHash),
+// 			"input":      hexutil.Bytes(inputBytes),
+// 			"nonce":      hexutil.Uint64(nonce),
+// 			"to":         bytesToAddressPtr(to),
+// 			"value":      bytesToHexBig(amount),
+// 			"v":          uintToHexBig(v),
+// 			"r":          bytesToHexBig(r),
+// 			"s":          bytesToHexBig(s),
+// 			"type":       hexutil.Uint64(txType),
+// 			"chainID":    chainID,
+// 			"accessList": accessList,
+// 			"yParity": yParity,
+// 		})
+// 	}
+// 	if err := rows.Err(); err != nil {
+// 		return nil, err
+// 	}
+// 	keys := []string{"chainID", "accessList", "maxFeePerGas", "maxPriorityFeePerGas"}
+// 	for _, key := range keys {
+// 		for _, item := range results {
+// 			for k, v := range item {
+// 				if k == key || v == nil {
+// 					delete(item, k)
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return results, nil
+// }
+
 func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
 	results := []map[string]interface{}{}
 	if !mempool {
 		return results, nil
 	} 
-	query := fmt.Sprintf("SELECT transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, transactions.gasFeeCap, transactions.gasTipCap FROM mempool.transactions WHERE %v LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes FROM mempool.transactions WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var amount, to, from, data, txHash, r, s, cAccessListRLP, gasFeeCapBytes, gasTipCapBytes []byte
+		var amount, to, from, data, txHash, r, s, cAccessListRLP, gasFeeCapBytes, gasTipCapBytes, blobGasFeeBytes, bVHashesRLP []byte
 		var nonce, gasLimit, gasPrice, v uint64
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
@@ -429,6 +545,8 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			&cAccessListRLP,
 			&gasFeeCapBytes,
 			&gasTipCapBytes,
+			&blobGasFeeBytes,
+			&bVHashesRLP,
 		)
 		if err != nil {
 			return nil, err
@@ -442,31 +560,11 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 		if err != nil {
 			return nil, err
 		}
-		var accessList *evm.AccessList
-		var chainID, gasFeeCap, gasTipCap, yParity *hexutil.Big
-		//move below and assign to mao conditionally
-		switch txType {
-		case evm.AccessListTxType:
-			accessList = &evm.AccessList{}
-			rlp.DecodeBytes(accessListRLP, accessList)
-			chainID = uintToHexBig(chainid)
-			yParity = uintToHexBig(v)
-		case evm.DynamicFeeTxType:
-			accessList = &evm.AccessList{}
-			rlp.DecodeBytes(accessListRLP, accessList)
-			chainID = uintToHexBig(chainid)
-			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
-			gasTipCap = bytesToHexBig(gasTipCapBytes)
-			yParity = uintToHexBig(v)
-		case evm.LegacyTxType:
-			chainID = nil
-		}
-		results = append(results, map[string]interface{}{
+
+		item := map[string]interface{}{
 			"from":       bytesToAddress(from),
 			"gas":        hexutil.Uint64(gasLimit),
 			"gasPrice":   uintToHexBig(gasPrice),
-			"gasFeeCap":  gasFeeCap,
-			"gasTipCap":  gasTipCap,
 			"hash":       bytesToHash(txHash),
 			"input":      hexutil.Bytes(inputBytes),
 			"nonce":      hexutil.Uint64(nonce),
@@ -476,24 +574,48 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			"r":          bytesToHexBig(r),
 			"s":          bytesToHexBig(s),
 			"type":       hexutil.Uint64(txType),
-			"chainID":    chainID,
-			"accessList": accessList,
-			"yParity": yParity,
-		})
+		}
+
+		var accessList *evm.AccessList
+
+		switch txType {
+		case evm.AccessListTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainId"] = uintToHexBig(chainid)
+			item["yParity"] = uintToHexBig(v)
+		case evm.DynamicFeeTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainId"] = uintToHexBig(chainid)
+			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)
+		case evm.BlobTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainId"] = uintToHexBig(chainid)
+			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)			
+			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
+			if len(bVHashesRLP) > 0 {
+				bVHashes := &[]types.Hash{}
+				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
+					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
+				}
+				item["blobVersionedHashes"] = bVHashes
+			}
+		}
+		results = append(results, item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	keys := []string{"chainID", "accessList", "maxFeePerGas", "maxPriorityFeePerGas"}
-	for _, key := range keys {
-		for _, item := range results {
-			for k, v := range item {
-				if k == key || v == nil {
-					delete(item, k)
-				}
-			}
-		}
-	}
+	
 	return results, nil
 }
 
