@@ -34,7 +34,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		return []string{}
 	}
 	var signer evm.Signer
-	var accessListRLP []byte
+	var accessListRLP, blobFeeCap, blobVersionedHashes []byte
 	gasPrice := tx.GasPrice().Uint64()
 	switch {
 	case tx.Type() == evm.AccessListTxType:
@@ -44,6 +44,11 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		signer = evm.NewLondonSigner(tx.ChainId())
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
 		gasPrice = tx.GasFeeCap().Uint64()
+	case tx.Type() == evm.BlobTxType:
+		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
+		gasPrice = tx.GasFeeCap().Uint64()
+		blobFeeCap = trimPrefix(tx.BlobGasFeeCap().Bytes())
+		blobVersionedHashes, _ = rlp.EncodeToBytes(tx.BlobHashes())
 	default:
 		signer = evm.NewEIP155Signer(tx.ChainId())
 	}
@@ -63,7 +68,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 	))
 	// Insert the transaction
 	statements = append(statements, ApplyParameters(
-		"INSERT INTO mempool.transactions(gas, gasPrice, hash, input, nonce, recipient, `value`, v, r, s, sender, `type`, access_list, gasFeeCap, gasTipCap, time) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+		"INSERT INTO mempool.transactions(gas, gasPrice, hash, input, nonce, recipient, `value`, v, r, s, sender, `type`, access_list, gasFeeCap, gasTipCap, time, maxFeePerBlobGas, blobVersionedHashes) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 		tx.Gas(),
 		gasPrice,
 		txHash,
@@ -80,6 +85,8 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		trimPrefix(tx.GasFeeCap().Bytes()),
 		trimPrefix(tx.GasTipCap().Bytes()),
 		t.Unix(),
+		blobFeeCap,
+		blobVersionedHashes,
 	))
 	// Delete the transaction we just inserted if the confirmed transactions
 	// pool has a conflicting entry

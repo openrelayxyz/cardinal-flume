@@ -111,8 +111,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		sender := <-senderMap[transaction.Hash()]
 		v, r, s := transaction.RawSignatureValues()
 
-		var blobFeeCap []byte
-		var accessListRLP, blobVersionedHashes []byte
+		var accessListRLP, blobFeeCap, blobVersionedHashes []byte
 		gasPrice := transaction.GasPrice().Uint64()
 		switch transaction.Type() {
 		case evm.AccessListTxType:
