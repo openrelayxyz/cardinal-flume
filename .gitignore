@@ -4,3 +4,6 @@ flumeserver/sig4byte/sigs.go
 demo
 cardinal-flume
 .DS_store
+/testing-resources
+testing-resources
+/mac

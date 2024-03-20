@@ -156,22 +156,6 @@ func blockReceiptsTransform() (map[rpc.BlockNumber][]map[string]json.RawMessage,
 	return numResults, hashResults, nil
 }
 
-// func TestReceiptFunc(t *testing.T) {
-// 	_, r, err := blockReceiptsTransform()
-// 	if err != nil {
-// 		log.Error("error getting data", "err", err)
-// 	}
-// 	for k, v := range r {
-// 		// log.Error("in range", "k", k)
-// 		if k == types.HexToHash("0x8e38b4dbf6b11fcc3b9dee84fb7986e29ca0a02cecd8977c161ff7333329681e") {
-// 			log.Info("ok you got one", "len", len(v))
-// 		}
-// 	}
-// 	// for k := range r {
-// 	// 	log.Error("These are the keys", "key", k, "type", reflect.TypeOf(k))
-// 	// }
-// }
-
 func withdrawalsDecompress() ([][]map[string]json.RawMessage, error) {
 	file, _ := ioutil.ReadFile("../testing-resources/withdrawal_test_data.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
@@ -196,21 +180,6 @@ func getBlockNumbers(jsonBlockObject []map[string]json.RawMessage) []rpc.BlockNu
 	}
 	return result
 }
-
-// func getReceiptBlockNumber(receiptObject []map[string]json.RawMessage) []rpc.BlockNumber {
-// 	uniqueBlockNumbers := make(map[rpc.BlockNumber]bool)
-// 	result := []rpc.BlockNumber{}
-// 	for _, block := range receiptObject {
-// 		var num rpc.BlockNumber
-// 		json.Unmarshal(block["blockNumber"], &num)
-// 		_, exists := uniqueBlockNumbers[num]
-// 		if !exists {
-// 			result = append(result, num)
-// 			uniqueBlockNumbers[num] = true
-// 		}
-// 	}
-// 	return result
-// }
 
 func getBlockHashes(jsonBlockObject []map[string]json.RawMessage) []types.Hash {
 	result := []types.Hash{}
@@ -293,39 +262,6 @@ func TestBlockAPI(t *testing.T) {
 		log.Error("Error returned from blockReceiptsTransform", "err", err)
 	}
 	for i, block := range blockNumbers {
-		blockNo := BlockNumberOrHashWithNumber(block)
-		t.Run("GetBlockReceipts", func(t *testing.T) {
-			actual, err := b.GetBlockReceipts(context.Background(), blockNo)
-			if err != nil {
-				t.Fatal(err.Error())
-			}
-			for i, item := range actual {
-				for k, v := range item {
-					if k == "blockNumber" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockNumber", "number", *blockNo.BlockNumber)
-							}
-						}
-					}
-					if k == "blockHash" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockHash", "number", *blockNo.BlockNumber)
-							}
-						}
-					}
-					if k == "transactionIndex" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, transactionIndex", "number", *blockNo.BlockNumber)
-							}
-						}
-					}
-				}
-			}
-
-		})
 
 		t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
 			actual, err := b.GetBlockByNumber(context.Background(), block, true)
@@ -398,38 +334,32 @@ func TestBlockAPI(t *testing.T) {
 			}
 		})
 
-	}
-
-	blockHashes := getBlockHashes(blockObject)
-	for i, hash := range blockHashes {
-		blockHash := BlockNumberOrHashWithHash(hash, false)
+		blockNo := BlockNumberOrHashWithNumber(block)
 		t.Run("GetBlockReceipts", func(t *testing.T) {
-			actual, err := b.GetBlockReceipts(context.Background(), blockHash)
+			actual, err := b.GetBlockReceipts(context.Background(), blockNo)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			if len(actual) > 0 {
-				for i, item := range actual {
-					for k, v := range item {
-						if k == "blockNumber" {
-							if data, err := json.Marshal(v); err == nil {
-								if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-									t.Fatal("values not equal, getBlockReceipts, blockNumber", "hash", *blockHash.BlockHash)
-								}
+			for i, item := range actual {
+				for k, v := range item {
+					if k == "blockNumber" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, blockNumber", "number", *blockNo.BlockNumber)
 							}
 						}
-						if k == "blockHash" {
-							if data, err := json.Marshal(v); err == nil {
-								if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-									t.Fatal("values not equal, getBlockReceipts, blockHash", "hash", *blockHash.BlockHash)
-								}
+					}
+					if k == "blockHash" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, blockHash", "number", *blockNo.BlockNumber)
 							}
 						}
-						if k == "transactionIndex" {
-							if data, err := json.Marshal(v); err == nil {
-								if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-									t.Fatal("values not equal, getBlockReceipts, transactionIndex", "hash", *blockHash.BlockHash)
-								}
+					}
+					if k == "transactionIndex" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, transactionIndex", "number", *blockNo.BlockNumber)
 							}
 						}
 					}
@@ -437,7 +367,10 @@ func TestBlockAPI(t *testing.T) {
 			}
 
 		})
+	}
 
+	blockHashes := getBlockHashes(blockObject)
+	for i, hash := range blockHashes {
 		t.Run(fmt.Sprintf("GetBlockByHash %v", i), func(t *testing.T) {
 			actual, err := b.GetBlockByHash(context.Background(), hash, true)
 			if err != nil {
@@ -493,7 +426,6 @@ func TestBlockAPI(t *testing.T) {
 				t.Fatalf("transaction count by hash %v %v", actual, hexutil.Uint64(len(txSlice)))
 			}
 		})
-
 		t.Run("GetUncleCountByBlockHash", func(t *testing.T) {
 			actual, err := b.GetUncleCountByBlockHash(context.Background(), hash)
 			if err != nil {
@@ -504,6 +436,39 @@ func TestBlockAPI(t *testing.T) {
 			if *actual != hexutil.Uint64(len(uncleSlice)) {
 				t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))
 			}
+		})
+		blockHash := BlockNumberOrHashWithHash(hash, false)
+		t.Run("GetBlockReceipts", func(t *testing.T) {
+			actual, err := b.GetBlockReceipts(context.Background(), blockHash)
+			if err != nil {
+				t.Fatal(err.Error())
+			}
+			for i, item := range actual {
+				for k, v := range item {
+					if k == "blockNumber" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, blockNumber", "hash", *blockHash.BlockHash)
+							}
+						}
+					}
+					if k == "blockHash" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, blockHash", "hash", *blockHash.BlockHash)
+							}
+						}
+					}
+					if k == "transactionIndex" {
+						if data, err := json.Marshal(v); err == nil {
+							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
+								t.Fatal("values not equal, getBlockReceipts, transactionIndex", "hash", *blockHash.BlockHash)
+							}
+						}
+					}
+				}
+			}
+
 		})
 	}
 	withdrawalObject, err := withdrawalsDecompress()
