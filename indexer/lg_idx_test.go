@@ -44,7 +44,7 @@ func TestLogIndexer(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	log.Info("Log indexer test", "Decompressing batches of length:", len(batches))
-	l := NewLogIndexer(1)
+	l := NewLogIndexer(1, nil)
 
 	statements := []string{}
 	for _, pb := range batches {

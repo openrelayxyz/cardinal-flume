@@ -12,6 +12,7 @@ require (
 	github.com/openrelayxyz/cardinal-rpc v1.2.0-sf1
 	github.com/openrelayxyz/cardinal-streams v1.4.1
 	github.com/openrelayxyz/cardinal-types v1.1.1
+	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/xsleonard/go-merkle v1.1.0
 	golang.org/x/crypto v0.17.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -31,6 +32,7 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/ethereum/c-kzg-4844/bindings/go v0.0.0-20230126171313-363c7d7593b4 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/hamba/avro v1.6.6 // indirect
@@ -55,6 +57,7 @@ require (
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/xdg/scram v1.0.3 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/sync v0.5.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect

@@ -160,6 +160,13 @@ func ApplyParameters(query string, params ...interface{}) string {
 			}
 		case hexutil.Uint64:
 			preparedParams[i] = fmt.Sprintf("%v", uint64(value))
+		case *uint64:
+			if value == nil {
+				preparedParams[i] = "NULL"
+				continue
+			} else { 
+				preparedParams[i] = fmt.Sprintf("%v", *value)
+			}
 		default:
 			preparedParams[i] = fmt.Sprintf("%v", value)
 		}
