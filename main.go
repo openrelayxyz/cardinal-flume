@@ -16,6 +16,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 	log "github.com/inconshreveable/log15"
 	
+	"github.com/openrelayxyz/cardinal-rpc"
 	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types/metrics/publishers"
@@ -209,6 +210,7 @@ func main() {
 	mut := &sync.RWMutex{}
 
 	indexes := []indexer.Indexer{}
+
 	if hasBlocks {
 		if *blastIndex!="" {
 			bIBlock := blaster.NewBlasterBlockIndexer(cfg.CDatabases["blocks"], blastTxnsQuit, blastLogsQuit, blastWithdrawalsQuit)
@@ -308,9 +310,8 @@ func main() {
 	}
 
 	hc := &indexer.HealthCheck{}
-	rhf := make(chan int64, 1024)
-
-	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf)
+	rhf := make(chan *rpc.HeightRecord, 1024)
+	go indexer.ProcessDataFeed(consumer, txFeed, logsdb, quit, cfg.Eip155Block, cfg.HomesteadBlock, mut, cfg.MempoolSlots, indexes, hc, cfg.MemTxTimeThreshold, rhf, cfg.Chainid)
 
 	tm := rpcTransports.NewTransportManager(cfg.Concurrency)
 	tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitDuration) * time.Millisecond)

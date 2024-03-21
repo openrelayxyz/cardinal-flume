@@ -168,7 +168,6 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	}
 	return 0, zeroInputError
 }
-
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -177,7 +176,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
+		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes, blobGasFeeBytes, bVHashesRLP []byte
 		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v uint64
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
@@ -200,6 +199,8 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			&baseFeeBytes,
 			&gasFeeCapBytes,
 			&gasTipCapBytes,
+			&blobGasFeeBytes,
+			&bVHashesRLP,
 		)
 		if err != nil {
 			return nil, err
@@ -241,6 +242,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			rlp.DecodeBytes(accessListRLP, accessList)
 			item["accessList"] = accessList
 			item["chainId"] = uintToHexBig(chainid)
+			item["yParity"] = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -248,6 +250,23 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)		
+		case evm.BlobTxType:
+			accessList = &evm.AccessList{}
+			rlp.DecodeBytes(accessListRLP, accessList)
+			item["accessList"] = accessList
+			item["chainId"] = uintToHexBig(chainid)
+			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+			item["yParity"] = uintToHexBig(v)			
+			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
+			if len(bVHashesRLP) > 0 {
+				bVHashes := &[]types.Hash{}
+				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
+					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
+				}
+				item["blobVersionedHashes"] = bVHashes
+			}
 		}
 
 		results = append(results, item)
@@ -261,7 +280,7 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 }
 
 func getTransactionsBlock(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
 	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
 }
 
@@ -269,7 +288,7 @@ var emptyStateTrieHash types.Hash = types.HexToHash("0x56e81f171bcc55a6ff8345e69
 
 
 func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash FROM blocks.blocks WHERE %v;", whereClause)
+	query := fmt.Sprintf("SELECT hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloom, difficulty, extra, mixDigest, uncles, td, number, gasLimit, gasUsed, time, nonce, size, baseFee, withdrawalHash, blobGasUsed, excessBlobGas, parentBeaconRoot FROM blocks.blocks WHERE %v;", whereClause)
 	rows, err := db.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, err
@@ -277,10 +296,11 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 	defer rows.Close()
 	results := []map[string]interface{}{}
 	for rows.Next() {
-		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes []byte
+		var hash, parentHash, uncleHash, coinbase, root, txRoot, receiptRoot, bloomBytes, extra, mixDigest, uncles, td, baseFee, withdrawalHashBytes, parentBeaconBlockRootBytes []byte
 		var number, gasLimit, gasUsed, time, size, difficulty uint64
 		var nonce int64
-		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes)
+		var intermediateBGU, intermediateEBG nullable[int64]
+		err := rows.Scan(&hash, &parentHash, &uncleHash, &coinbase, &root, &txRoot, &receiptRoot, &bloomBytes, &difficulty, &extra, &mixDigest, &uncles, &td, &number, &gasLimit, &gasUsed, &time, &nonce, &size, &baseFee, &withdrawalHashBytes, &intermediateBGU, &intermediateEBG, &parentBeaconBlockRootBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -328,6 +348,15 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			"totalDifficulty":  bytesToHexBig(td),
 			"transactionsRoot": bytesToHash(txRoot),
 			"uncles":           unclesList,
+		}
+		if intermediateBGU.Valid {
+			fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(intermediateBGU.Actual))
+		}
+		if intermediateBGU.Valid {
+			fields["excessBlobGas"] = hexutil.EncodeUint64(uint64(intermediateEBG.Actual)) 
+		}
+		if len(parentBeaconBlockRootBytes) > 0 {
+			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
 		}
 		if len(withdrawalHashBytes) > 0 {
 			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
@@ -414,19 +443,21 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			return nil, err
 		}
 		var accessList *evm.AccessList
-		var chainID, gasFeeCap, gasTipCap *hexutil.Big
+		var chainID, gasFeeCap, gasTipCap, yParity *hexutil.Big
 		//move below and assign to mao conditionally
 		switch txType {
 		case evm.AccessListTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
+			yParity = uintToHexBig(v)
 		case evm.DynamicFeeTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
 			chainID = uintToHexBig(chainid)
 			gasFeeCap = bytesToHexBig(gasFeeCapBytes)
 			gasTipCap = bytesToHexBig(gasTipCapBytes)
+			yParity = uintToHexBig(v)
 		case evm.LegacyTxType:
 			chainID = nil
 		}
@@ -447,6 +478,7 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			"type":       hexutil.Uint64(txType),
 			"chainID":    chainID,
 			"accessList": accessList,
+			"yParity": yParity,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -764,6 +796,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		rlp.DecodeBytes(accessListRLP, accessList)
 		item["accessList"] = accessList
 		item["chainId"] = uintToHexBig(chainid)
+		item["yParity"] = uintToHexBig(v)
 	case evm.DynamicFeeTxType:
 		accessList = &evm.AccessList{}
 		rlp.DecodeBytes(accessListRLP, accessList)
@@ -771,6 +804,7 @@ func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit in
 		item["chainId"] = uintToHexBig(chainid)
 		item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 		item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		item["yParity"] = uintToHexBig(v)
 	}
 
 	results = append(results, item)
