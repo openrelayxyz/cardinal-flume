@@ -45,7 +45,7 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
 		gasPrice = tx.GasFeeCap().Uint64()
 	case tx.Type() == evm.BlobTxType:
-		signer = evm.NewEIP155Signer(tx.ChainId())
+		signer = evm.NewCancunSigner(tx.ChainId())
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
 		gasPrice = tx.GasFeeCap().Uint64()
 		blobFeeCap = trimPrefix(tx.BlobGasFeeCap().Bytes())
