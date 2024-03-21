@@ -272,9 +272,9 @@ func TestPolygonApi(t *testing.T) {
 		t.Fatalf("error decompressing pending batches")
 	}
 	indexers := []indexer.Indexer{}
-	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid))
-	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, mempool))
-	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid))
+	indexers = append(indexers, indexer.NewBlockIndexer(cfg.Chainid, nil, nil))
+	indexers = append(indexers, indexer.NewTxIndexer(cfg.Chainid, cfg.Eip155Block, cfg.HomesteadBlock, mempool, nil))
+	indexers = append(indexers, indexer.NewLogIndexer(cfg.Chainid, nil))
 	indexers = append(indexers, Indexer(cfg))
 
 	statements := []string{}
