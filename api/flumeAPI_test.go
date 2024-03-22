@@ -5,16 +5,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"testing"
 	"os"
+	"reflect"
+	"testing"
 
+	_ "net/http/pprof"
+
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	_ "net/http/pprof"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[types.Hash][]map[string]json.RawMessage {
@@ -108,6 +111,38 @@ func getParticipantReceiptList(jsonReceiptObject []map[string]json.RawMessage, a
 	return results
 }
 
+func getHashblocks(jsonBlockObject []map[string]json.RawMessage) (map[types.Hash]map[string]json.RawMessage, error) {
+	result := make(map[types.Hash]map[string]json.RawMessage)
+
+	for i, block := range jsonBlockObject {
+		txns := []map[string]interface{}{}
+		if err := json.Unmarshal(block["transactions"], &txns); err != nil {
+			log.Error("Cannot Unmarshal transactions getHashBlocks", "index", i)
+			return nil, err
+		}
+		if len(txns) > 0 {
+			var txHash types.Hash
+			txHash = types.HexToHash(txns[0]["hash"].(string))
+			result[txHash] = block
+		}
+
+	}
+	return result, nil
+}
+
+func TestGetHashBlocks(t *testing.T) {
+	blockObject, _ := blocksDecompress()
+	r, err := getHashblocks(blockObject)
+	if err != nil {
+		log.Error("error getting data", "err", err)
+	}
+
+	for k, v := range r {
+		log.Info("these are the keys", "keys", k, "type", reflect.TypeOf(k))
+		log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
+	}
+}
+
 var (
 	senderAddr    = "0x52bc44d5378309ee2abf1539bf71de1b7d7be3b5"
 	recipientAddr = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
@@ -175,7 +210,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
 			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByHash[hash][j]) + 1{
+				if len(receipt) != len(receiptsByHash[hash][j])+1 {
 					t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
 				}
 				for k, v := range actual[j] {
@@ -198,7 +233,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
 			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByBlock[number][j]) + 1 {
+				if len(receipt) != len(receiptsByBlock[number][j])+1 {
 					t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
 				}
 				for k, v := range actual[j] {
@@ -253,7 +288,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderReceipts))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(senderReceipts[i]) + 1 {
+			if len(tx) != len(senderReceipts[i])+1 {
 				t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
 			}
 			for k, v := range tx {
@@ -307,7 +342,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientReceipts))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(recipientReceipts[i]) + 1 {
+			if len(tx) != len(recipientReceipts[i])+1 {
 				t.Fatalf("length error getTransactionReceiptsByRecipient on address %v, reciept %v", recipient, i)
 			}
 			for k, v := range tx {
@@ -333,7 +368,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(participantTxns[i]) + 1 {
+			if len(tx) != len(participantTxns[i])+1 {
 				t.Fatalf("length error getTransactionsByParticipant on address %v, tx %v", participant, i)
 			}
 			for k, v := range tx {
@@ -358,7 +393,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantReceipts))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(participantReceipts[i]) + 1 {
+			if len(tx) != len(participantReceipts[i])+1 {
 				t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
 			}
 			for k, v := range tx {
