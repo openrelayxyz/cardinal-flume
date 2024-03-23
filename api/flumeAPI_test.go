@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 
 	_ "net/http/pprof"
@@ -130,18 +129,18 @@ func getHashblocks(jsonBlockObject []map[string]json.RawMessage) (map[types.Hash
 	return result, nil
 }
 
-func TestGetHashBlocks(t *testing.T) {
-	blockObject, _ := blocksDecompress()
-	r, err := getHashblocks(blockObject)
-	if err != nil {
-		log.Error("error getting data", "err", err)
-	}
+// func TestGetHashBlocks(t *testing.T) {
+// 	blockObject, _ := blocksDecompress()
+// 	r, err := getHashblocks(blockObject)
+// 	if err != nil {
+// 		log.Error("error getting data", "err", err)
+// 	}
 
-	for k, v := range r {
-		log.Info("these are the keys", "keys", k, "type", reflect.TypeOf(k))
-		log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
-	}
-}
+// 	for k, v := range r {
+// 		log.Info("these are the keys", "keys", k, "type", reflect.TypeOf(k))
+// 		log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
+// 	}
+// }
 
 var (
 	senderAddr    = "0x52bc44d5378309ee2abf1539bf71de1b7d7be3b5"
@@ -205,6 +204,47 @@ func TestFlumeAPI(t *testing.T) {
 
 	receiptsByHash := getHashReceipts(blockObject, receiptObject)
 	receiptsByBlock := getBlockReceipts(blockObject, receiptObject)
+
+	// txHashes := getTransactionHashes(blockObject)
+	txHashes := []types.Hash{
+		types.HexToHash("0xc55e2b90168af6972193c1f86fa4d7d7b31a29c156665d15b9cd48618b5177ef")}
+	// types.HexToHash("0x8ecba96fed57c50ceefbb5a803e6be811f6e767b2e31b3d884b45252e8a36948"),
+	// types.HexToHash("0xc2d018922e1d372a8e5cc6c9e11d66ad06dc97e2618061cd33d6ef100d1eca9f"),
+	// types.HexToHash("0xd19dc5e6aaeb9f5dda36c869e5875cea617753545354900824312c1070e61f58"),
+	// types.HexToHash("0x01dcb678d8637c1e3d6076519d531f508c49475106a1adffcf8798c818ba2407"),
+	// types.HexToHash("0x4a1e3e3a2aa4aa79a777d0ae3e2c3a6de158226134123f6c14334964c6ec70cf"),
+	// types.HexToHash("0x0a1a55c0bbb551949ea355aa575fda36a5e64641b6bea730261a2611093fef4c"),
+	// types.HexToHash("0x7e9455f7fe58f804991a720d5a6d30ab9aa18a36cf044db6a768ce9b0c7754fc")}
+	blockhashesData, _ := getHashblocks(blockObject)
+
+	for i, txhash := range txHashes {
+		t.Run(fmt.Sprintf("GetBlockByTransactionHash %v", i), func(t *testing.T) {
+			fmt.Printf("%v", txhash)
+			actual, err := f.GetBlockByTransactionHash(context.Background(), txhash)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			if expectedBlock, exists := blockhashesData[txhash]; exists {
+				for k, v := range expectedBlock {
+					value := (*actual)[k]
+					expectedData, err := json.Marshal(v)
+					if err != nil {
+						t.Fatalf("Error marshaling expected value for key %s: %v", k, err)
+					}
+
+					actualData, err := json.Marshal(value)
+					if err != nil {
+						t.Fatalf("Error marshaling expected value for key %s: %v", k, err)
+					}
+
+					if !bytes.Equal(expectedData, actualData) {
+						t.Fatalf("Value error for %s: \nexpected %s, \ngot %s", k, string(expectedData), string(actualData))
+					}
+				}
+			}
+		})
+	}
 
 	for i, hash := range bkHashes {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
