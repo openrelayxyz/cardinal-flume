@@ -205,6 +205,54 @@ func TestFlumeAPI(t *testing.T) {
 	receiptsByHash := getHashReceipts(blockObject, receiptObject)
 	receiptsByBlock := getBlockReceipts(blockObject, receiptObject)
 
+	for i, hash := range bkHashes {
+		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
+			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
+			for j, receipt := range actual {
+				if len(receipt) != len(receiptsByHash[hash][j])+1 {
+					t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
+				}
+				for k, v := range actual[j] {
+					data, err := json.Marshal(v)
+					if err != nil {
+						t.Errorf(err.Error())
+					}
+					if !bytes.Equal(data, receiptsByHash[hash][j][k]) {
+						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+							continue
+						} else {
+							t.Fatalf("getTransactionReceiptsByBlockHash error hash %v,  index %v, key %v", hash, j, k)
+						}
+					}
+				}
+			}
+		})
+	}
+
+	for i, number := range bkNumbers {
+		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
+			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
+			for j, receipt := range actual {
+				if len(receipt) != len(receiptsByBlock[number][j])+1 {
+					t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
+				}
+				for k, v := range actual[j] {
+					data, err := json.Marshal(v)
+					if err != nil {
+						t.Errorf(err.Error())
+					}
+					if !bytes.Equal(data, receiptsByBlock[number][j][k]) {
+						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+							continue
+						} else {
+							t.Fatalf("getTransactionReceiptsByBlockNumber error block %v, index %v, key %v", number, j, k)
+						}
+					}
+				}
+			}
+		})
+	}
+
 	blockhashesData, _ := getHashblocks(blockObject)
 	for txhash := range blockhashesData {
 		t.Run(fmt.Sprintf("GetBlockByTransactionHash"), func(t *testing.T) {
@@ -231,52 +279,6 @@ func TestFlumeAPI(t *testing.T) {
 		})
 	}
 
-	for i, hash := range bkHashes {
-		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
-			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
-			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByHash[hash][j])+1 {
-					t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
-				}
-				for k, v := range actual[j] {
-					data, err := json.Marshal(v)
-					if err != nil {
-						t.Errorf(err.Error())
-					}
-					if !bytes.Equal(data, receiptsByHash[hash][j][k]) {
-						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
-							continue
-						} else {
-							t.Fatalf("getTransactionReceiptsByBlockHash error hash %v,  index %v, key %v", hash, j, k)
-						}
-					}
-				}
-			}
-		})
-	}
-	for i, number := range bkNumbers {
-		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
-			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
-			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByBlock[number][j])+1 {
-					t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
-				}
-				for k, v := range actual[j] {
-					data, err := json.Marshal(v)
-					if err != nil {
-						t.Errorf(err.Error())
-					}
-					if !bytes.Equal(data, receiptsByBlock[number][j][k]) {
-						if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
-							continue
-						} else {
-							t.Fatalf("getTransactionReceiptsByBlockNumber error block %v, index %v, key %v", number, j, k)
-						}
-					}
-				}
-			}
-		})
-	}
 	senderTxns := getTransactionList(blockObject, senderAddr, "from")
 	sender := common.HexToAddress(senderAddr)
 	if len(senderTxns) != 47 {
