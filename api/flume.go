@@ -115,7 +115,7 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx context.Context, address
 	if offset == nil {
 		offset = new(int)
 	}
-	receipts, err := getFlumeTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
+	receipts, err := getTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting receipts", "err", err.Error())
 		return nil, err
@@ -177,7 +177,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx context.Context, addr
 	if offset == nil {
 		offset = new(int)
 	}
-	receipts, err := getFlumeTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
+	receipts, err := getTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting receipts", "err", err.Error())
 		return nil, err
@@ -239,7 +239,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx context.Context, ad
 	if offset == nil {
 		offset = new(int)
 	}
-	receipts, err := getFlumeTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+	receipts, err := getTransactionReceipts(ctx, api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
 	if err != nil {
 		log.Error("Error getting receipts", "err", err.Error())
 		return nil, err
@@ -276,7 +276,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockHash(ctx context.Context, bloc
 		gtrbhHitMeter.Mark(1)
 	}
 
-	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
+	receipts, err := getTransactionReceipts(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 	if err != nil {
 		log.Error("Error getting receipts, flume_getTransactionReceiptsByBlockHash", "err", err)
 		return nil, err
@@ -317,7 +317,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
+	receipts, err := getTransactionReceipts(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
 	if err != nil {
 		log.Error("Error getting receipts, flume_getTransactionReceiptsByBlockNumber", "err", err)
 		return nil, err
