@@ -3,7 +3,7 @@ brokers:
   - url: null://
 loggingLevel: info
 databases:
-  blocks: blocks.sqlite
-  transactions: transactions.sqlite
-  logs: logs.sqlite
-  mempool: mempool.sqlite
+  blocks: ../testing-resources/blocks.sqlite
+  transactions: ../testing-resources/transactions.sqlite
+  logs: ../testing-resources/logs.sqlite
+  mempool: ../testing-resources/mempool.sqlite
