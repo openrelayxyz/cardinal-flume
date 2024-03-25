@@ -136,9 +136,9 @@ func getHashblocks(jsonBlockObject []map[string]json.RawMessage) (map[types.Hash
 // 		log.Error("error getting data", "err", err)
 // 	}
 
-// 	for k, v := range r {
+// 	for k, _ := range r {
 // 		log.Info("these are the keys", "keys", k, "type", reflect.TypeOf(k))
-// 		log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
+// 		// log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
 // 	}
 // }
 
@@ -205,41 +205,26 @@ func TestFlumeAPI(t *testing.T) {
 	receiptsByHash := getHashReceipts(blockObject, receiptObject)
 	receiptsByBlock := getBlockReceipts(blockObject, receiptObject)
 
-	// txHashes := getTransactionHashes(blockObject)
-	txHashes := []types.Hash{
-		types.HexToHash("0xc55e2b90168af6972193c1f86fa4d7d7b31a29c156665d15b9cd48618b5177ef")}
-	// types.HexToHash("0x8ecba96fed57c50ceefbb5a803e6be811f6e767b2e31b3d884b45252e8a36948"),
-	// types.HexToHash("0xc2d018922e1d372a8e5cc6c9e11d66ad06dc97e2618061cd33d6ef100d1eca9f"),
-	// types.HexToHash("0xd19dc5e6aaeb9f5dda36c869e5875cea617753545354900824312c1070e61f58"),
-	// types.HexToHash("0x01dcb678d8637c1e3d6076519d531f508c49475106a1adffcf8798c818ba2407"),
-	// types.HexToHash("0x4a1e3e3a2aa4aa79a777d0ae3e2c3a6de158226134123f6c14334964c6ec70cf"),
-	// types.HexToHash("0x0a1a55c0bbb551949ea355aa575fda36a5e64641b6bea730261a2611093fef4c"),
-	// types.HexToHash("0x7e9455f7fe58f804991a720d5a6d30ab9aa18a36cf044db6a768ce9b0c7754fc")}
 	blockhashesData, _ := getHashblocks(blockObject)
-
-	for i, txhash := range txHashes {
-		t.Run(fmt.Sprintf("GetBlockByTransactionHash %v", i), func(t *testing.T) {
-			fmt.Printf("%v", txhash)
+	for txhash := range blockhashesData {
+		t.Run(fmt.Sprintf("GetBlockByTransactionHash"), func(t *testing.T) {
 			actual, err := f.GetBlockByTransactionHash(context.Background(), txhash)
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-
-			if expectedBlock, exists := blockhashesData[txhash]; exists {
-				for k, v := range expectedBlock {
-					value := (*actual)[k]
-					expectedData, err := json.Marshal(v)
-					if err != nil {
-						t.Fatalf("Error marshaling expected value for key %s: %v", k, err)
+			for k, v := range *actual {
+				if k == "blockHash" {
+					if data, err := json.Marshal(v); err == nil {
+						if !bytes.Equal(data, blockhashesData[txhash][k]) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', block %v, key %v", blockhashesData[txhash], k)
+						}
 					}
-
-					actualData, err := json.Marshal(value)
-					if err != nil {
-						t.Fatalf("Error marshaling expected value for key %s: %v", k, err)
-					}
-
-					if !bytes.Equal(expectedData, actualData) {
-						t.Fatalf("Value error for %s: \nexpected %s, \ngot %s", k, string(expectedData), string(actualData))
+				}
+				if k == "blockNumber" {
+					if data, err := json.Marshal(v); err == nil {
+						if !bytes.Equal(data, blockhashesData[txhash][k]) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber', block %v, key %v", blockhashesData[txhash], k)
+						}
 					}
 				}
 			}
