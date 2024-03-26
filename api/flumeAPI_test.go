@@ -129,19 +129,6 @@ func getHashblocks(jsonBlockObject []map[string]json.RawMessage) (map[types.Hash
 	return result, nil
 }
 
-// func TestGetHashBlocks(t *testing.T) {
-// 	blockObject, _ := blocksDecompress()
-// 	r, err := getHashblocks(blockObject)
-// 	if err != nil {
-// 		log.Error("error getting data", "err", err)
-// 	}
-
-// 	for k, _ := range r {
-// 		log.Info("these are the keys", "keys", k, "type", reflect.TypeOf(k))
-// 		// log.Info("these are the values", "val", len(v), "type", reflect.TypeOf(v))
-// 	}
-// }
-
 var (
 	senderAddr    = "0x52bc44d5378309ee2abf1539bf71de1b7d7be3b5"
 	recipientAddr = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
