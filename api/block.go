@@ -381,7 +381,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			blockNumber = rpc.BlockNumber(latestBlock)
 		}
 	
-		receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
+		receipts, err := getTransactionReceipts(ctx, api.db, 0, 100000, api.network, "block = ?", uint64(blockNumber))
 		if err != nil {
 			log.Error("Error getting receipts, eth_getBlockReciepts, blockNumber", "err", err)
 			return nil, nil
@@ -417,7 +417,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			gbrHitMeter.Mark(1)
 		}
 	
-		receipts, err := getFlumeTransactionReceiptsBlock(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
+		receipts, err := getTransactionReceipts(ctx, api.db, 0, 100000, api.network, "blocks.hash = ?", trimPrefix(blockHash.Bytes()))
 		if err != nil {
 			log.Error("Error getting receipts, eth_getBlockReciepts, blockHash", "err", err)
 			return nil, nil
