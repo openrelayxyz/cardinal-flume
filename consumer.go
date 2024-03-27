@@ -109,7 +109,17 @@ func AcquireConsumer(db *sql.DB, cfg *config.Config, resumptionTime int64, useBl
 		}
 		log.Debug("Current block aquired from heavy", "block", int64(*highestBlock))
 
-		resumptionBlockNumber := int64(*highestBlock) - reorgThreshold
+		// below both an archive configuration of flume as well as cardinal streams are relying on resumptionBlockNumber
+		// archive flume has tests which require a minimum of 128 block overlap between databases, and so we do a comparison 
+		// to catch this contingency while defaulting to the reorgThreshold so as to maintain consistency in all other cases. 
+		var resumptionBlockNumber int64
+		a := int64(*highestBlock) - reorgThreshold 
+		b := int64(*highestBlock) - 129
+		if a < b {
+			resumptionBlockNumber = a
+		} else {
+			resumptionBlockNumber = b
+		}
 
 		resumptionBlock, err := heavy.CallHeavy[map[string]json.RawMessage](context.Background(), cfg.HeavyServer, "eth_getBlockByNumber", hexutil.Uint64(resumptionBlockNumber), false)
 		if err != nil {
