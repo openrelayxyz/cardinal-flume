@@ -194,6 +194,13 @@ func main() {
 		indexes = append(indexes, indexer.NewLogIndexer(cfg.Chainid))
 	}
 
+	if cfg.LogCSDB != "" {
+		log.Info("adding logcsdb", "path", cfg.LogCSDB)
+		indexes = append(indexes, indexer.NewCSLogIndexer(cfg.Chainid, cfg.LogCSDB))
+	} else {
+		log.Info("no logcsdb")
+	}
+
 	pluginIndexers := pl.Lookup("Indexer", func(v interface{}) bool {
 		_, ok := v.(func(*config.Config) indexer.Indexer)
 		return ok
