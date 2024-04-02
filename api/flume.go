@@ -401,7 +401,7 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 			if present != 0 {
 				return []string{partialHexString}, nil
 			}
-			return nil, errors.New("BlockHash does not exist")
+			return nil, errors.New("BlockHash not found")
 		}
 	}
 
@@ -560,16 +560,33 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 	}
 
 	if len(partialHexString) == 42 {
-		var present int
-		if err := api.db.QueryRow("SELECT 1 FROM event_logs WHERE address = ?;", bytes).Scan(&present); err != nil {
-			log.Error("Error returned from default length query, AddressWithPrefix", "err", err)
-			return nil, nil
-		} else {
-			if present != 0 {
-				return []string{partialHexString}, nil
-			}
-			return nil, errors.New("Address does not exist")
+		statements := []string{
+			"SELECT 1 FROM event_logs WHERE address = ?;",
+			"SELECT 1 FROM transactions.transactions WHERE sender = ?;",
+			"SELECT 1 FROM transactions.transactions WHERE recipient = ?;",
+			"SELECT 1 FROM blocks WHERE coinbase = ?;",
 		}
+		if api.mempool {
+			statements = append(statements, 
+				"SELECT 1 FROM mempool.transactions WHERE sender = ?;",
+				"SELECT 1 FROM mempool.transactions WHERE recipient = ?;",
+			)
+		}
+
+		var present int
+
+		for i, statement := range statements {
+			if err := api.db.QueryRow(statement, bytes).Scan(&present); err != nil {
+				log.Error("Error returned from default length query, AddressWithPrefix", "query index", i, "err", err)
+				return nil, nil
+			} else {
+				if present != 0 {
+					return []string{partialHexString}, nil
+				}
+			}
+		}
+
+		return nil, errors.New("Address not found")
 	}
 
 	zeros, err := countLeadingZeros(bytes)
