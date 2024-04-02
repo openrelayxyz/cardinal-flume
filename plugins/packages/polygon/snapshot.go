@@ -190,8 +190,9 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 
 	case sprint -1 :
 		snap := &Snapshot{}
+		var err error
 		subsequentSnapshot := blockNumber + 1
-		snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
+		snap, err = service.fetchSnapshot(ctx, subsequentSnapshot)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot() mod 64 == 0 63 case", "err", err.Error())
 			return nil, err
@@ -202,8 +203,9 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		return snap, nil
 	default:
 		snap := &Snapshot{}
+		var err error
 		previousSnapshot := blockNumber - (blockNumber % 64)
-		snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
+		snap, err = service.fetchSnapshot(ctx, previousSnapshot)
 		if err != nil {
 			log.Error("Error fetching snapshot get_snapshot() default condition", "err", err.Error())
 			return nil, err
