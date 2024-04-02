@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"context"
 	"database/sql"
 	"runtime"
@@ -370,8 +371,8 @@ func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types
 
 func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
-	if len(partialHexString) == 66 {
-		return []string{partialHexString}, nil
+	if len(partialHexString) == 0 {
+		return nil, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -390,6 +391,19 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 		log.Error("Error decoding partial Hex String, flume_blockHashesWithPrefix", "err", err)
 		return nil, err
 	} 
+
+	if len(partialHexString) == 66 {
+		var present int
+		if err := api.db.QueryRow("SELECT 1 FROM blocks WHERE hash = ?;", bytes).Scan(&present); err != nil {
+			log.Error("Error returned from default length query, BlockHashesWithPrefix", "err", err)
+			return nil, nil
+		} else {
+			if present != 0 {
+				return []string{partialHexString}, nil
+			}
+			return nil, errors.New("BlockHash does not exist")
+		}
+	}
 
 	zeros, err := countLeadingZeros(bytes)
 	if err != nil {
@@ -424,8 +438,8 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx context.Context, partialHexString
 
 func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
-	if len(partialHexString) == 66 {
-		return []string{partialHexString}, nil
+	if len(partialHexString) == 0 {
+		return nil, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -443,6 +457,31 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 	if err != nil {
 		log.Error("Error decoding partial Hex String, flume_transactionHashesWithPrefix", "err", err)
 		return nil, err
+	}
+
+	if len(partialHexString) == 66 {
+		var present int
+		if api.mempool {
+			if err := api.db.QueryRow("SELECT 1 FROM transactions.transactions WHERE hash = ? UNION SELECT 1 FROM mempool.transactions WHERE hash = ?;", bytes, bytes).Scan(&present); err != nil {
+				log.Error("Error returned from default length query with mempool, TransactionHashesWithPrefix", "err", err)
+				return nil, nil
+			} else {
+				if present != 0 {
+					return []string{partialHexString}, nil
+				}
+				return nil, errors.New("Transaction Hash no found")
+			}
+		} else {
+			if err := api.db.QueryRow("SELECT 1 FROM transactions.transactions WHERE hash = ?;", bytes).Scan(&present); err != nil {
+				log.Error("Error returned from default length query, TransactionHashesWithPrefix", "err", err)
+				return nil, nil
+			} else {
+				if present != 0 {
+					return []string{partialHexString}, nil
+				}
+				return nil, errors.New("Transaction Hash no found")
+			}
+		}
 	}
 
 	zeros, err := countLeadingZeros(bytes)
@@ -499,8 +538,8 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx context.Context, partialHex
 
 func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString string) ([]string, error) {
 
-	if len(partialHexString) == 42 {
-		return []string{partialHexString}, nil
+	if len(partialHexString) == 0 {
+		return nil, nil
 	}
 
 	if len(api.cfg.HeavyServer) > 0 {
@@ -520,6 +559,19 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 		return nil, err
 	}
 
+	if len(partialHexString) == 42 {
+		var present int
+		if err := api.db.QueryRow("SELECT 1 FROM event_logs WHERE address = ?;", bytes).Scan(&present); err != nil {
+			log.Error("Error returned from default length query, AddressWithPrefix", "err", err)
+			return nil, nil
+		} else {
+			if present != 0 {
+				return []string{partialHexString}, nil
+			}
+			return nil, errors.New("Address does not exist")
+		}
+	}
+
 	zeros, err := countLeadingZeros(bytes)
 	if err != nil {
 		log.Error("Error trimming input, flume_addressWithPrefix")
@@ -530,22 +582,39 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 
 	augmentedBytes := incrementLastByte(bytes)
 
-	statement := "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20"
-	rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - zeros)
-	if err != nil {
-		log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
-		return nil, nil
-	}
-	defer rows.Close()
 	var result []string
-	for rows.Next() {
-			var addressBytes []byte
-			err := rows.Scan(&addressBytes)
-			if err != nil {
-				log.Error("Error scanning rows flume_addressWithPrefix")
-				return nil, err
-			}
-			result = append(result, hexutil.Encode(addressBytes))
+
+	statements := []string{
+		"SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20",
+		"SELECT DISTINCT(sender) FROM transactions.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
+		"SELECT DISTINCT(recipient) FROM transactions.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
+		"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? LIMIT 20",
+	}
+	if api.mempool {
+		statements = append(statements, 
+			"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
+			"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
+		)
+	}
+
+	//This could also be accomplished by setting up some go routines and channels, seems a bit too spicy for this specific scenario but its doable. 
+
+	for i, statement := range statements {
+		rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - zeros)
+		if err != nil {
+			log.Error("Error returned from query in flume_addressWithPrefix", "query index", i, "err", err)
+			return nil, nil
+		}
+		defer rows.Close()
+		for rows.Next() {
+				var addressBytes []byte
+				err := rows.Scan(&addressBytes)
+				if err != nil {
+					log.Error("Error scanning rows flume_addressWithPrefix", "query index", i, "err", err)
+					return nil, err
+				}
+				result = append(result, hexutil.Encode(addressBytes))
+		}
 	}
 	
 	return result, nil
