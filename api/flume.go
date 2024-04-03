@@ -599,7 +599,7 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 
 	augmentedBytes := incrementLastByte(bytes)
 
-	var result []string
+	var intermediate map[string]struct{}
 
 	statements := []string{
 		"SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20",
@@ -613,8 +613,6 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 			"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
 		)
 	}
-
-	//This could also be accomplished by setting up some go routines and channels, seems a bit too spicy for this specific scenario but its doable. 
 
 	for i, statement := range statements {
 		rows, err := api.db.QueryContext(ctx, statement, bytes, augmentedBytes, 20 - zeros)
@@ -630,8 +628,13 @@ func (api *FlumeAPI) AddressWithPrefix(ctx context.Context, partialHexString str
 					log.Error("Error scanning rows flume_addressWithPrefix", "query index", i, "err", err)
 					return nil, err
 				}
-				result = append(result, hexutil.Encode(addressBytes))
+				intermediate[hexutil.Encode(addressBytes)] = struct{}{}
 		}
+	}
+
+	result := make([]string, 0, len(intermediate))
+	for k, _ := range intermediate {
+		result = append(result, k)
 	}
 	
 	return result, nil
