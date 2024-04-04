@@ -3,14 +3,15 @@ package indexer
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"reflect"
+	"testing"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/klauspost/compress/zlib"
 	_ "github.com/mattn/go-sqlite3"
-	"os"
-	"io"
-	"io/ioutil"
-	"reflect"
-	"testing"
 )
 
 func decompress(data []byte) ([]byte, error) {
@@ -29,11 +30,11 @@ func decompress(data []byte) ([]byte, error) {
 }
 
 func TestTransactionIndexer(t *testing.T) {
-	
+
 	test_dbs := make(map[string]string)
 	test_dbs["control"] = "../testing-resources/transactions.sqlite"
 	test_dbs["transactions"] = "../testing-resources/test.sqlite"
-	
+
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
 		t.Fatalf(err.Error())

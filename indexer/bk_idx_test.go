@@ -47,7 +47,7 @@ func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 }
 
 func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
-	file, _ := ioutil.ReadFile("../mac/test.json.gz")
+	file, _ := ioutil.ReadFile("../testing-resources/test.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -69,7 +69,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 func TestBlockIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../mac/blocks.sqlite"
+	test_dbs["control"] = "../testing-resources/blocks.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
@@ -139,8 +139,6 @@ func TestBlockIndexer(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-
-	log.Warn("The test database does not reflect changes post Shanghai or post Cancun and so will need to be altered")
 
 	query := "SELECT b.number = blocks.number, b.hash = blocks.hash, b.parentHash = blocks.parentHash, b.uncleHash = blocks.uncleHash, b.coinbase = blocks.coinbase, b.root = blocks.root, b.txRoot = blocks.txRoot, b.receiptRoot = blocks.receiptRoot, b.bloom IS blocks.bloom, b.difficulty = blocks.difficulty, b.gasLimit = blocks.gasLimit, b.gasUsed = blocks.gasUsed, b.time = blocks.time, b.extra = blocks.extra, b.mixDigest = blocks.mixDigest, b.nonce = blocks.Nonce, b.uncles = blocks.uncles, b.size =  blocks.size, b.td = blocks.td, b.baseFee IS blocks.baseFee FROM blocks INNER JOIN control.blocks as b on blocks.number = b.number"
 	results := make([]any, 20)
