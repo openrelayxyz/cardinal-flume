@@ -2,18 +2,19 @@ package indexer
 
 import (
 	"bytes"
-	"fmt"
-	"strings"
-	"testing"
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
-	"github.com/mattn/go-sqlite3"
+	"fmt"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
-	"path/filepath"
 	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/mattn/go-sqlite3"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
@@ -35,7 +36,7 @@ func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 
 	// The following code opens an im memory database called blocks which has the tables written and data loaded onto it.
 	// the result is that the functions returns a sql instance with two databases one, control, 'blocks.sqlite' another in memory
-	// data base which is used for testing and persists only as long as the test runs. 
+	// data base which is used for testing and persists only as long as the test runs.
 	memDB, err := sql.Open(fmt.Sprintf("sqlite3_%v", registrar[:i]), ":memory:")
 	if err != nil {
 		log.Error(err.Error())
@@ -46,7 +47,7 @@ func openControlDatabase(dbs map[string]string) (*sql.DB, error) {
 }
 
 func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
-	file, _ := ioutil.ReadFile("../testing-resources/indexer_test_data.json.gz")
+	file, _ := ioutil.ReadFile("../mac/test.json.gz")
 	r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
@@ -68,7 +69,7 @@ func pendingBatchDecompress() ([]*delivery.PendingBatch, error) {
 func TestBlockIndexer(t *testing.T) {
 
 	test_dbs := make(map[string]string)
-	test_dbs["control"] = "../testing-resources/blocks.sqlite"
+	test_dbs["control"] = "../mac/blocks.sqlite"
 
 	controlDB, err := openControlDatabase(test_dbs)
 	if err != nil {
@@ -109,7 +110,7 @@ func TestBlockIndexer(t *testing.T) {
 	if _, err := controlDB.Exec(`CREATE TABLE withdrawals (
 		wtdrlIndex MEDIUMINT,
 		vldtrIndex MEDIUMINT,
-		recipient VARCHAR(20),
+		address VARCHAR(20),
 		amount    blob,
 		block     BIGINT,
 		blockHash VARCHAR(32),
