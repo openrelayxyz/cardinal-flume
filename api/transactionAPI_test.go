@@ -127,9 +127,9 @@ func TestTransactionAPI(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
 			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
-			// if len(*actual) != len(receiptsMap[i]) {
-			// 	t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
-			// }
+			if len(*actual)+1 != len(receiptsMap[i]) {
+				t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
+			}
 			for k, v := range *actual {
 				data, err := json.Marshal(v)
 				if err != nil {
