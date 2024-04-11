@@ -1,22 +1,26 @@
 package main
 
 import (
-	"database/sql"
 	"io"
-	"golang.org/x/crypto/sha3"
+	"database/sql"
 	"regexp"
+	"errors"
+
+	"golang.org/x/crypto/sha3"
+	log "github.com/inconshreveable/log15"
+
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	evm "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
-	evm "github.com/openrelayxyz/cardinal-evm/types"
-	log "github.com/inconshreveable/log15"
+	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
+	
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/indexer"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	rpcTransports "github.com/openrelayxyz/cardinal-rpc/transports"
 )
 
 var TrackedPrefixes = []*regexp.Regexp{
@@ -24,6 +28,13 @@ var TrackedPrefixes = []*regexp.Regexp{
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/bl/"),
 	regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/bs"),
 }
+
+var (
+	errBlockNotFound     = errors.New("block not found")
+	errBlockHashNotFound = errors.New("blockHash not found")
+	errHeaderNotFound    = errors.New("header for hash not found")
+	errInvalidInput      = errors.New("Invalid input")
+)
 
 func Initialize(cfg *config.Config, pl *plugins.PluginLoader) {
 	log.Info("Polygon plugin loaded")
