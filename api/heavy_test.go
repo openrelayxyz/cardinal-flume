@@ -2,13 +2,13 @@ package api
 
 import (
 	"context"
-	"testing"
 	"os"
+	"testing"
 
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -367,7 +367,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("Erc20Holders did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	cfg.EarliestBlock = 14000022
+	cfg.EarliestBlock = 19576282
 
 	_, err = g.GasPrice(context.Background())
 	if err == nil {

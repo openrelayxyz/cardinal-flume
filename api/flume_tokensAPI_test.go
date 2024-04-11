@@ -9,8 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
-	"testing"
 	"os"
+	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-flume/config"
@@ -56,8 +56,11 @@ func TestERCMethods(t *testing.T) {
 	t.Run(fmt.Sprintf("Erc20Holders"), func(t *testing.T) {
 		actual, _ := ft.Erc20Holders(context.Background(), common.HexToAddress(address), nil)
 		for i, addr := range actual.Items {
+			if i >= len(data[0]) {
+				t.Fatalf("Index %d is out of range for data[0] with length %d", i, len(data[0]))
+			}
 			if addr != data[0][i] {
-				t.Fatalf("Erc20Holders error")
+				t.Fatalf("Erc20Holders error at index %d: expected %v, got %v", i, data[0][i], addr)
 			}
 		}
 	})
