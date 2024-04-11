@@ -5,7 +5,7 @@ import (
 	"testing"
 	"os"
 
-	// log "github.com/inconshreveable/log15"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
@@ -17,6 +17,7 @@ import (
 )
 
 func TestCallHeavy(t *testing.T) {
+	log.Info("testing heavy package expect error logs")
 	cfg, err := config.LoadConfig("../testing-resources/heavy_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config TestCallHeavy", "err", err.Error())
@@ -384,5 +385,5 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_maxPriorityFeePerGas" {
 		t.Fatal("MaxPriorityFeePerGas did not return expected method name, heavy test", "err", err.Error())
 	}
-
+	log.Info("heavy package test complete")
 }

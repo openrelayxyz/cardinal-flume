@@ -884,51 +884,80 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 	}
 
 	bytes = bytes[zeros:]
-
 	augmentedBytes := incrementLastByte(bytes)
-
 	var intermediate map[string]struct{}
-
-	statements := []string{
-		"SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20",
-		"SELECT DISTINCT(sender) FROM transactions.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
-		"SELECT DISTINCT(recipient) FROM transactions.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
-		"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? LIMIT 20",
-	}
-	if api.mempool {
-		statements = append(statements, 
-			"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
-			"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
-		)
-	}
-
-	var statement string
 	var rows *sql.Rows
 	var sqlErr error
 
 	if ctx.Latest > 0 {
-		statement = "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? AND block < 3LIMIT 20"
-		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros, ctx.Latest)
-	} else {
-		statement = "SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20"
-		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros)
-	}
-	if sqlErr != nil {
-		exhaustChannels[[]string](heavyResult, errChan)
-		log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
-		return nil, nil
-	}
-	defer rows.Close()
-	var result []string
-	for rows.Next() {
-			var addressBytes []byte
-			err := rows.Scan(&addressBytes)
-			if err != nil {
+		statements := []string{
+			"SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? AND block < ? LIMIT 20",
+			"SELECT DISTINCT(sender) FROM transactions.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? AND block < ? LIMIT 20",
+			"SELECT DISTINCT(recipient) FROM transactions.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? AND block < ? LIMIT 20",
+			"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? AND block < ? LIMIT 20",
+		}
+		if api.mempool {
+			statements = append(statements, 
+				"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? AND block < ? LIMIT 20",
+				"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? AND block < ? LIMIT 20",
+			)
+		}
+		for i, statement := range statements {
+			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros, ctx.Latest)
+			if sqlErr != nil {
 				exhaustChannels[[]string](heavyResult, errChan)
-				log.Error("Error scanning rows flume_addressWithPrefix")
-				return nil, err
+				log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
+				return nil, nil
 			}
-			result = append(result, hexutil.Encode(addressBytes))
+			defer rows.Close()
+			for rows.Next() {
+				var addressBytes []byte
+				err := rows.Scan(&addressBytes)
+				if err != nil {
+					exhaustChannels[[]string](heavyResult, errChan)
+					log.Error("Error scanning rows flume_addressWithPrefix", "query index", i, "err", err)
+					return nil, err
+				}
+				intermediate[hexutil.Encode(addressBytes)] = struct{}{}
+			}
+		}
+	} else {
+		statements := []string{
+			"SELECT DISTINCT(address) FROM event_logs WHERE address > ? AND address < ? AND LENGTH(address) = ? LIMIT 20",
+			"SELECT DISTINCT(sender) FROM transactions.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
+			"SELECT DISTINCT(recipient) FROM transactions.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
+			"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? LIMIT 20",
+		}
+		if api.mempool {
+			statements = append(statements, 
+				"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
+				"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
+			)
+		}
+		for i, statement := range statements {
+			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros)
+			if sqlErr != nil {
+				exhaustChannels[[]string](heavyResult, errChan)
+				log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
+				return nil, nil
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var addressBytes []byte
+				err := rows.Scan(&addressBytes)
+				if err != nil {
+					exhaustChannels[[]string](heavyResult, errChan)
+					log.Error("Error scanning rows flume_addressWithPrefix", "query index", i, "err", err)
+					return nil, err
+				}
+				intermediate[hexutil.Encode(addressBytes)] = struct{}{}
+			}
+		}
+	}
+
+	result := make([]string, 0, len(intermediate))
+	for k, _ := range intermediate {
+		result = append(result, k)
 	}
 
 	select {
@@ -938,11 +967,6 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 			}
 		case err := <- errChan:
 			return nil, err
-	}
-
-	result := make([]string, 0, len(intermediate))
-	for k, _ := range intermediate {
-		result = append(result, k)
 	}
 	
 	return result, nil
@@ -989,7 +1013,7 @@ func (api *FlumeAPI) ResolvePrefix(ctx *rpc.CallContext, partialHexString string
 		return nil, err
 	}
 
-	result := map[string]interface{}{
+	result := map[string][]string{
 		"blockHashes": blockHashes,
 		"transactionHashes": txHashes,
 		"addresses": addresses,
