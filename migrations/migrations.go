@@ -411,6 +411,22 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 		log.Info("mempool v2 migrations done")
 	}
 
+	if schemaVersion < 3 {
+		log.Info("Applying mempool v3 migration")
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD COLUMN maxFeePerBlobGas varchar(32)`); err != nil {
+			log.Error("migrations ALTER TABLE mempool.transactions maxFeePerBlobGas error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD COLUMN blobVersionedHashes blob`); err != nil {
+			log.Error("migrations ALTER TABLE mempool.transactions blobVersionedHashes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE mempool.migrations SET version = 3;"); err != nil {
+			log.Error("migrations UPDATE mempool.migrations v3 error", "err", err.Error())
+		}
+		log.Info("mempool migrations v3 done")
+	}
+
 	log.Info("mempool migrations up to date")
 	return nil
 }

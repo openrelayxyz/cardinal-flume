@@ -4,20 +4,19 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	// "net/http"
 	"fmt"
-	"testing"
 	"os"
+	"testing"
 
-	// log "github.com/inconshreveable/log15"
+	_ "net/http/pprof"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	_ "net/http/pprof"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 func getHashReceipts(jsonBlockObject, jsonReceiptObject []map[string]json.RawMessage) map[types.Hash][]map[string]json.RawMessage {
@@ -111,6 +110,25 @@ func getParticipantReceiptList(jsonReceiptObject []map[string]json.RawMessage, a
 	return results
 }
 
+func getHashblocks(jsonBlockObject []map[string]json.RawMessage) (map[types.Hash]map[string]json.RawMessage, error) {
+	result := make(map[types.Hash]map[string]json.RawMessage)
+
+	for i, block := range jsonBlockObject {
+		txns := []map[string]interface{}{}
+		if err := json.Unmarshal(block["transactions"], &txns); err != nil {
+			log.Error("Cannot Unmarshal transactions getHashBlocks", "index", i)
+			return nil, err
+		}
+		if len(txns) > 0 {
+			var txHash types.Hash
+			txHash = types.HexToHash(txns[0]["hash"].(string))
+			result[txHash] = block
+		}
+
+	}
+	return result, nil
+}
+
 var (
 	senderAddr    = "0x52bc44d5378309ee2abf1539bf71de1b7d7be3b5"
 	recipientAddr = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
@@ -151,11 +169,6 @@ func (ms sortTxMap) TransactionIndexes() []hexutil.Uint64 {
 var mockContext *rpc.CallContext = rpc.NewContext(context.Background())
 
 func TestFlumeAPI(t *testing.T) {
-
-	// go func() {
-	// 	log.Info("pprof running", "port", http.ListenAndServe("localhost:6060", nil))
-	// }()
-
 	cfg, err := config.LoadConfig("../testing-resources/api_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config TestFlumeAPI", "err", err.Error())
@@ -185,7 +198,7 @@ func TestFlumeAPI(t *testing.T) {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
 			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByHash[hash][j]) + 1{
+				if len(receipt) != len(receiptsByHash[hash][j])+1 {
 					t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
 				}
 				for k, v := range actual[j] {
@@ -204,11 +217,12 @@ func TestFlumeAPI(t *testing.T) {
 			}
 		})
 	}
+
 	for i, number := range bkNumbers {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
 			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
 			for j, receipt := range actual {
-				if len(receipt) != len(receiptsByBlock[number][j]) + 1 {
+				if len(receipt) != len(receiptsByBlock[number][j])+1 {
 					t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
 				}
 				for k, v := range actual[j] {
@@ -227,6 +241,33 @@ func TestFlumeAPI(t *testing.T) {
 			}
 		})
 	}
+
+	blockhashesData, _ := getHashblocks(blockObject)
+	for txhash := range blockhashesData {
+		t.Run(fmt.Sprintf("GetBlockByTransactionHash"), func(t *testing.T) {
+			actual, err := f.GetBlockByTransactionHash(context.Background(), txhash)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+			for k, v := range *actual {
+				if k == "blockHash" {
+					if data, err := json.Marshal(v); err == nil {
+						if !bytes.Equal(data, blockhashesData[txhash][k]) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', block %v, key %v", blockhashesData[txhash], k)
+						}
+					}
+				}
+				if k == "blockNumber" {
+					if data, err := json.Marshal(v); err == nil {
+						if !bytes.Equal(data, blockhashesData[txhash][k]) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber', block %v, key %v", blockhashesData[txhash], k)
+						}
+					}
+				}
+			}
+		})
+	}
+
 	senderTxns := getTransactionList(blockObject, senderAddr, "from")
 	sender := common.HexToAddress(senderAddr)
 	if len(senderTxns) != 47 {
@@ -263,7 +304,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderReceipts))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(senderReceipts[i]) + 1 {
+			if len(tx) != len(senderReceipts[i])+1 {
 				t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
 			}
 			for k, v := range tx {
@@ -343,7 +384,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(participantTxns[i]) + 1 {
+			if len(tx) != len(participantTxns[i])+1 {
 				t.Fatalf("length error getTransactionsByParticipant on address %v, tx %v", participant, i)
 			}
 			for k, v := range tx {
@@ -368,7 +409,7 @@ func TestFlumeAPI(t *testing.T) {
 			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantReceipts))
 		}
 		for i, tx := range actual.Items {
-			if len(tx) != len(participantReceipts[i]) + 1 {
+			if len(tx) != len(participantReceipts[i])+1 {
 				t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
 			}
 			for k, v := range tx {
