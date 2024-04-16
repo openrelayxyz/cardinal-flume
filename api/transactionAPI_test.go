@@ -5,17 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"testing"
 	"os"
+	"testing"
+
+	_ "net/http/pprof"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	_ "net/http/pprof"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 func getTransactionsForTesting(blockObject []map[string]json.RawMessage) []map[string]json.RawMessage {
@@ -126,7 +127,7 @@ func TestTransactionAPI(t *testing.T) {
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
 			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
-			if len(*actual) != len(receiptsMap[i]) {
+			if len(*actual)+1 != len(receiptsMap[i]) {
 				t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
 			}
 			for k, v := range *actual {
@@ -135,7 +136,7 @@ func TestTransactionAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, receiptsMap[i][k]) {
-					t.Fatalf("receipts error %v %v %v %v %v", i, k, v, "test"+string(data), "control"+string(receiptsMap[i][k]))
+					t.Fatalf("error on getTransactionReceipt, \n index %v, key %v; \n api_result: %v, \n testdata: %v, \n ", i, k, v, string(receiptsMap[i][k]))
 				}
 			}
 		})

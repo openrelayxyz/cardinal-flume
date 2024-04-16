@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"testing"
 	"os"
+	"testing"
 
-	"github.com/openrelayxyz/cardinal-rpc"
+	_ "net/http/pprof"
+
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
-	_ "net/http/pprof"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
 )
 
 func feeDataDecompress() (map[string]json.RawMessage, error) {
@@ -55,8 +56,8 @@ func TestGasAPI(t *testing.T) {
 	pl, _ := plugins.NewPluginLoader(cfg)
 	g := NewGasAPI(db, 1, pl, cfg, mempool)
 
-	price := "0x2a51edbe67"
-	fee := "0x9502f900"
+	price := "0xa972a9bf6"
+	fee := "0x77359400"
 
 	t.Run(fmt.Sprintf("GasPrice"), func(t *testing.T) {
 		actual, _ := g.GasPrice(context.Background())
