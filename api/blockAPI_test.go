@@ -229,7 +229,7 @@ func TestBlockNumber(t *testing.T) {
 	defer db.Close()
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
-	expectedResult, _ := hexutil.DecodeUint64("0xd59f95")
+	expectedResult, _ := hexutil.DecodeUint64("0x12ab5da")
 	test, err := b.BlockNumber(context.Background())
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -290,8 +290,9 @@ func TestBlockAPI(t *testing.T) {
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
+
 							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("error in getBlockByNumber, transactions on block %v, , key %v, txn %v", block, key, j)
+								t.Fatalf("error in getBlockByNumber, transactions on block %v, key %v, txn %v", block, key, j)
 							}
 
 						}
@@ -475,7 +476,7 @@ func TestBlockAPI(t *testing.T) {
 	if err != nil {
 		log.Error(err.Error())
 	}
-	for i, block := range blockNumbers[(len(blockNumbers) - 7):] {
+	for i, block := range blockNumbers[(len(blockNumbers) - 10):] {
 		t.Run(fmt.Sprintf("GetBlockByNumber - withdrawls %v", i), func(t *testing.T) {
 			actual, err := b.GetBlockByNumber(context.Background(), block, false)
 			if err != nil {

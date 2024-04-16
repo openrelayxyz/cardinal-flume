@@ -1,16 +1,16 @@
 package indexer
 
 import (
-	"testing"
 	"os"
+	"testing"
+
+	_ "net/http/pprof"
 
 	log "github.com/inconshreveable/log15"
 	_ "github.com/mattn/go-sqlite3"
-	_ "net/http/pprof"
 )
 
 func TestLogIndexer(t *testing.T) {
-
 	test_dbs := make(map[string]string)
 	test_dbs["control"] = "../testing-resources/logs.sqlite"
 
