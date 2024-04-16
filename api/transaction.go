@@ -200,11 +200,17 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	})
 
 	var err error
-	receipts, err := getTransactionReceiptsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
+	receipts, err := getTransactionReceipts(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {
 		return nil, err
 	}
 	result := returnSingleReceipt(receipts)
+
+	for k, _ := range result {
+		if k =="timestamp" {
+			delete(result, k)
+		}
+	}
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
