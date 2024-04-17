@@ -303,7 +303,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 				gtrbbMissMeter.Mark(1)
 				responseShell, err := heavy.CallHeavy[[]map[string]interface{}](ctx, service.cfg.HeavyServer, "eth_getTransactionReceiptsByBlock", number)
 				if err != nil {
-					return nil, err
+					return nil, errBlockNotFound
 				}
 				return *responseShell, nil
 			}
@@ -326,7 +326,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 				gtrbbMissMeter.Mark(1)
 				responseShell, err := heavy.CallHeavy[[]map[string]interface{}](ctx, service.cfg.HeavyServer, "eth_getTransactionReceiptsByBlock", hash)
 				if err != nil {
-					return nil, err
+					return nil, errBlockHashNotFound
 				}
 				return *responseShell, nil
 			}
@@ -350,7 +350,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	var err error
 	receipts, err = plugins.GetTransactionReceiptsBlock(context.Background(), service.db, 0, 100000, service.cfg.Chainid, whereClause, column)
 	if err != nil {
-		return nil, err
+		return nil, errBlockNotFound
 	}
 
 	if borTxHashBytes != nil {
