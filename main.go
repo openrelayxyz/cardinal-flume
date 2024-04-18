@@ -337,7 +337,10 @@ func main() {
 
 func runStartupChecks(certainty, heavyCheck bool, database *sql.DB, config *config.Config) {
 	var earliestBlock, latestBlock uint64
-	if err := database.QueryRowContext(context.Background(), "SELECT min(number), max(number) FROM blocks.blocks;").Scan(&earliestBlock, &latestBlock); err != nil {
+	if err := database.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&earliestBlock); err != nil {
+		log.Error("Error aquiring lowest block from blocks db for startup checks", "err", err)
+	}
+	if err := database.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&latestBlock); err != nil {
 		log.Error("Error aquiring highest block from blocks db for startup checks", "err", err)
 	}
 	
