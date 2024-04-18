@@ -6,13 +6,15 @@ import (
 	"errors"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-flume/heavy"
-	"github.com/openrelayxyz/cardinal-flume/plugins"
-	"github.com/openrelayxyz/cardinal-types"
 	
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+
+	"github.com/openrelayxyz/cardinal-flume/heavy"
+	"github.com/openrelayxyz/cardinal-flume/plugins"
+	
 )
 
 type Snapshot struct {
@@ -40,13 +42,13 @@ func (service *PolygonBorService) fetchSnapshot(ctx context.Context, blockNumber
 	var snapshotBytes []byte
 
 	if err := service.db.QueryRowContext(context.Background(), "SELECT snapshot FROM bor.bor_snapshots WHERE block = ?;", blockNumber).Scan(&snapshotBytes); err != nil {
-		log.Error("sql snapshot fetch error Snapshot()", "err", err.Error())
+		log.Error("sql snapshot fetch error Snapshot()", "err", err)
 		return nil, err
 	}
 
 	ssb, err := plugins.Decompress(snapshotBytes)
 	if err != nil {
-		log.Error("sql snapshot decompress error Snapshot()", "err", err.Error())
+		log.Error("sql snapshot decompress error Snapshot()", "err", err)
 		return nil, err
 	}
 
@@ -72,7 +74,7 @@ func (service *PolygonBorService) getRecents(blockNumber uint64) (map[uint64]com
 		var signerBytes []byte
 		err := rows.Scan(&signerBytes)
 		if err != nil {
-			log.Error("getRecents scan error", "err", err.Error())
+			log.Error("getRecents scan error", "err", err)
 			return nil, err
 		}
 		recents[index] = plugins.BytesToAddress(signerBytes)
@@ -97,75 +99,56 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	var blockNumber uint64
 
 	switch {
-	case numOk:
+		case numOk:
 
-		blockNumber = uint64(number)
-		requiredSnapshot := blockNumber - (blockNumber % 64)
+			blockNumber = uint64(number)
+			var hashBytes []byte
 
-		if len(service.cfg.HeavyServer) > 0 && requiredSnapshot < service.cfg.EarliestBlock {
-			log.Debug("bor_getSnapshot sent to flume heavy")
-			polygonMissMeter.Mark(1)
-			bgssMissMeter.Mark(1)
-			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
-			if err != nil {
-				log.Error("Error calling to heavy server, getSnapshot()", "blockNumber", blockNumber, "err", err.Error())
-				return nil, nil
+			if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&hashBytes); err != nil {
+				log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err)
+				return nil, errBlockNotFound
 			}
-			return *response, nil
-		}
 
-		var hashBytes []byte
+			blockHash = plugins.BytesToHash(hashBytes)
 
-		if err := service.db.QueryRow("SELECT hash FROM blocks WHERE number = ?", blockNumber).Scan(&hashBytes); err != nil {
-			log.Error("Error deriving blockHashash from blockNumber, getSnapshot()", "number", blockNumber, "err", err.Error())
-			return nil, nil
-		}
+		case hshOk:
 
-		blockHash = plugins.BytesToHash(hashBytes)
-
-		if len(service.cfg.HeavyServer) > 0 {
-			log.Debug("bor_getSnapshot served from flume light")
-			polygonHitMeter.Mark(1)
-			bgssHitMeter.Mark(1)
-		}
-
-	case hshOk:
-		var present int
-		service.db.QueryRow("SELECT 1 FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&present)
-
-		if len(service.cfg.HeavyServer) > 0 && present == 0 {
-			log.Debug("bor_getSnapshot sent to flume heavy")
-			polygonMissMeter.Mark(1)
-			bgssMissMeter.Mark(1)
-			response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", blockHash)
-			if err != nil {
-				log.Error("Error calling to heavy server, getSnapshot()", "blockHash", blockHash, "err", err.Error())
-				return nil, err
+			if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
+				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash, "err", err)
+				return nil, errBlockHashNotFound
 			}
-			return *response, nil
-		}
 
-		if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
-			log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash, "err", err.Error())
-			return nil, nil
-		}
+		default:
+			log.Error("Error deriving input, getSnapshot", "input", blockNrOrHash)
+			return nil, errInvalidInput
+	}
 
-		if len(service.cfg.HeavyServer) > 0 {
-			log.Debug("bor_getSnapshot served from flume light")
-			polygonHitMeter.Mark(1)
-			bgssHitMeter.Mark(1)
-		}
+	requiredSnapshot := blockNumber - (blockNumber % 64)
 
-	default:
-		log.Error("Error deriving input, getSnapshot")
-		return nil, nil
+	if len(service.cfg.HeavyServer) > 0 && requiredSnapshot < service.cfg.EarliestBlock {
+		log.Debug("bor_getSnapshot sent to flume heavy")
+		polygonMissMeter.Mark(1)
+		bgssMissMeter.Mark(1)
+		response, err := heavy.CallHeavy[*Snapshot](ctx, service.cfg.HeavyServer, "bor_getSnapshot", hexutil.Uint64(blockNumber))
+		if err != nil {
+			log.Error("Error calling to heavy server, getSnapshot()", "blockNumber", blockNumber, "err", err)
+			return nil, errBlockNotFound
+		}
+		return *response, nil
+	}
+
+	if len(service.cfg.HeavyServer) > 0 {
+		log.Debug("bor_getSnapshot served from flume light")
+		polygonHitMeter.Mark(1)
+		bgssHitMeter.Mark(1)
 	}
 
 	log.Debug("getSnapshot() intial block value", "blockNumber", blockNumber)
 
 	recents, err := service.getRecents(blockNumber)
 	if err != nil {
-		log.Error("Error getting recents get_snapshot()", "err", err.Error())
+		log.Error("Error getting recents get_snapshot()", "err", err)
+		return nil, errBlockNotFound
 	}
 
 	var sprint uint64
@@ -183,8 +166,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		snap := &Snapshot{}
 		snap, err = service.fetchSnapshot(ctx, blockNumber)
 		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot(), mod 64 == 0 case", "err", err.Error())
-			return nil, err
+			log.Error("Error fetching snapshot get_snapshot(), mod 64 == 0 case", "err", err)
+			return nil, errBlockNotFound
 		}
 		return snap, nil
 
@@ -193,8 +176,8 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		subsequentSnapshot := blockNumber + 1
 		snap, _ = service.fetchSnapshot(ctx, subsequentSnapshot)
 		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot() mod 64 == 0 63 case", "err", err.Error())
-			return nil, err
+			log.Error("Error fetching snapshot get_snapshot() mod 64 == 0 63 case", "err", err)
+			return nil, errBlockNotFound
 		}
 		snap.Number = blockNumber
 		snap.Hash = blockHash
@@ -202,11 +185,11 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 		return snap, nil
 	default:
 		snap := &Snapshot{}
-		previousSnapshot := blockNumber - (blockNumber % 64)
+		previousSnapshot := blockNumber - (blockNumber % sprint)
 		snap, _ = service.fetchSnapshot(ctx, previousSnapshot)
 		if err != nil {
-			log.Error("Error fetching snapshot get_snapshot() default condition", "err", err.Error())
-			return nil, err
+			log.Error("Error fetching snapshot get_snapshot() default condition", "err", err)
+			return nil, errBlockNotFound
 		}
 		snap.Number = blockNumber
 		snap.Hash = blockHash
@@ -216,5 +199,5 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	log.Error("outside of case switch for input")
 	err = errors.New("unknown block")
 	log.Error("unkown block error", "block number", blockNumber)
-	return nil, err
+	return nil, errBlockNotFound
 }
