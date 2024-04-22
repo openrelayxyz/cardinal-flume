@@ -185,6 +185,7 @@ func updateBM(tr storage.Transaction, hk string, startOffset uint64, idxs []uint
 		}
 		var err error
 		res, err = bm.MarshalBinary()
+		if err != nil { log.Error("MB error", "err", err) }
 		return err
 
 	}); err == storage.ErrNotFound {
@@ -194,6 +195,7 @@ func updateBM(tr storage.Transaction, hk string, startOffset uint64, idxs []uint
 		}
 		return bm.MarshalBinary()
 	} else if err != nil {
+		log.Error("ZCG error", "err", err)
 		return nil, err
 	}
 	return res, nil
