@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	log "github.com/inconshreveable/log15"
+	
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
@@ -19,6 +20,9 @@ import (
 var (
 	hitMeter  = metrics.NewMajorMeter("/flume/hit")
 	missMeter = metrics.NewMajorMeter("/flume/miss")
+
+	heavyBlockHashHit = metrics.NewMinorMeter("/flume/hbh/hit")
+	heavyBlockHashMiss = metrics.NewMinorMeter("/flume/hbh/miss")
 )
 
 type BlockAPI struct {
@@ -45,16 +49,17 @@ func (api *BlockAPI) ChainId(ctx context.Context) hexutil.Uint64 {
 	return hexutil.Uint64(api.cfg.Chainid)
 }
 
-func (api *BlockAPI) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
+func (api *BlockAPI) BlockNumber(ctx context.Context) hexutil.Uint64 {
 
 	log.Debug("eth_blockNumber served from flume light by default")
 	hitMeter.Mark(1)
 
 	blockNo, err := getLatestBlock(ctx, api.db)
 	if err != nil {
-		return 0, err
+		log.Error("Error returned from getLatestBlock", "err", err)
+		return 0
 	}
-	return hexutil.Uint64(blockNo), nil
+	return hexutil.Uint64(blockNo)
 }
 
 var (
@@ -136,6 +141,10 @@ func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, i
 		if err != nil {
 			return nil, err
 		}
+		if responseShell == nil {
+			heavyBlockHashMiss.Mark(1)
+		}
+		heavyBlockHashHit.Mark(1)
 		return responseShell, nil
 	}
 
@@ -234,6 +243,10 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 		if err != nil {
 			return nil, err
 		}
+		if count == nil {
+			heavyBlockHashMiss.Mark(1)
+		}
+		heavyBlockHashHit.Mark(1)
 		return count, nil
 	}
 
@@ -321,6 +334,10 @@ func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash typ
 		if err != nil {
 			return nil, err
 		}
+		if count == nil {
+			heavyBlockHashMiss.Mark(1)
+		}
+		heavyBlockHashHit.Mark(1)
 		return count, nil
 	}
 
@@ -408,6 +425,10 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			if err != nil {
 				return nil, err
 			}
+			if rt == nil {
+				heavyBlockHashMiss.Mark(1)
+			}
+			heavyBlockHashHit.Mark(1)
 			return *rt, nil
 		}
 	

@@ -3,6 +3,7 @@ package heavy
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"encoding/json"
 	"io/ioutil"
 	"net"
@@ -38,7 +39,15 @@ var client = &http.Client{Transport: &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 }}
 
+func CallHeavyDiscrete[T any](ctx context.Context, backendURL string, cutoffBlock uint64, method string, params ...interface{}) (*T, error) {
+	return callHeavy[T](ctx, backendURL, &cutoffBlock, method, params...)
+}
+
 func CallHeavy[T any](ctx context.Context, backendURL string, method string, params ...interface{}) (*T, error) {
+	return callHeavy[T](ctx, backendURL, nil, method, params...)
+}
+
+func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint64, method string, params ...interface{}) (*T, error) {
 
 	if backendURL == "mock" {
 		return nil, &MockError{
@@ -55,6 +64,10 @@ func CallHeavy[T any](ctx context.Context, backendURL string, method string, par
 
 	request, _ := http.NewRequestWithContext(ctx, "POST", backendURL, bytes.NewReader(callBytes))
 	request.Header.Add("Content-Type", "application/json")
+
+	if cutoffBlock != nil && *cutoffBlock > 0 {
+		request.Header.Add("X-Cardinal-Latest", strconv.Itoa(int(*cutoffBlock)))
+	}
 
 	log.Debug("call heavy request", "method", "POST", "url", backendURL, "headers", request.Header)
 

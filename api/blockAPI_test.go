@@ -230,10 +230,7 @@ func TestBlockNumber(t *testing.T) {
 	pl, _ := plugins.NewPluginLoader(cfg)
 	b := NewBlockAPI(db, 1, pl, cfg)
 	expectedResult, _ := hexutil.DecodeUint64("0x12ab5da")
-	test, err := b.BlockNumber(context.Background())
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
+	test := b.BlockNumber(context.Background())
 	if test != hexutil.Uint64(expectedResult) {
 		t.Fatalf("BlockNumber() result not accurate")
 	}

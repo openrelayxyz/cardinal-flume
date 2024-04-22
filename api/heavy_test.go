@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	// log "github.com/inconshreveable/log15"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	types "github.com/openrelayxyz/cardinal-types"
@@ -17,6 +17,7 @@ import (
 )
 
 func TestCallHeavy(t *testing.T) {
+	log.Info("testing heavy package expect error logs")
 	cfg, err := config.LoadConfig("../testing-resources/heavy_test_config.yml")
 	if err != nil {
 		t.Fatal("Error parsing config TestCallHeavy", "err", err.Error())
@@ -228,7 +229,7 @@ func TestCallHeavy(t *testing.T) {
 
 	f := NewFlumeAPI(db, 1, pl, cfg, mempool)
 
-	_, err = f.GetTransactionsBySender(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionsBySender(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionsBySender did not return expected error, heavy test", "err", err.Error())
 	}
@@ -242,7 +243,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionsBySender did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = f.GetTransactionReceiptsBySender(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionReceiptsBySender(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionReceiptsBySender did not return expected error, heavy test", "err", err.Error())
 	}
@@ -256,7 +257,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionReceiptsBySender did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = f.GetTransactionsByRecipient(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionsByRecipient(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionsByRecipient did not return expected error, heavy test", "err", err.Error())
 	}
@@ -270,7 +271,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionsByRecipient did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = f.GetTransactionReceiptsByRecipient(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionReceiptsByRecipient(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionReceiptsByRecipient did not return expected error, heavy test", "err", err.Error())
 	}
@@ -284,7 +285,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionReceiptsByRecipient did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = f.GetTransactionsByParticipant(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionsByParticipant(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionsByParticipant did not return expected error, heavy test", "err", err.Error())
 	}
@@ -298,7 +299,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("GetTransactionsByParticipant did not return expected parameter offset, heavy test", "err", err.Error())
 	}
 
-	_, err = f.GetTransactionReceiptsByParticipant(context.Background(), testAddress, nil)
+	_, err = f.GetTransactionReceiptsByParticipant(mockContext, testAddress, nil)
 	if err == nil {
 		t.Fatal("GetTransactionReceiptsByParticipant did not return expected error, heavy test", "err", err.Error())
 	}
@@ -339,7 +340,7 @@ func TestCallHeavy(t *testing.T) {
 	offset = new(int)
 	*offset = 1
 
-	_, err = ft.Erc20ByAccount(context.Background(), testAddress, offset)
+	_, err = ft.Erc20ByAccount(mockContext, testAddress, offset)
 	if err == nil {
 		t.Fatal("Erc20ByAccount did not return expected error, heavy test", "err", err.Error())
 	}
@@ -353,7 +354,7 @@ func TestCallHeavy(t *testing.T) {
 		t.Fatal("Erc20ByAccount did not return expected parameter offset, heavy test", "err", err.(*heavy.MockError).Params[1])
 	}
 
-	_, err = ft.Erc20Holders(context.Background(), testAddress, offset)
+	_, err = ft.Erc20Holders(mockContext, testAddress, offset)
 	if err == nil {
 		t.Fatal("Erc20Holders did not return expected error, heavy test", "err", err.Error())
 	}
@@ -384,5 +385,5 @@ func TestCallHeavy(t *testing.T) {
 	if err.(*heavy.MockError).Method != "eth_maxPriorityFeePerGas" {
 		t.Fatal("MaxPriorityFeePerGas did not return expected method name, heavy test", "err", err.Error())
 	}
-
+	log.Info("heavy package test complete")
 }
