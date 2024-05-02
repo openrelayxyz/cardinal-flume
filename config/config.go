@@ -155,26 +155,10 @@ func LoadConfig(fname string) (*Config, error) {
 
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
 
-	log.Error("this is the page size", "ps", cfg.PageSize)
-	if cfg.PageSize == 0 {
-		cfg.PageSize = 4096
-	}
-	if cfg.PageSize > 65536 {
-		log.Warn("config: pragma page size miust be less than or equal to 65536, setting to largest possible value: 65536")
-		cfg.PageSize = 65536
-	}
-	if cfg.PageSize > 0 && (cfg.PageSize&(cfg.PageSize-1)) != 0 {
-		var bit int64 = 1
-    	for cfg.PageSize > 0 {
-        	cfg.PageSize >>= 1
-        	bit <<= 1
-    	}
-		val := bit >> 1
-		log.Warn(fmt.Sprintf("config: pragma page size miust be a power of two, setting size to: %v", val))
-		cfg.PageSize = val
+	if cfg.PageSize < 4096 || cfg.PageSize > 65536 || (cfg.PageSize&(cfg.PageSize-1)) != 0 {
+		log.Warn(fmt.Sprintf("config: invalid pragma page size of %v, setting to default of 4096", cfg.PageSize))
 	}
 
-	log.Error("This is the port", "p", cfg.Port)
 	if cfg.Port == 0 {
 		cfg.Port = 8000
 	}
