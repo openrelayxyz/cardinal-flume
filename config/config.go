@@ -41,6 +41,7 @@ type broker struct {
 }
 
 type Config struct {
+	PageSize        int64             `yaml:"pragmaPageSize"`
 	Port            int64             `yaml:"port"`
 	PprofPort       int               `yaml:"pprofPort"`
 	HealthcheckPort int64             `yaml:"healthcheck"`
@@ -153,6 +154,10 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
+
+	if cfg.PageSize < 4096 || cfg.PageSize > 65536 || (cfg.PageSize&(cfg.PageSize-1)) != 0 {
+		log.Warn(fmt.Sprintf("config: invalid pragma page size of %v, setting to default of 4096", cfg.PageSize))
+	}
 
 	if cfg.Port == 0 {
 		cfg.Port = 8000
