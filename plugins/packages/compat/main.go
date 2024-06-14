@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"log"
@@ -109,9 +110,17 @@ func Start(db *sql.DB, cfg *config.Config) func() {
 	}
 }
 
+func tenPercentChance() bool {
+    return rand.Intn(100) < 10
+}
+
 func getAPIHandler(db *sql.DB, network uint64) func(http.ResponseWriter, *http.Request) {
 	// module=account&action=txlist&address=0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae&startblock=0&endblock=99999999&sort=asc
 	return func(w http.ResponseWriter, r *http.Request) {
+		if tenPercentChance() {
+			handleApiResponse(w, 0, "NOTOK-deprecation warning", "Error! This API is deprecated. See https://rivetcloud.substack.com/p/important-notice-regarding-etherscan", 410, false)
+			return
+		}
 		query := r.URL.Query()
 		chainTokens, ok := tokens.Tokens[network]
 		if !ok {
