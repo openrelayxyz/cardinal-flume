@@ -287,14 +287,14 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 				if _, err := dbtx.Exec(strings.Join(megaStatement, " ; "), megaParameters...); err != nil {
 					dbtx.Rollback()
 					stats := db.Stats()
-					log.Warn("Failed to execute statement", "err", err.Error(), "sql", strings.Join(megaStatement, " ; "))
+					log.Warn("Failed to execute statement", "err", err)
 					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
 				}
 				if err := dbtx.Commit(); err != nil {
 					stats := db.Stats()
-					log.Warn("Failed to commit", "err", err.Error())
+					log.Warn("Failed to commit", "err", err)
 					log.Info("SQLite Pool", "Open", stats.OpenConnections, "InUse", stats.InUse, "Idle", stats.Idle)
 					mut.Unlock()
 					continue
