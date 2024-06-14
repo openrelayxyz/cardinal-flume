@@ -62,7 +62,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	var goHeavy bool
 	if crit.BlockHash != nil {
 		var num int64
-		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", crit.BlockHash.Bytes()).Scan(&num)
+		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", trimPrefix(crit.BlockHash.Bytes())).Scan(&num)
 		whereClause = append(whereClause, "blockHash = ? AND block = ?")
 		goHeavy = (num == 0)
 		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
