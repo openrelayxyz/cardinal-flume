@@ -367,7 +367,6 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 			receipt["from"] = "0x0000000000000000000000000000000000000000"
 		}
 		delete(receipt, "effectiveGasPrice")
-		delete(receipt, "type")
 	}
 
 	return receipts, nil
