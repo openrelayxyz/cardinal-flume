@@ -352,14 +352,13 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	if err != nil {
 		return nil, errBlockNotFound
 	}
-
 	if borTxHashBytes != nil {
 		var nilMap map[string]interface{}
-		borReceipt, _ := GetTransactionReceipt(nilMap, plugins.BytesToHash(borTxHashBytes), service.db)
-		receipts = append(receipts, borReceipt)
-		for _, receipt := range receipts {
-			receipt["transactionHash"] = plugins.BytesToHash(borTxHashBytes)
+		borReceipt, err := GetTransactionReceipt(nilMap, plugins.BytesToHash(borTxHashBytes), service.db)
+		if err != nil {
+			log.Error("error aquiring bor receipt", "err", err)
 		}
+		receipts = append(receipts, borReceipt)
 	}
 
 	for _, receipt := range receipts {
