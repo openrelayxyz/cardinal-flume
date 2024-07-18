@@ -63,10 +63,10 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	if crit.BlockHash != nil {
 		var num sql.NullInt64
 		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", trimPrefix(crit.BlockHash.Bytes())).Scan(&num)
-		whereClause = append(whereClause, "blockHash = ? AND block = ?")
 		if !num.Valid { 
 			goHeavy = true 
 		} else {
+			whereClause = append(whereClause, "blockHash = ? AND block = ?")
 			params = append(params, trimPrefix(crit.BlockHash.Bytes()), num.Int64)
 		}
 		if goHeavy && len(api.cfg.HeavyServer) == 0 {
@@ -179,7 +179,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	rows, err := api.db.QueryContext(ctx, query, params...)
 	if err != nil {
 		exhaustChannels[[]*logType](heavyResult, errChan)
-		log.Error("Error selecting query", "query", query, "err", err)
+		log.Error("Error selecting query getLogs", "query", query, "params", params, "err", err)
 		return nil, fmt.Errorf("database error")
 	}
 	defer rows.Close()
