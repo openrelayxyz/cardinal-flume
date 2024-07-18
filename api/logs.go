@@ -70,7 +70,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			params = append(params, trimPrefix(crit.BlockHash.Bytes()), num.Int64)
 		}
 		if goHeavy && len(api.cfg.HeavyServer) == 0 {
-			return nil,	rpc.NewRPCError(-32000, fmt.Sprint("unknown block"))
+			return nil,	rpc.NewRPCError(-32000, "unknown block")
 		}
 	} else {
 		var fromBlock, toBlock int64
