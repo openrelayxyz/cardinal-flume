@@ -389,7 +389,11 @@ func TestPolygonApi(t *testing.T) {
 							t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 						}
 						if !bytes.Equal(d, controlBlockTxReceipts[i][j][key]) {
-							t.Fatalf("getTransactionReceiptsByBlock mismatch found on block %v receipt %v, key %v", block, j, key)
+							var item interface{}
+							if err = json.Unmarshal(controlBlockTxReceipts[i][j][key], &item); err != nil {
+								fmt.Println("unmarshalling error")
+							}
+							t.Fatalf("getTransactionReceiptsByBlock mismatch found on block %v receipt %v, key %v, control %v, test %v", receipt["blockNumber"], j, key, item, value)
 						}
 					}
 				}
