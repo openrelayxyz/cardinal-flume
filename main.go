@@ -296,6 +296,10 @@ func main() {
 	}
 	//if this > 0 then this is a light server
 	cfg.EarliestBlock = uint64(minBlock)
+	if len(cfg.HeavyServer) > 0 {
+		liteTailMeter := metrics.NewMajorGauge("/flume/tail")
+		liteTailMeter.Update(int64(minBlock))
+	}
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
 	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
 		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
