@@ -61,11 +61,17 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	params := []interface{}{}
 	var goHeavy bool
 	if crit.BlockHash != nil {
-		var num int64
+		var num sql.NullInt64
 		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", trimPrefix(crit.BlockHash.Bytes())).Scan(&num)
 		whereClause = append(whereClause, "blockHash = ? AND block = ?")
-		goHeavy = (num == 0)
-		params = append(params, trimPrefix(crit.BlockHash.Bytes()), num)
+		if !num.Valid { 
+			goHeavy = true 
+		} else {
+			params = append(params, trimPrefix(crit.BlockHash.Bytes()), num.Int64)
+		}
+		if goHeavy && len(api.cfg.HeavyServer) == 0 {
+			return nil,	rpc.NewRPCError(-32000, fmt.Sprint("unknown block"))
+		}
 	} else {
 		var fromBlock, toBlock int64
 		if crit.FromBlock == nil || int64(*crit.FromBlock) < 0 {
