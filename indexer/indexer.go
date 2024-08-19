@@ -300,6 +300,7 @@ func ProcessDataFeed(csConsumer transports.Consumer, txFeed *txfeed.TxFeed, db *
 					continue
 				}
 				mut.Unlock()
+				chainUpdate.Done()
 				processed = true
 				hc.lastBlockTime = time.Now()
 				// add condition to check safe or finalized

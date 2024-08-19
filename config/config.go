@@ -1,6 +1,7 @@
 package config
 
 import (
+	"time"
 	"database/sql"
 	"context"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-streams/waiter"
 	"github.com/openrelayxyz/cardinal-types"
 )
 
@@ -73,6 +75,8 @@ type Config struct {
 	LightSeed       int64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
 	WhitelistExternal map[uint64]types.Hash
+	Waiter          waiter.Waiter
+	WaitTime        time.Duration
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -133,6 +137,10 @@ func LoadConfig(fname string) (*Config, error) {
 	default:
 		err := errors.New("Unrecognized network name")
 		return nil, err
+	}
+
+	if WaitTime == 0 {
+		WaitTime = 250 * time.Millisecond
 	}
 
 	if cfg.BaseFeeChangeBlockHeight == 0 {
