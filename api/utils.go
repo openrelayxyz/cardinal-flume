@@ -55,17 +55,30 @@ func exhaustChannels[T any](ch chan T, errChan chan error) {
 	}()
 }
 
+func streamsWaiter(input interface{}, cfg *config.Config) {
+	if cfg.Waiter != nil {
+		switch input.(type) {
+		case rpc.BlockNumber:
+			cfg.Waiter.WaitForNumber(int64(input.(rpc.BlockNumber)), cfg.WaitTime)
+		case types.Hash:
+			cfg.Waiter.WaitForHash(input.(types.Hash), cfg.WaitTime)
+		}
+	} else {
+		return
+	}
+}
+
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
 	case rpc.BlockNumber:
-		cfg.Waiter.WaitForNumber(input, cfg.WaitTime)
+		streamsWaiter(input, cfg)
 		if uint64(input.(rpc.BlockNumber)) < cfg.EarliestBlock {
 			present = false
 			return present
 		}
 	case types.Hash:
-		cfg.Waiter.WaitForHash(input, cfg.WaitTime)
+		streamsWaiter(input, cfg)
 		blockHash := input.(types.Hash)
 		var response int
 		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"

@@ -106,6 +106,8 @@ github.com/openrelayxyz/cardinal-rpc v1.2.1 h1:3RHYuP1prOHASXCvSMwJ7G2htNBRMSqPr
 github.com/openrelayxyz/cardinal-rpc v1.2.1/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
 github.com/openrelayxyz/cardinal-streams v1.4.1 h1:v0jrxk8iyZpWnccQ+uGRfrktdoTuY/sZMGumLz/x7Ic=
 github.com/openrelayxyz/cardinal-streams v1.4.1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
+github.com/openrelayxyz/cardinal-streams v1.5.0-waiter1 h1:GBQW+RRym+A38XxGBs53Neh2jXNrkdYSlQyqLBn7MKc=
+github.com/openrelayxyz/cardinal-streams v1.5.0-waiter1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
 github.com/openrelayxyz/cardinal-types v1.0.0/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/cardinal-types v1.1.1 h1:Lw6Lr/eiHYCnLi851rciCzw/1S3UytUX7kj5zh3QS/Y=
 github.com/openrelayxyz/cardinal-types v1.1.1/go.mod h1:8aaMg6i94V0hhWe3V6Fzc0RSggMx+/Kabsf5o7wMf/E=

@@ -139,8 +139,8 @@ func LoadConfig(fname string) (*Config, error) {
 		return nil, err
 	}
 
-	if WaitTime == 0 {
-		WaitTime = 250 * time.Millisecond
+	if cfg.WaitTime == 0 {
+		cfg.WaitTime = 250 * time.Millisecond
 	}
 
 	if cfg.BaseFeeChangeBlockHeight == 0 {
