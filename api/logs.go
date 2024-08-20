@@ -62,6 +62,9 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	var goHeavy bool
 	if crit.BlockHash != nil {
 		var num sql.NullInt64
+		if w := api.cfg.Waiter; w != nil {
+			w.WaitForHash(*crit.BlockHash, api.cfg.WaitTime)
+		}
 		api.db.QueryRowContext(ctx, "SELECT number FROM blocks WHERE hash = ?", trimPrefix(crit.BlockHash.Bytes())).Scan(&num)
 		if !num.Valid { 
 			goHeavy = true 
@@ -85,6 +88,9 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			toBlock = latestBlock
 		} else {
 			toBlock = int64(*crit.ToBlock)
+		}
+		if w := api.cfg.Waiter; w != nil {
+			w.WaitForNumber(toBlock, api.cfg.WaitTime)
 		}
 		if fromBlock == toBlock {
 			whereClause = append(whereClause, "block = ?")

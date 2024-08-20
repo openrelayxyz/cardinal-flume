@@ -109,7 +109,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash types.Hash, index hexutil.Uint64) (*map[string]interface{}, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+	if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionByBlockHashAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbhiMissMeter.Mark(1)
@@ -147,7 +147,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber rpc.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+	if  !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbniMissMeter.Mark(1)
