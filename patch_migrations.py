@@ -26,7 +26,6 @@ transactions_columns = [
 	'r',
 	's',
 	'sender',
-	'func'
 ]
 
 event_logs_colums = [
@@ -95,37 +94,40 @@ class DataManipulator:
             partial = f', {primary[0]}, {primary[1]} FROM {table};'
 
         for column in columns.get(table)[0]:
-            q = f'SELECT hex({column})' + partial
+            q = f'SELECT {column}' + partial
             rows = self.conn.fetchall(q)
             zeros = find_zeros(rows)
             prepared = remove_zeros(zeros)
             
+            print(f'length is {len(prepared)}')
             if len(prepared) > 0:
                 self.initial[column] = prepared
 
         return self.initial
 
-    def alter_table(self):
+    def extract_statements(self):
         initial_results = self.get_initial_results()
 
         primary = self.prmry
         table = self.tbl
 
+        output = open(f'{table}-statements.txt', "w")
+
         for k, v in initial_results.items():
-            print(f"processing column: {k} on table: {table} with {len(v)} statements to process")
+            print(f'working column {k} from table {table}')
             for item in v:
                 if isinstance(primary, str):
-                    s = f'UPDATE {table} SET {k} = {item[0]} WHERE {primary} = {item[1]}'
+                    s = f"UPDATE {table} SET {k} = {item[0]} WHERE {primary} = {item[1]};"
                 elif isinstance(primary, tuple):
-                    s = f'UPDATE {table} SET {k} = {item[0]} WHERE {primary[0]} = {item[1]} AND {primary[1]} = {item[2]}'
-                print(s)
-                # self.conn.execute(s)
-                # I have the above commented and have added the print call for testing / inspecting
+                    s = f"UPDATE {table} SET {k} = {item[0]} WHERE {primary[0]} = {item[1]} AND {primary[1]} = {item[2]};"
+                output.write(s + '\n')
+       
+        output.close()
 
 def find_zeros(rows):
     results = []
     for row in rows:
-        if row[0][0] == '0':
+        if row[0][0] == 0:
             results.append(row)
     return results
 
@@ -134,18 +136,22 @@ def remove_zeros(rows):
     for row in rows:
         zeros = 0
         for char in row[0]:
-            if char == '0':
+            if char == 0:
                 zeros += 1
         results.append((row[0][zeros:], *row[1:]))
         zeros = 0
     return results
+
+# I think the above functions are doing what we want now. The byte representation in my shell of 0 is b'/x00' but, as you
+# remarked they compare to 0 the integer. I am having trouble testing though becuase my test data is fairly limited and I
+# cant find any cases of acutal leading zeros. 
 
 def main(file, table):
     db_connection = DatabaseManager(file, table)
 
     manipulator = DataManipulator(db_connection, table)
     
-    manipulator.alter_table()
+    manipulator.extract_statements()
     
 
 if __name__ == "__main__":
