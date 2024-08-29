@@ -111,11 +111,6 @@ class DataManipulator:
         primary = self.prmry
         table = self.tbl
 
-        if isinstance(primary, str):
-            tmp = 'UPDATE {} SET {} = {} WHERE {} = {}'
-        elif isinstance(primary, tuple):
-            tmp = 'UPDATE {} SET {} = {} WHERE {} = {} AND {} = {}'
-        
         for k, v in initial_results.items():
             print(f"processing column: {k} on table: {table} with {len(v)} statements to process")
             for item in v:
@@ -125,6 +120,7 @@ class DataManipulator:
                     s = f'UPDATE {table} SET {k} = {item[0]} WHERE {primary[0]} = {item[1]} AND {primary[1]} = {item[2]}'
                 print(s)
                 # self.conn.execute(s)
+                # I have the above commented and have added the print call for testing / inspecting
 
 def find_zeros(rows):
     results = []
