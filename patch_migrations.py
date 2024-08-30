@@ -127,9 +127,12 @@ class DataManipulator:
 
 def find_zeros(rows):
     results = []
-    for row in rows:
-        if row[0][0] == 0:
-            results.append(row)
+    if len(rows) > 0:
+        for row in rows:
+            if row[0] is not None:
+                if row[0][0] is not None:
+                    if row[0][0] == 0:
+                        results.append(row)
     return results
 
 def remove_zeros(rows):
