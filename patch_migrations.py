@@ -93,7 +93,9 @@ class DataManipulator:
         elif isinstance(primary, tuple):
             partial = f', {primary[0]}, {primary[1]} FROM {table};'
 
+        
         for column in columns.get(table)[0]:
+            print(f"executing select statements on {column}, {table}, table")
             q = f'SELECT {column}' + partial
             rows = self.conn.fetchall(q)
             zeros = find_zeros(rows)
@@ -113,7 +115,7 @@ class DataManipulator:
         output = open(f'{table}-statements.txt', "w")
 
         for k, v in initial_results.items():
-            print(f'working column {k} from table {table}')
+            print(f'writing update statements from column {k} on table {table}')
             for item in v:
                 if isinstance(primary, str):
                     s = f"UPDATE {table} SET {k} = {item[0]} WHERE {primary} = {item[1]};"
