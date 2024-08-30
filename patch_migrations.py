@@ -99,7 +99,6 @@ class DataManipulator:
             zeros = find_zeros(rows)
             prepared = remove_zeros(zeros)
             
-            print(f'length is {len(prepared)}')
             if len(prepared) > 0:
                 self.initial[column] = prepared
 
