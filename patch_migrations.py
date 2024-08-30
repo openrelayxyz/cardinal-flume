@@ -129,7 +129,7 @@ def find_zeros(rows):
     results = []
     if len(rows) > 0:
         for row in rows:
-            if row[0] is not None:
+            if row[0] is not None and len(row[0]) > 0:
                 if row[0][0] is not None:
                     if row[0][0] == 0:
                         results.append(row)
