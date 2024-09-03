@@ -1,6 +1,8 @@
 import sys
 import sqlite3
 from contextlib import contextmanager
+import json
+import codecs
 
 blocks_columns = [
 	'hash',
@@ -13,7 +15,7 @@ blocks_columns = [
 	'mixDigest',
 	'td',
 	'baseFee',
-	'withdrawalHash',
+    'withdrawalHash',
 ]
 
 withdrawals_columns = [
@@ -38,7 +40,7 @@ event_logs_colums = [
 columns = {
     'blocks': [blocks_columns, ('number')],
     'withdrawals': [withdrawals_columns, ('block', 'wtdrlIndex')],
-    'transactions': [transactions_columns, ('id')],
+    'transactions': [transactions_columns, ('block', 'transactionIndex')],
     'event_logs': [event_logs_colums, ('block', 'logIndex')],
 }
 
@@ -88,18 +90,27 @@ class DataManipulator:
         primary = self.prmry
         table = self.tbl
 
+        if table == 'blocks':
+            condition = ' WHERE number <= 600000;'
+        else: 
+            condition = ' WHERE block <= 600000;'
+
         if isinstance(primary, str):
-            partial = f', {primary} FROM {table};'
+            partial = f', {primary} FROM {table}'
         elif isinstance(primary, tuple):
-            partial = f', {primary[0]}, {primary[1]} FROM {table};'
+            partial = f', {primary[0]}, {primary[1]} FROM {table}'
 
         
         for column in columns.get(table)[0]:
             print(f"executing select statements on {column}, {table}, table")
-            q = f'SELECT {column}' + partial
+            q = f'SELECT {column}' + partial + condition
+            print(q)
             rows = self.conn.fetchall(q)
+            print(f"this is pre deliver row 0 {rows[0]}")
             zeros = find_zeros(rows)
+            print(f'length of zeros for {column} on {table} {len(zeros)}')
             prepared = remove_zeros(zeros)
+            print(f'length of prepared for {column} on {table} {len(prepared)}')
             
             if len(prepared) > 0:
                 self.initial[column] = prepared
@@ -118,21 +129,29 @@ class DataManipulator:
             print(f'writing update statements from column {k} on table {table}')
             for item in v:
                 if isinstance(primary, str):
-                    s = f"UPDATE {table} SET {k} = {item[0]} WHERE {primary} = {item[1]};"
+                    s = f"UPDATE {table} SET {k} = X'{codecs.decode(codecs.encode(item[0], 'hex'), 'latin1')}' WHERE {primary} = {item[1]};"
                 elif isinstance(primary, tuple):
-                    s = f"UPDATE {table} SET {k} = {item[0]} WHERE {primary[0]} = {item[1]} AND {primary[1]} = {item[2]};"
+                    s = f"UPDATE {table} SET {k} = X'{codecs.decode(codecs.encode(item[0], 'hex'), 'latin1')}' WHERE {primary[0]} = {item[1]} AND {primary[1]} = {item[2]};"
                 output.write(s + '\n')
        
         output.close()
 
 def find_zeros(rows):
     results = []
-    if len(rows) > 0:
-        for row in rows:
-            if row[0] is not None and len(row[0]) > 0:
-                if row[0][0] is not None:
-                    if row[0][0] == 0:
-                        results.append(row)
+    if isinstance(rows, list):
+        if len(rows) > 0:
+            print(f'this is row zero from find zeros {rows[0]}')
+            for row in rows:
+                if isinstance(row, tuple):
+                    if row[0]:
+                        if row[0][0] == 0:
+                            results.append(row)
+                else:
+                    print(f"item was not a tuple, item is a {type(row[0])}, r0 {row[0]}")
+        else:
+            print("list was empty")
+    else: 
+        print("argument was not a list")
     return results
 
 def remove_zeros(rows):
@@ -142,6 +161,8 @@ def remove_zeros(rows):
         for char in row[0]:
             if char == 0:
                 zeros += 1
+            else:
+                break
         results.append((row[0][zeros:], *row[1:]))
         zeros = 0
     return results
