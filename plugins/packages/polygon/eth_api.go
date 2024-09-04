@@ -224,7 +224,7 @@ func (service *PolygonEthService) GetBorBlockReceipt(ctx context.Context, bkHash
 
 	if transactionHash != nil {
 
-		if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(bkHash, service.cfg, service.db) {
+		if !borBlockDataPresent(bkHash, service.cfg, service.db) && len(service.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBorBlockReceipt sent to flume heavy")
 			polygonMissMeter.Mark(1)
 			gborbrMissMeter.Mark(1)
@@ -297,7 +297,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 	switch {
 		case numOk:
 
-			if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(number, service.cfg, service.db) {
+			if !borBlockDataPresent(number, service.cfg, service.db) && len(service.cfg.HeavyServer) > 0 {
 				log.Debug("eth_getTransactionReceiptByBlock sent to flume heavy")
 				polygonMissMeter.Mark(1)
 				gtrbbMissMeter.Mark(1)
@@ -320,7 +320,7 @@ func (service *PolygonEthService) GetTransactionReceiptsByBlock(ctx context.Cont
 			service.db.QueryRowContext(context.Background(), borTxQuery, column).Scan(&borTxHashBytes)
 		case hshOk:
 
-			if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(hash, service.cfg, service.db) {
+			if !borBlockDataPresent(hash, service.cfg, service.db) && len(service.cfg.HeavyServer) > 0 {
 				log.Debug("eth_getTransactionReceiptByBlock sent to flume heavy")
 				polygonMissMeter.Mark(1)
 				gtrbbMissMeter.Mark(1)

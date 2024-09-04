@@ -59,11 +59,17 @@ func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
 	present := true
 	switch input.(type) {
 	case rpc.BlockNumber:
+		if w := cfg.Waiter; w != nil {
+			w.WaitForNumber(int64(input.(rpc.BlockNumber)), cfg.WaitTime)
+		}
 		if uint64(input.(rpc.BlockNumber)) < cfg.EarliestBlock {
 			present = false
 			return present
 		}
 	case types.Hash:
+		if w := cfg.Waiter; w != nil {
+			w.WaitForHash(input.(types.Hash), cfg.WaitTime)
+		}
 		blockHash := input.(types.Hash)
 		var response int
 		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"

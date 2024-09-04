@@ -70,7 +70,7 @@ var (
 func (api *BlockAPI) GetBlockByNumber(ctx context.Context, blockNumber rpc.BlockNumber, includeTxns bool) (*map[string]interface{}, error) {
 
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+	if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_blockByNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gbbnMissMeter.Mark(1)
@@ -133,7 +133,7 @@ var (
 
 func (api *BlockAPI) GetBlockByHash(ctx context.Context, blockHash types.Hash, includeTxns bool) (*map[string]interface{}, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+	if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getBlockByHash sent to flume heavy")
 		missMeter.Mark(1)
 		gbbhMissMeter.Mark(1)
@@ -193,7 +193,7 @@ var (
 
 func (api *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+	if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getBlockTransactionCountByNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gtcbnMissMeter.Mark(1)
@@ -235,7 +235,7 @@ var (
 
 func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHash types.Hash) (*hexutil.Uint64, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+	if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getBlockTransactionCountByHash sent to flume heavy")
 		missMeter.Mark(1)
 		gtcbhMissMeter.Mark(1)
@@ -281,7 +281,7 @@ var (
 
 func (api *BlockAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+	if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getetUncleCountByBlockNumber sent to flume heavy")
 		missMeter.Mark(1)
 		gucbnMissMeter.Mark(1)
@@ -326,7 +326,7 @@ var (
 
 func (api *BlockAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash types.Hash) (*hexutil.Uint64, error) {
 
-	if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+	if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getUncleCountByBlockHash sent to flume heavy", "hash", blockHash)
 		missMeter.Mark(1)
 		gucbhMissMeter.Mark(1)
@@ -372,7 +372,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 
 	if numOk{
 
-		if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockNumber, api.cfg, api.db) {
+		if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)
@@ -417,7 +417,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 	
 	if hshOk{
 
-		if len(api.cfg.HeavyServer) > 0 && !blockDataPresent(blockHash, api.cfg, api.db) {
+		if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)

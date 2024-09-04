@@ -241,6 +241,8 @@ func main() {
 	if err != nil {
 		log.Error("error establishing consumer", "err", err.Error())
 	}
+	waiter := consumer.Waiter()
+	cfg.Waiter = waiter
 
 	hc := &indexer.HealthCheck{}
 	rhf := make(chan *rpc.HeightRecord, 1024)

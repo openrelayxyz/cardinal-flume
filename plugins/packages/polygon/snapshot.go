@@ -101,6 +101,10 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 	switch {
 		case numOk:
 
+			if w := service.cfg.Waiter; w != nil {
+				w.WaitForNumber(int64(blockNumber), service.cfg.WaitTime)
+			}
+
 			blockNumber = uint64(number)
 			var hashBytes []byte
 
@@ -112,6 +116,10 @@ func (service *PolygonBorService) GetSnapshot(ctx context.Context, blockNrOrHash
 			blockHash = plugins.BytesToHash(hashBytes)
 
 		case hshOk:
+
+			if w := service.cfg.Waiter; w != nil {
+				w.WaitForHash(blockHash, service.cfg.WaitTime)
+			}
 
 			if err := service.db.QueryRow("SELECT number FROM blocks WHERE hash = ?;", plugins.TrimPrefix(blockHash.Bytes())).Scan(&blockNumber); err != nil {
 				log.Error("Error deriving blockNumber from blockHash, getSnapshot()", "hash", blockHash, "err", err)

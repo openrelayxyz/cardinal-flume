@@ -107,7 +107,6 @@ var (
 )
 
 func (api *GasAPI) GasPrice(ctx context.Context) (string, error) {
-	// we need to do a light / heavy check here as the underlying gasTip method relies on current block
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		return "", err
@@ -150,7 +149,6 @@ var (
 )
 
 func (api *GasAPI) MaxPriorityFeePerGas(ctx context.Context) (res string, err error) {
-	// we need to do a light / heavy check here as the underlying gasTip method relies on current block
 	latestBlock, err := getLatestBlock(ctx, api.db)
 	if err != nil {
 		return "", err

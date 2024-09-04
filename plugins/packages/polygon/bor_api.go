@@ -37,7 +37,7 @@ var (
 
 func (service *PolygonBorService) GetAuthor(ctx context.Context, blockNumber rpc.BlockNumber) (*common.Address, error) {
 
-	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNumber, service.cfg, service.db) {
+	if !borBlockDataPresent(blockNumber, service.cfg, service.db) && len(service.cfg.HeavyServer) > 0 {
 		log.Debug("bor_getAuthor sent to flume heavy")
 		polygonMissMeter.Mark(1)
 		bgaMissMeter.Mark(1)
@@ -157,6 +157,10 @@ var (
 
 func (service *PolygonBorService) GetRootHash(ctx context.Context, start uint64, end uint64) (string, error) {
 
+	if w := service.cfg.Waiter; w != nil {
+		w.WaitForNumber(int64(end), service.cfg.WaitTime)
+	}
+
 	if len(service.cfg.HeavyServer) > 0 && start < service.cfg.EarliestBlock {
 		log.Debug("bor_getRootHash sent to flume heavy")
 		polygonMissMeter.Mark(1)
@@ -252,7 +256,7 @@ var (
 
 func (service *PolygonBorService) GetSignersAtHash(ctx context.Context, blockNrOrHash plugins.BlockNumberOrHash) ([]common.Address, error) {
 
-	if len(service.cfg.HeavyServer) > 0 && !borBlockDataPresent(blockNrOrHash, service.cfg, service.db) {
+	if !borBlockDataPresent(blockNrOrHash, service.cfg, service.db) && len(service.cfg.HeavyServer) > 0 {
 		log.Debug("bor_getSignersAtHash sent to flume heavy")
 		polygonMissMeter.Mark(1)
 		bgshMissMeter.Mark(1)
