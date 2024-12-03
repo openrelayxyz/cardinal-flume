@@ -337,6 +337,42 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		db.Exec(`UPDATE logs.migrations SET version = 3;`)
 		log.Info("logs migrations v3 done")
 	}
+	if schemaVersion < 4 {
+		if _, err := db.Exec(`ANALYZE migrations;`); err != nil {
+			log.Error("Migrate Logs ANALYZE migrations error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','address_topic0_compound','937459904 73 22 11');`); err != nil {
+			log.Error("INSERT sqlite_stat1, address_topic0_compound error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','topic3_partial','946568192 500001 4976 540 2');`); err != nil {
+			log.Error("INSERT sqlite_stat1, topic3_partial error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','topic2_partial','414026412 500001 2545 62 2');`); err != nil {
+			log.Error("INSERT sqlite_stat1, topic2_partial error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','topic1_partial','3472777216 500001 3876 30 2');`); err != nil {
+			log.Error("INSERT sqlite_stat1, topic1_partial error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','topic0_compound','812632744 166667 3 noskipscan');`); err != nil {
+			log.Error("INSERT sqlite_stat1, topic0_compound error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','address_compound','596825792 73 23');`); err != nil {
+			log.Error("INSERT sqlite_stat1, address_compound error;", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec(`INSERT INTO "sqlite_stat1" VALUES('event_logs','sqlite_autoindex_event_logs_1','1698316288 601 1');`); err != nil {
+			log.Error("INSERT sqlite_stat1, sqlite_autoindex_event_logs_1 error;", "err", err.Error())
+			return nil
+		}
+		db.Exec(`UPDATE logs.migrations SET version = 4;`)
+		log.Info("logs migrations v4 done")
+	}
 
 	log.Info("logs migrations up to date")
 	return nil
