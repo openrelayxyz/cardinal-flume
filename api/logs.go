@@ -179,7 +179,11 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		select {
 		case <-doneCh:
 		case <-time.NewTimer(5 * time.Second).C:
-			log.Warn("Query taking > 5 seconds", "query", query, "params", params)
+			var from string
+			if crit.FromBlock != nil {from = hexutil.EncodeUint64(uint64(*crit.FromBlock))}
+			var to string
+			if crit.ToBlock != nil {to = hexutil.EncodeUint64(uint64(*crit.FromBlock))}
+			log.Warn("Query taking > 5 seconds", "query", query, "params", params, "filter", crit, "from", from, "to", to)
 		}
 	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
