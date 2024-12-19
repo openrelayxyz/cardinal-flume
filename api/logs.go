@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"encoding/json"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-rpc"
@@ -179,7 +180,8 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		select {
 		case <-doneCh:
 		case <-time.NewTimer(5 * time.Second).C:
-			log.Warn("Query taking > 5 seconds", "query", query, "params", params)
+			filterQ, _ := json.Marshal(crit)
+			log.Warn("Query taking > 5 seconds", "query", query, "params", params, "filter", filterQ)
 		}
 	}()
 	rows, err := api.db.QueryContext(ctx, query, params...)
