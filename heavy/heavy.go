@@ -84,7 +84,7 @@ func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint6
 	}
 	response := &rpc.RawResponse{}
 	if err := json.Unmarshal(result, &response); err != nil {
-		log.Error("callHeavy result unmarshalling error", "err", err)
+		log.Error("callHeavy result unmarshalling error", "err", err, "response", string(result))
 		return nil, rpc.NewRPCError(-32500, genericError)
 	}
 	if response.Error != nil {
