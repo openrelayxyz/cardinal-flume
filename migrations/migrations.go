@@ -157,6 +157,18 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("blocks v5 migrations done")
 	}
+	if schemaVersion < 6 {
+		log.Info("Applying blocks v6 migration")
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN requestsHash varchar(32)`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks requestsHash error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 6;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v6 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v6 migrations done")
+	}
 
 	log.Info("blocks migration up to date")
 	return nil
