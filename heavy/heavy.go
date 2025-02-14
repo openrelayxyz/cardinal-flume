@@ -14,7 +14,12 @@ import (
 	"github.com/openrelayxyz/cardinal-rpc"
 )
 
-var genericError string = "failed to retrieve data"
+var (
+	heavyMissMeter  = metrics.NewMajorMeter("/flume/heavy/miss")
+	
+	genericError string = "failed to retrieve data"
+)
+
 
 type MockError struct {
 	err    string
@@ -38,6 +43,11 @@ var client = &http.Client{Transport: &http.Transport{
 	TLSHandshakeTimeout:   10 * time.Second,
 	ExpectContinueTimeout: 1 * time.Second,
 }}
+
+func IsZero[T comparable](value T) bool {
+    var zeroValue T
+    return value == zeroValue
+}
 
 func CallHeavyDiscrete[T any](ctx context.Context, backendURL string, cutoffBlock uint64, method string, params ...interface{}) (*T, error) {
 	return callHeavy[T](ctx, backendURL, &cutoffBlock, method, params...)
@@ -95,6 +105,9 @@ func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint6
 	if err := json.Unmarshal(response.Result, ret); err != nil {
 		log.Error("callHeavy response unmarshalling error", "err", err)
 		return nil, rpc.NewRPCError(-32500, genericError)
+	}
+	if IsZero[T](ret) {
+		heavyMissMeter.Mark(1)
 	}
 	return ret, nil
 }
