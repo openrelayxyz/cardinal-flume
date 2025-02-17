@@ -12,6 +12,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-rpc"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 )
 
 var (
@@ -106,7 +107,7 @@ func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint6
 		log.Error("callHeavy response unmarshalling error", "err", err)
 		return nil, rpc.NewRPCError(-32500, genericError)
 	}
-	if IsZero[T](ret) {
+	if IsZero(ret) {
 		heavyMissMeter.Mark(1)
 	}
 	return ret, nil
