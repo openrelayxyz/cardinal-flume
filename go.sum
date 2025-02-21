@@ -103,6 +103,8 @@ github.com/openrelayxyz/cardinal-evm v1.12.2 h1:lVJgiHY/fFzo2pZbCOrfw228F+zzrIcN
 github.com/openrelayxyz/cardinal-evm v1.12.2/go.mod h1:Rx7loNSDxagUZ5hnuNWGTuRUJqyeOsF1zfi4dUfZsks=
 github.com/openrelayxyz/cardinal-evm v1.15.0-prague0 h1:hlE8cKt+8zy4Qrj3PsZCEEqsYA2b3xtgHLLHDCHdIC8=
 github.com/openrelayxyz/cardinal-evm v1.15.0-prague0/go.mod h1:oZUCtPPYXZp6GfcrL3TgaDX29Ey9JTqtTPp67/4um8o=
+github.com/openrelayxyz/cardinal-evm v1.15.0-prague1 h1:LSYalekAPCn4DoBL1BuIYtHLkhWwTBFzKwkdLmlnSrk=
+github.com/openrelayxyz/cardinal-evm v1.15.0-prague1/go.mod h1:oZUCtPPYXZp6GfcrL3TgaDX29Ey9JTqtTPp67/4um8o=
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
 github.com/openrelayxyz/cardinal-rpc v1.2.1 h1:3RHYuP1prOHASXCvSMwJ7G2htNBRMSqPrDkdQDzR1dw=
 github.com/openrelayxyz/cardinal-rpc v1.2.1/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
