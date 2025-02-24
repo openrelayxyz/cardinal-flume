@@ -69,7 +69,8 @@ func TestTransactionIndexer(t *testing.T) {
 				gasFeeCap varchar(32),
 				gasTipCap varchar(32),
 				MaxFeePerBlobGas BIGINT,
-				blobVersionedHashes blob)`)
+				blobVersionedHashes blob,
+				authListBytes blob)`)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
