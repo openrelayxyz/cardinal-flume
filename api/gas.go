@@ -193,6 +193,60 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 	return nil
 }
 
+// The two cancun fields which need to be added here are: 
+// "baseFeePerBlobGas"
+// "blobGasUsedRatio"
+
+// In geth "baseFeePerBlobGas" is defined in this function from consensus/misc/eip4844/eip4844.go:
+// func CalcBlobFee(config *params.ChainConfig, header *types.Header) *big.Int {
+// 	var frac uint64
+// 	switch config.LatestFork(header.Time) {
+// 	case forks.Prague:
+// 		frac = config.BlobScheduleConfig.Prague.UpdateFraction
+// 	case forks.Cancun:
+// 		frac = config.BlobScheduleConfig.Cancun.UpdateFraction
+// 	default:
+// 		panic("calculating blob fee on unsupported fork")
+// 	}
+// 	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(*header.ExcessBlobGas), new(big.Int).SetUint64(frac))
+// func fakeExponential(factor, numerator, denominator *big.Int) *big.Int {
+// 	var (
+// 		output = new(big.Int)
+// 		accum  = new(big.Int).Mul(factor, denominator)
+// 	)
+// 	for i := 1; accum.Sign() > 0; i++ {
+// 		output.Add(output, accum)
+
+// 		accum.Mul(accum, numerator)
+// 		accum.Div(accum, denominator)
+// 		accum.Div(accum, big.NewInt(int64(i)))
+// 	}
+// 	return output.Div(output, denominator)
+// }
+
+// } IF the block has excessBlobGas. We have excessBlobGas in the blocks db. minBlobGasPrice = BlobTxMinBlobGasprice = 1
+// Then apply the funtion from above.
+
+
+// In geth "blobGasUsedRatio" is defined as :blobGasUsed/blobGasLimit in the given block,
+// we have access to blobGasUsed from the existing blocks db. the blob gas limit is defined in geth according to hard fork.
+// blobGasUsedRatio = float64(*blobGasUsed) / float64(maxBlobs)
+// maxBlobs := eip4844.MaxBlobsPerBlock(config, bf.header.Time), wherein MaxBlobsPerBlock returns cancun = 6, prague = 9, per:
+// DefaultCancunBlobConfig = &BlobConfig{
+// 	Target:         3,
+// 	Max:            6,
+// 	UpdateFraction: 3338477,
+// }
+// // DefaultPragueBlobConfig is the default blob configuration for the Prague fork.
+// DefaultPragueBlobConfig = &BlobConfig{
+// 	Target:         6,
+// 	Max:            9,
+// 	UpdateFraction: 5007716,
+// } in geth/params/config.go
+// So what we need to do is add a checker funtion for cancun and prague based on blocktime, then populate the lists with the ratio. 
+// basically if the chain is foundation or foundation testnet, and if the block in question is post cancun, we need to evaluate if its
+// post prague and then divde our blobgasused by either 6 (cancun) or 9 (prague)
+
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
@@ -247,7 +301,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit, blobGasUsed, time FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
@@ -264,9 +318,13 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	var lastGasUsed, lastGasLimit int64
 	for i := 0; rows.Next(); i++ {
 		var baseFeeBytes []byte
-		var number uint64
+		var number, time, blobGasUsed uint64
 		var gasUsed, gasLimit sql.NullInt64
-		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit))
+		var intermediateBGU nullable[int64]
+		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &intermediateBGU, &time))
+		if intermediateBGU.Valid {
+			blobGasUsed = hexutil.EncodeUint64(uint64(intermediateBGU.Actual))
+		}
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
 		lastBaseFee = baseFee
 		result.BaseFee[i] = (*hexutil.Big)(baseFee)
@@ -301,6 +359,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 				}
 				result.Reward[i][j] = (*hexutil.Big)(tips[txIndex].reward)
 			}
+		}
+		if isCancun(time) {
+			result.BaseFeePerBlobGas = make([]*hexutil.Big, int(blockCount)),
+			result.BlobGasUsedRatio: make([]float64, int(blockCount)),
 		}
 		eh.Check(rows.Err())
 	}

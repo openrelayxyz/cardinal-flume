@@ -879,3 +879,11 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	}
 	return results, nil
 }
+
+func isCancun(blockTime uint64) bool {
+	var result bool
+	if blockTime >= cancunTime {
+		result = true
+	}
+	return result
+}
