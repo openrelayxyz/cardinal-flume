@@ -172,61 +172,51 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 	}
 	if schemaVersion < 7 {
 		log.Info("Applying blocks v7 migration")
-		if _, err := db.Exec(`CREATE TABLE blocks.cancunBlobSchedule (
+		if _, err := db.Exec(`CREATE TABLE blocks.blobSchedule (
 			startTime     BIGINT,
 			endTime       BIGINT,
 			target        INT,
 			max           INT,
 			updateFrac    BIGINT
 			)`); err != nil {
-			log.Error("migrations CREATE TABLE blocks.cancunBlobSchedule error", "err", err.Error())
-			return nil
-		}
-		if _, err := db.Exec(`CREATE TABLE blocks.pragueBlobSchedule (
-			startTime     BIGINT,
-			endTime       BIGINT,
-			target        INT,
-			max           INT,
-			updateFrac    BIGINT
-		)`); err != nil {
-			log.Error("migrations CREATE TABLE blocks.pragueBlobSchedule error", "err", err.Error())
+			log.Error("migrations CREATE TABLE blocks.blobSchedule error", "err", err.Error())
 			return nil
 		}
 		switch chainid {
 		case 1:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.cancunBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1710338135, 9223372036854775807, 3, 6, 3338477)); err != nil {
-				log.Error("migrations mainnet INSERT INTO blocks.cancunBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1710338135, 9223372036854775807, 3, 6, 3338477)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.pragueBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 6, 9, 5007716)); err != nil {
-				log.Error("migrations mainnet INSERT INTO blocks.pragueBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
 		case 11155111:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.cancunBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1706655072, 1741159775, 3, 6, 3338477)); err != nil {
-				log.Error("migrations sepolia INSERT INTO blocks.cancunBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1706655072, 1741159775, 3, 6, 3338477)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.pragueBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1741159776, maxInt, 6, 9, 5007716)); err != nil {
-				log.Error("migrations sepolia INSERT INTO blocks.pragueBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1741159776, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule  v2 error", "err", err.Error())
 				return nil
 			}
 		case 17000:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.cancunBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1707305664, 1740434111, 3, 6, 3338477)); err != nil {
-				log.Error("migrations holesky INSERT INTO blocks.cancunBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1707305664, 1740434111, 3, 6, 3338477)); err != nil {
+				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.pragueBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1740434112, maxInt, 6, 9, 5007716)); err != nil {
-				log.Error("migrations holesky INSERT INTO blocks.pragueBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1740434112, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
 		default:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.cancunBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
-				log.Error("migrations default INSERT INTO blocks.cancunBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
+				log.Error("migrations default INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.pragueBlobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
-				log.Error("migrations default INSERT INTO blocks.pragueBlobSchedule error", "err", err.Error())
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
+				log.Error("migrations default INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
 		}

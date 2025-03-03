@@ -163,9 +163,6 @@ func main() {
 	}
 	cfg.LatestBlock = uint64(maxBlock)
 
-	cfg.LoadBlobSchedule("cancun", logsdb)
-	cfg.LoadBlobSchedule("prague", logsdb)
-
 	if *blockRollback != 0 {
 		rollback := *blockRollback 
 		if *blockRollback < 0 {

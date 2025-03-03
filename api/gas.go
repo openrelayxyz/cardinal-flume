@@ -247,8 +247,8 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit, time, excessBlobGas, blobGasUsed FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
-
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks INNER JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
 		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
@@ -266,10 +266,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	var lastGasUsed, lastGasLimit int64
 	for i := 0; rows.Next(); i++ {
 		var baseFeeBytes []byte
-		var number, time uint64
+		var number uint64
 		var gasUsed, gasLimit sql.NullInt64
-		var intermediateEBG, intermediateBGU nullable[int64]
-		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &time, &intermediateEBG, &intermediateBGU))
+		var excessBlobGas, blobGasUsed, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
+		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleMax, &blobScheduleUpdateFraction))
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
 		lastBaseFee = baseFee
 		result.BaseFee[i] = (*hexutil.Big)(baseFee)
@@ -277,20 +277,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
 		
-		var hardfork int
-		if time >= api.cfg.CancunBlobSchedule.StartTime {
-			hardfork += 1
-		}
-		if time >= api.cfg.PragueBlobSchedule.StartTime {
-			hardfork += 1
-		}
-		switch hardfork {
-		case 1:
-			result.BaseFeePerBlobGas = append(result.BaseFeePerBlobGas, fakeExponential(big.NewInt(1), big.NewInt(int64(intermediateEBG.Actual)),  big.NewInt(int64(api.cfg.CancunBlobSchedule.UpdateFrac))))
-			result.BlobGasUsedRatio = append(result.BlobGasUsedRatio, float64(uint64(intermediateBGU.Actual) * 1 / uint64(api.cfg.CancunBlobSchedule.Max)))
-		case 2:
-			result.BaseFeePerBlobGas = append(result.BaseFeePerBlobGas, fakeExponential(big.NewInt(1), big.NewInt(int64(intermediateEBG.Actual)),  big.NewInt(int64(api.cfg.PragueBlobSchedule.UpdateFrac))))
-			result.BlobGasUsedRatio = append(result.BlobGasUsedRatio, float64(uint64(intermediateBGU.Actual) * 1 / uint64(api.cfg.PragueBlobSchedule.Max)))
+		if blobGasUsed.Valid {
+			log.Error("made it through somehow", "bgu", blobGasUsed.Actual, "ebg", excessBlobGas.Actual, "bsm", blobScheduleMax.Actual, "buf", blobScheduleUpdateFraction.Actual, "number", number)
+			result.BaseFeePerBlobGas = append(result.BaseFeePerBlobGas, fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual))))
+			result.BlobGasUsedRatio = append(result.BlobGasUsedRatio, float64(uint64(blobGasUsed.Actual) * 1 / uint64(blobScheduleMax.Actual)))
 		}
 		
 		if len(rewardPercentiles) > 0 {

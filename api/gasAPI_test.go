@@ -53,8 +53,6 @@ func TestGasAPI(t *testing.T) {
 		defer os.Remove(path + "-shm")
 	}
 	defer db.Close()
-	cfg.LoadBlobSchedule("cancun", db)
-	cfg.LoadBlobSchedule("prague", db)
 	pl, _ := plugins.NewPluginLoader(cfg)
 	g := NewGasAPI(db, 1, pl, cfg, mempool)
 
@@ -99,7 +97,7 @@ func TestGasAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(rewardData, innerSlice[j]) {
-					t.Fatalf("FeeHistory reward Error on %v %v", i, j)
+					t.Fatalf("FeeHistory reward Error on %v %v %v %v", i, j, "rd", rewardData)
 				}
 			}
 		}
