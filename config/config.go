@@ -16,6 +16,14 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 )
 
+type blobSchedule struct {
+	StartTime  uint64
+	EndTime    uint64
+	Target     int
+	Max        int
+	UpdateFrac uint64
+}
+
 type statsdOpts struct {
 	Address  string `yaml:"address"`
 	Port     string `yaml:"port"`
@@ -77,6 +85,8 @@ type Config struct {
 	WhitelistExternal map[uint64]types.Hash
 	Waiter          waiter.Waiter
 	WaitTime        time.Duration
+	PragueBlobSchedule blobSchedule
+	CancunBlobSchedule blobSchedule
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -265,3 +275,25 @@ func (cfg *Config) GetBaseFeeDenominator(db *sql.DB) *big.Int {
 	}
 	return preForkDenominator
 }
+
+func (cfg *Config) LoadBlobSchedule(fork string, db *sql.DB) {
+	var start, end, updateFrac uint64
+	var target, max int
+	if err := db.QueryRowContext(context.Background(), fmt.Sprintf("SELECT startTime, endTime, target, max, updateFrac FROM blocks.%vBlobSchedule;", fork)).Scan(&start, &end, &target, &max, &updateFrac); err != nil {
+		log.Error(fmt.Sprintf("%vBlobSched query error", fork), "err", err)
+	}
+	bs := blobSchedule {
+		StartTime: start,
+		EndTime: end,
+		Target: target,
+		Max: max,
+		UpdateFrac: updateFrac,
+	}
+	switch fork {
+		case "cancun":
+			cfg.CancunBlobSchedule = bs
+		case "prague":
+			cfg.PragueBlobSchedule = bs
+	}
+}
+

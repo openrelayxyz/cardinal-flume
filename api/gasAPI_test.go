@@ -53,6 +53,8 @@ func TestGasAPI(t *testing.T) {
 		defer os.Remove(path + "-shm")
 	}
 	defer db.Close()
+	cfg.LoadBlobSchedule("cancun", db)
+	cfg.LoadBlobSchedule("prague", db)
 	pl, _ := plugins.NewPluginLoader(cfg)
 	g := NewGasAPI(db, 1, pl, cfg, mempool)
 
