@@ -196,6 +196,7 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
+	log.Error("these are the arguments zero", "bc", blockCount, "tb", terminalBlock)
 	
 	defer eh.HandleErr(&err)
 	
@@ -247,6 +248,8 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
+	log.Error("these are the arguments one", "bc", blockCount, "tb", terminalBlock, "lb", lastBlock)
+
 	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks INNER JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 	
 	result := &feeHistoryResult{
@@ -276,11 +279,13 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		result.GasUsedRatio[i] = float64(gasUsed.Int64) / float64(gasLimit.Int64)
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
-		
+		log.Error("down in the loop", "number", number, "i", i)
 		if blobGasUsed.Valid {
 			log.Error("made it through somehow", "bgu", blobGasUsed.Actual, "ebg", excessBlobGas.Actual, "bsm", blobScheduleMax.Actual, "buf", blobScheduleUpdateFraction.Actual, "number", number)
-			result.BaseFeePerBlobGas = append(result.BaseFeePerBlobGas, fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual))))
-			result.BlobGasUsedRatio = append(result.BlobGasUsedRatio, float64(uint64(blobGasUsed.Actual) * 1 / uint64(blobScheduleMax.Actual)))
+			// result.BaseFeePerBlobGas = append(result.BaseFeePerBlobGas, fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual))))
+			// result.BlobGasUsedRatio = append(result.BlobGasUsedRatio, float64(uint64(blobGasUsed.Actual) * 1 / uint64(blobScheduleMax.Actual)))
+			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) * (1 / float64(uint64(blobScheduleMax.Actual)))
 		}
 		
 		if len(rewardPercentiles) > 0 {
