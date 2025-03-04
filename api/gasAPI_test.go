@@ -74,9 +74,9 @@ func TestGasAPI(t *testing.T) {
 
 	feeData, _ := feeDataDecompress()
 	t.Run(fmt.Sprintf("FeeHistory"), func(t *testing.T) {
-		var blockCount DecimalOrHex = 0x15
+		var blockCount DecimalOrHex = 0xf
 		var lastBlock rpc.BlockNumber = 0xd59f95
-		percentiles := []float64{.1, .5, .9}
+		percentiles := []float64{10, 50, 90}
 
 		actual, _ := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles)
 		oldestBlockData, err := json.Marshal(actual.OldestBlock)
