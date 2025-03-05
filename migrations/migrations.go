@@ -274,7 +274,6 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 			log.Error("migrations ALTER TABLE transactions.transactions authListBytes error", "err", err.Error())
 			return nil
 		}
-		//YOU ARE HERE PHILIP!!!!!
 		if _, err := db.Exec("UPDATE transactions.migrations SET version = 4;"); err != nil {
 			log.Error("migrations UPDATE transactions.migrations v4 error", "err", err.Error())
 		}
@@ -485,6 +484,18 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 			log.Error("migrations UPDATE mempool.migrations v3 error", "err", err.Error())
 		}
 		log.Info("mempool migrations v3 done")
+	}
+
+	if schemaVersion < 4 {
+		log.Info("Applying mempool v4 migration")
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE mempool.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE mempool.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE mempool.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons mempool v4 done")
 	}
 
 	log.Info("mempool migrations up to date")
