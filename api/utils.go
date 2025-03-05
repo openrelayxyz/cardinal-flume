@@ -309,13 +309,6 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
 			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
-			if len(bVHashesRLP) > 0 {
-				bVHashes := &[]types.Hash{}
-				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
-					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
-				}
-				item["blobVersionedHashes"] = bVHashes
-			}
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
 				if err = rlp.DecodeBytes(authListRLP, authList); err != nil {
@@ -565,13 +558,6 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
 			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
-			if len(bVHashesRLP) > 0 {
-				bVHashes := &[]types.Hash{}
-				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
-					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
-				}
-				item["blobVersionedHashes"] = bVHashes
-			}
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
 				if err = rlp.DecodeBytes(authListRLP, authList); err != nil {
