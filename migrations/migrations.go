@@ -325,6 +325,18 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("transacitons migrations v3 done")
 	}
+	if schemaVersion < 4 {
+		log.Info("Applying transactions v4 migration")
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE transactions.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		//YOU ARE HERE PHILIP!!!!!
+		if _, err := db.Exec("UPDATE transactions.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE transactions.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons migrations v4 done")
+	}
 	
 	log.Info("transactions migrations up to date")
 	return nil
