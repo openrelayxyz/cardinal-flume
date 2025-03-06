@@ -103,7 +103,8 @@ func TestBlockIndexer(t *testing.T) {
 				withdrawalHash varchar(32), 
 				blobGasUsed BIGINT,
 				excessBlobGas BIGINT,
-				parentBeaconRoot varchar(32))`); err != nil {
+				parentBeaconRoot varchar(32),
+				requestsHash varchar(32))`); err != nil {
 		t.Fatalf(err.Error())
 	}
 

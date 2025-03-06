@@ -157,6 +157,18 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("blocks v5 migrations done")
 	}
+	if schemaVersion < 6 {
+		log.Info("Applying blocks v6 migration")
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN requestsHash varchar(32)`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks requestsHash error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 6;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v6 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v6 migrations done")
+	}
 
 	log.Info("blocks migration up to date")
 	return nil
@@ -255,6 +267,17 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 			log.Error("migrations UPDATE transactions.migrations v3 error", "err", err.Error())
 		}
 		log.Info("transacitons migrations v3 done")
+	}
+	if schemaVersion < 4 {
+		log.Info("Applying transactions v4 migration")
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE transactions.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE transactions.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE transactions.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons migrations v4 done")
 	}
 	
 	log.Info("transactions migrations up to date")
@@ -461,6 +484,18 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 			log.Error("migrations UPDATE mempool.migrations v3 error", "err", err.Error())
 		}
 		log.Info("mempool migrations v3 done")
+	}
+
+	if schemaVersion < 4 {
+		log.Info("Applying mempool v4 migration")
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE mempool.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE mempool.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE mempool.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons mempool v4 done")
 	}
 
 	log.Info("mempool migrations up to date")
