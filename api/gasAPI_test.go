@@ -97,7 +97,7 @@ func TestGasAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(rewardData, innerSlice[j]) {
-					t.Fatalf("FeeHistory reward Error on %v %v", i, j)
+					t.Fatalf("FeeHistory reward Error on %v %v %v %v", i, j, "rd", rewardData)
 				}
 			}
 		}

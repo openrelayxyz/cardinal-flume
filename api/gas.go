@@ -247,12 +247,14 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT baseFee, number, gasUsed, gasLimit FROM blocks.blocks WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
-
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
 		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
 		GasUsedRatio: make([]float64, int(blockCount)),
+		BaseFeePerBlobGas: make([]*hexutil.Big, int(blockCount)),
+		BlobGasUsedRatio: make([]float64, int(blockCount)),
 	}
 	if len(rewardPercentiles) > 0 {
 		if err := api.ascendingCheck(rewardPercentiles); err != nil {
@@ -266,13 +268,19 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		var baseFeeBytes []byte
 		var number uint64
 		var gasUsed, gasLimit sql.NullInt64
-		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit))
+		var excessBlobGas, blobGasUsed, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
+		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleMax, &blobScheduleUpdateFraction))
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
 		lastBaseFee = baseFee
 		result.BaseFee[i] = (*hexutil.Big)(baseFee)
 		result.GasUsedRatio[i] = float64(gasUsed.Int64) / float64(gasLimit.Int64)
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
+		if blobGasUsed.Valid {
+			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) * (1 / float64(uint64(blobScheduleMax.Actual)))
+		}
+		
 		if len(rewardPercentiles) > 0 {
 			tips := sortGasAndReward{}
 			txRows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT gasPrice, gasUsed FROM transactions.transactions WHERE block = ?;", number))
@@ -343,6 +351,26 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	}
 
 	return result, nil
+}
+
+// fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(*header.ExcessBlobGas), new(big.Int).SetUint64(frac))
+// minBlobGasPrice = 1
+// fakeExponential approximates factor * e ** (numerator / denominator) using
+// Taylor expansion.
+func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
+	var (
+		output = new(big.Int)
+		accum  = new(big.Int).Mul(factor, denominator)
+	)
+	for i := 1; accum.Sign() > 0; i++ {
+		output.Add(output, accum)
+
+		accum.Mul(accum, numerator)
+		accum.Div(accum, denominator)
+		accum.Div(accum, big.NewInt(int64(i)))
+	}
+	return (*hexutil.Big)(output.Div(output, denominator)) 
+	
 }
 
 type pendingBlockSimulator struct {
