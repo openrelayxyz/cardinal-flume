@@ -193,6 +193,11 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 	return nil
 }
 
+var (
+	BlobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
+	BlobTxMinBlobGasprice  = 1       // Minimum gas price for data blobs
+)
+
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
@@ -207,19 +212,21 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 
 	var lastBlock rpc.BlockNumber
 	var pbs *pendingBlockSimulator
+	latestBlock, err := getLatestBlock(ctx, api.db)
+	if err != nil {
+		log.Error("Error retrieving latest block FeeHistory", "err", err)
+		return nil, rpc.NewRPCError(-32500, genericError)
+	}
 
 	if int64(terminalBlock) < 0 {
 
-		latestBlock, err := getLatestBlock(ctx, api.db)
-		if err != nil {
-			return nil, err
-		}
 		lastBlock = rpc.BlockNumber(latestBlock)
 
 		if terminalBlock == rpc.PendingBlockNumber { 
 			pbs, err = api.constructPendingBlock(ctx, lastBlock)
 			if err != nil {
 				log.Error("Error retrieving pending block", "err", err)
+				return nil, rpc.NewRPCError(-32500, genericError)
 			}
 			lastBlock++
 		}
@@ -227,6 +234,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	} else {
 		lastBlock = terminalBlock
 	}
+
+	if lastBlock > rpc.BlockNumber(latestBlock) {
+		return nil, rpc.NewRPCError(-32000, fmt.Sprintf("request beyond head block: requested %v, head %v", lastBlock, latestBlock))
+	} 
 
 	earliestBlockInCall := (int64(lastBlock) - int64(blockCount) + 1)
 
@@ -247,13 +258,13 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
 		BaseFee:      make([]*hexutil.Big, int(blockCount) + 1),
 		GasUsedRatio: make([]float64, int(blockCount)),
-		BaseFeePerBlobGas: make([]*hexutil.Big, int(blockCount)),
+		BaseFeePerBlobGas: make([]*hexutil.Big, int(blockCount) + 1),
 		BlobGasUsedRatio: make([]float64, int(blockCount)),
 	}
 	if len(rewardPercentiles) > 0 {
@@ -268,8 +279,8 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		var baseFeeBytes []byte
 		var number uint64
 		var gasUsed, gasLimit sql.NullInt64
-		var excessBlobGas, blobGasUsed, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
-		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleMax, &blobScheduleUpdateFraction))
+		var excessBlobGas, blobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
+		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleTarget, &blobScheduleMax, &blobScheduleUpdateFraction))
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
 		lastBaseFee = baseFee
 		result.BaseFee[i] = (*hexutil.Big)(baseFee)
@@ -277,8 +288,14 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
 		if blobGasUsed.Valid {
-			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(1), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
-			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) * (1 / float64(uint64(blobScheduleMax.Actual)))
+			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			if i == len(result.BaseFeePerBlobGas) -2 {
+				excess := CalcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual) 
+				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			}
+
+			maxBlobGas := float64(uint64(blobScheduleMax.Actual) * uint64(BlobTxBlobGasPerBlob)) // maxBlobsPerBlock * (Gas consumption of a single data blob (== blob byte size))
+			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) / maxBlobGas
 		}
 		
 		if len(rewardPercentiles) > 0 {
@@ -353,10 +370,16 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	return result, nil
 }
 
-// fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(*header.ExcessBlobGas), new(big.Int).SetUint64(frac))
-// minBlobGasPrice = 1
-// fakeExponential approximates factor * e ** (numerator / denominator) using
-// Taylor expansion.
+func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, targetBlobsPerBlock int64) uint64 {
+
+	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
+	targetGas := uint64(targetBlobsPerBlock) * uint64(BlobTxBlobGasPerBlob)
+	if excessBlobGas < targetGas {
+		return 0
+	}
+	return excessBlobGas - targetGas
+}
+
 func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
 	var (
 		output = new(big.Int)

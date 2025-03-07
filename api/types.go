@@ -18,6 +18,10 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
+var (
+	genericError string = "failed to retrieve data"
+)
+
 type DecimalOrHex uint64
 
 func (dh *DecimalOrHex) UnmarshalJSON(data []byte) error {

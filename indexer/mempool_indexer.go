@@ -54,8 +54,6 @@ func mempool_indexer(db *sql.DB, mempoolSlots int, txDedup map[types.Hash]struct
 		signer = evm.NewPragueSigner(tx.ChainId())
 		accessListRLP, _ = rlp.EncodeToBytes(tx.AccessList())
 		gasPrice = tx.GasFeeCap().Uint64()
-		blobFeeCap = trimPrefix(tx.BlobGasFeeCap().Bytes())
-		blobVersionedHashes, _ = rlp.EncodeToBytes(tx.BlobHashes())
 		authList, _ = rlp.EncodeToBytes(tx.AuthList())
 	default:
 		signer = evm.NewEIP155Signer(tx.ChainId())

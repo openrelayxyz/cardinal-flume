@@ -411,7 +411,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			fields["withdrawalsRoot"] = bytesToHash(withdrawalHashBytes)
 		}
 		if len(requestsHashBytes) > 0 {
-			fields["RequestsHash"] = bytesToHash(requestsHashBytes)
+			fields["requestsHash"] = bytesToHash(requestsHashBytes)
 		}
 		if withdrawals != nil {
 			fields["withdrawals"] = withdrawals

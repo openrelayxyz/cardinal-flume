@@ -215,10 +215,6 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations default INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
-				log.Error("migrations default INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
-				return nil
-			}
 		}
 		if _, err := db.Exec("UPDATE blocks.migrations SET version = 7;"); err != nil {
 			log.Error("migrations UPDATE blocks.migrations v7 error", "err", err.Error())
