@@ -18,6 +18,10 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
+var (
+	genericError string = "failed to retrieve data"
+)
+
 type DecimalOrHex uint64
 
 func (dh *DecimalOrHex) UnmarshalJSON(data []byte) error {
@@ -175,6 +179,8 @@ type feeHistoryResult struct {
 	Reward       [][]*hexutil.Big `json:"reward,omitempty"`
 	BaseFee      []*hexutil.Big   `json:"baseFeePerGas,omitempty"`
 	GasUsedRatio []float64        `json:"gasUsedRatio"`
+	BaseFeePerBlobGas []*hexutil.Big `json:"baseFeePerBlobGas"`
+	BlobGasUsedRatio []float64       `json:"blobGasUsedRatio"`
 }
 
 // txGasAndReward is sorted in ascending order based on reward

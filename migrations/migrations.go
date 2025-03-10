@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"fmt"
 	"database/sql"
 	log "github.com/inconshreveable/log15"
 )
@@ -157,6 +158,70 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("blocks v5 migrations done")
 	}
+	if schemaVersion < 6 {
+		log.Info("Applying blocks v6 migration")
+		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN requestsHash varchar(32)`); err != nil {
+			log.Error("migrations ALTER TABLE blocks.blocks requestsHash error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 6;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v6 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v6 migrations done")
+	}
+	if schemaVersion < 7 {
+		log.Info("Applying blocks v7 migration")
+		if _, err := db.Exec(`CREATE TABLE blocks.blobSchedule (
+			startTime     BIGINT,
+			endTime       BIGINT,
+			target        INT,
+			max           INT,
+			updateFrac    BIGINT
+			)`); err != nil {
+			log.Error("migrations CREATE TABLE blocks.blobSchedule error", "err", err.Error())
+			return nil
+		}
+		switch chainid {
+		case 1:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1710338135, 9223372036854775807, 3, 6, 3338477)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
+				return nil
+			}
+		case 11155111:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1706655072, 1741159775, 3, 6, 3338477)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1741159776, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule  v2 error", "err", err.Error())
+				return nil
+			}
+		case 17000:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1707305664, 1740434111, 3, 6, 3338477)); err != nil {
+				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1740434112, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
+				return nil
+			}
+		default:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
+				log.Error("migrations default INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 7;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v7 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v7 migrations done")
+	}
 
 	log.Info("blocks migration up to date")
 	return nil
@@ -255,6 +320,17 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 			log.Error("migrations UPDATE transactions.migrations v3 error", "err", err.Error())
 		}
 		log.Info("transacitons migrations v3 done")
+	}
+	if schemaVersion < 4 {
+		log.Info("Applying transactions v4 migration")
+		if _, err := db.Exec(`ALTER TABLE transactions.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE transactions.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE transactions.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE transactions.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons migrations v4 done")
 	}
 	
 	log.Info("transactions migrations up to date")
@@ -461,6 +537,18 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 			log.Error("migrations UPDATE mempool.migrations v3 error", "err", err.Error())
 		}
 		log.Info("mempool migrations v3 done")
+	}
+
+	if schemaVersion < 4 {
+		log.Info("Applying mempool v4 migration")
+		if _, err := db.Exec(`ALTER TABLE mempool.transactions ADD COLUMN authListBytes blob`); err != nil {
+			log.Error("migrations ALTER TABLE mempool.transactions authListBytes error", "err", err.Error())
+			return nil
+		}
+		if _, err := db.Exec("UPDATE mempool.migrations SET version = 4;"); err != nil {
+			log.Error("migrations UPDATE mempool.migrations v4 error", "err", err.Error())
+		}
+		log.Info("transacitons mempool v4 done")
 	}
 
 	log.Info("mempool migrations up to date")

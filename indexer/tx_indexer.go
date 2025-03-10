@@ -76,6 +76,8 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 					signer = evm.NewLondonSigner(tx.ChainId())
 				case tx.Type() == evm.BlobTxType:
 					signer = evm.NewCancunSigner(tx.ChainId())
+				case tx.Type() == evm.SetCodeTxType:
+					signer = evm.NewPragueSigner(tx.ChainId())
 				case uint64(pb.Number) > indexer.eip155Block:
 					signer = evm.NewEIP155Signer(tx.ChainId())
 				case uint64(pb.Number) > indexer.homesteadBlock:
@@ -111,7 +113,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 		sender := <-senderMap[transaction.Hash()]
 		v, r, s := transaction.RawSignatureValues()
 
-		var accessListRLP, blobFeeCap, blobVersionedHashes []byte
+		var accessListRLP, blobFeeCap, blobVersionedHashes, authList []byte
 		gasPrice := transaction.GasPrice().Uint64()
 		switch transaction.Type() {
 		case evm.AccessListTxType:
@@ -124,10 +126,12 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
 			blobFeeCap = trimPrefix(transaction.BlobGasFeeCap().Bytes())
 			blobVersionedHashes, _ = rlp.EncodeToBytes(transaction.BlobHashes())
+		case evm.SetCodeTxType:
+			authList, _ = rlp.EncodeToBytes(transaction.AuthList())
 		}
 		input := getCopy(compress(transaction.Data()))
 		statements = append(statements, ApplyParameters(
-			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap, maxFeePerBlobGas, blobVersionedHashes) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
+			"INSERT INTO transactions.transactions(block, gas, gasPrice, hash, input, nonce, recipient, transactionIndex, `value`, v, r, s, sender, func, contractAddress, cumulativeGasUsed, gasUsed, logsBloom, `status`, `type`, access_list, gasFeeCap, gasTipCap, maxFeePerBlobGas, blobVersionedHashes, authListBytes) VALUES (%v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v, %v)",
 			pb.Number,
 			transaction.Gas(),
 			gasPrice,
@@ -153,6 +157,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			trimPrefix(transaction.GasTipCap().Bytes()),
 			blobFeeCap,
 			blobVersionedHashes,
+			authList,
 		))
 		if indexer.hasMempool {
 			statements = append(statements, ApplyParameters(
