@@ -6,8 +6,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 
@@ -41,7 +41,7 @@ var (
 	gtbhHitMeter  = metrics.NewMinorMeter("/flume/gtbh/hit")
 	gtbhMissMeter = metrics.NewMinorMeter("/flume/gtbh/miss")
 
-	heavyTxHashHit = metrics.NewMinorMeter("/flume/hth/hit")
+	heavyTxHashHit  = metrics.NewMinorMeter("/flume/hth/hit")
 	heavyTxHashMiss = metrics.NewMinorMeter("/flume/hth/miss")
 )
 
@@ -74,7 +74,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	})
 
 	var err error
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", false, true, trimPrefix(txHash.Bytes()))
 	if err != nil {
 		log.Error("Database error, getTransactionsBlock, eth_getTransactionByHash", "err", err)
 		return nil, nil
@@ -87,7 +87,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		}
 	}
 
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
@@ -131,11 +131,11 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 	}
 
 	var err error
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", false, true, trimPrefix(blockHash.Bytes()), uint64(index))
 	if err != nil {
 		return nil, err
 	}
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	return &result, nil
 }
@@ -147,7 +147,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber rpc.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
 
-	if  !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+	if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbniMissMeter.Mark(1)
@@ -172,12 +172,12 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", false, true, uint64(blockNumber), uint64(index))
 	if err != nil {
 		return nil, err
 	}
 
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	return &result, nil
 }
@@ -219,10 +219,10 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	if err != nil {
 		return nil, err
 	}
-	result := returnSingleReceipt(receipts)
+	result := returnFirstItem(receipts)
 
 	for k, _ := range result {
-		if k =="timestamp" {
+		if k == "timestamp" {
 			delete(result, k)
 		}
 	}
@@ -247,7 +247,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	var pending bool 
+	var pending bool
 	if int64(blockNumber) < 0 {
 		if blockNumber == rpc.PendingBlockNumber && api.mempool {
 			pending = true
@@ -265,7 +265,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		return nil, err
 	}
 
-	if len(api.cfg.HeavyServer) > 0  && nonce < 1 {
+	if len(api.cfg.HeavyServer) > 0 && nonce < 1 {
 		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
 		gtcMissMeter.Mark(1)

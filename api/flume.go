@@ -1,22 +1,22 @@
 package api
 
 import (
-	"errors"
 	"context"
 	"database/sql"
-	"runtime"
 	"encoding/hex"
+	"errors"
+	"runtime"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-rpc"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-flume/build"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/heavy"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
+	rpc "github.com/openrelayxyz/cardinal-rpc"
+	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 )
 
 type FlumeAPI struct {
@@ -39,7 +39,6 @@ func NewFlumeAPI(db *sql.DB, network uint64, pl *plugins.PluginLoader, cfg *conf
 		mempool: mempool,
 	}
 }
-
 
 func (api *FlumeAPI) ClientVersion(ctx context.Context) string {
 	version := build.Version
@@ -77,7 +76,7 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 		go func(offset *int) {
 			tx, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionsBySender", address, offset)
 			if err != nil {
-				log.Error("Error processing request in flume_getTransactionsBySender", "err", err) 
+				log.Error("Error processing request in flume_getTransactionsBySender", "err", err)
 				errChan <- err
 			}
 			if tx != nil {
@@ -95,16 +94,16 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 	var ctxs []map[string]interface{}
 	var err error
 	if ctx.Latest > 0 {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? AND block < ?", trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? AND block < ?", true, false, trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ?", true, false, trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
 		log.Error("Error getting txs, getTransactionsBySender", "err", err)
 		return nil, err
 	}
-	
+
 	txs, err := getPendingTransactions(ctx.Context(), api.db, api.mempool, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
@@ -120,17 +119,17 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
-	
+
 	return &result, nil
 }
 
@@ -138,7 +137,7 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx *rpc.CallContext, addres
 
 	heavyResult := make(chan *paginator[map[string]interface{}])
 	errChan := make(chan error)
-	
+
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionReceiptsBySender sent to flume heavy by default")
 		missMeter.Mark(1)
@@ -168,27 +167,27 @@ func (api *FlumeAPI) GetTransactionReceiptsBySender(ctx *rpc.CallContext, addres
 	} else {
 		receipts, err = getTransactionReceipts(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ?", trimPrefix(address.Bytes()))
 	}
-	
+
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
 		log.Error("Error getting receipts, getTransactionReceiptsBySender", "err", err.Error())
 		return nil, err
 	}
-	
+
 	result := paginator[map[string]interface{}]{Items: receipts}
 	if len(receipts) >= 1000 {
 		result.Token = *offset + len(receipts)
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -224,9 +223,9 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 	var ctxs []map[string]interface{}
 	var err error
 	if ctx.Latest > 0 {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ? AND block < ?", trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ? AND block < ?", true, false, trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ?", trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ?", true, false, trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
@@ -241,21 +240,21 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 		return nil, err
 	}
 	ctxs = append(ctxs, txs...)
-	
+
 	result := paginator[map[string]interface{}]{Items: ctxs}
 	if len(ctxs) >= 1000 {
 		result.Token = *offset + len(ctxs)
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -263,7 +262,6 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 }
 
 func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, address common.Address, offset *int) (*paginator[map[string]interface{}], error) {
-
 
 	heavyResult := make(chan *paginator[map[string]interface{}])
 	errChan := make(chan error)
@@ -274,7 +272,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, add
 		go func(offset *int) {
 			rt, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionReceiptsByRecipient", address, offset)
 			if err != nil {
-				log.Error("Error processing request in flume_getTransactionReceiptsByRecipient", "err", err) 
+				log.Error("Error processing request in flume_getTransactionReceiptsByRecipient", "err", err)
 				errChan <- err
 			}
 			if rt != nil {
@@ -310,14 +308,14 @@ func (api *FlumeAPI) GetTransactionReceiptsByRecipient(ctx *rpc.CallContext, add
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -335,7 +333,7 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 		go func(offset *int) {
 			tx, err := heavy.CallHeavyDiscrete[*paginator[map[string]interface{}]](ctx.Context(), api.cfg.HeavyServer, api.cfg.EarliestBlock, "flume_getTransactionsByParticipant", address, offset)
 			if err != nil {
-				log.Error("Error processing request in flume_getTransactionByParticipant", "err", err) 
+				log.Error("Error processing request in flume_getTransactionByParticipant", "err", err)
 				errChan <- err
 			}
 			if tx != nil {
@@ -354,9 +352,9 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 	var err error
 
 	if ctx.Latest > 0 {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "(sender = ? OR recipient = ?) AND block < ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "(sender = ? OR recipient = ?) AND block < ?", true, false, trimPrefix(address.Bytes()), trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getFlumeTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", true, false, trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
@@ -379,14 +377,14 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -408,7 +406,7 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx *rpc.CallContext, a
 				errChan <- err
 			}
 			if rt == nil {
-				return 
+				return
 			} else {
 				heavyResult <- *rt
 			}
@@ -441,14 +439,14 @@ func (api *FlumeAPI) GetTransactionReceiptsByParticipant(ctx *rpc.CallContext, a
 	}
 
 	select {
-	case hr, ok := <- heavyResult:
+	case hr, ok := <-heavyResult:
 		if ok {
 			result.Items = append(hr.Items, result.Items...)
 			if result.Token == nil {
 				result.Token = hr.Token
 			}
 		}
-	case err := <- errChan:
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -509,7 +507,6 @@ func (api *FlumeAPI) GetTransactionReceiptsByBlockNumber(ctx context.Context, bl
 		return *rt, nil
 	}
 
-
 	if len(api.cfg.HeavyServer) > 0 {
 		log.Debug("flume_getTransactionReceiptsByBlockNumber served from flume light")
 		hitMeter.Mark(1)
@@ -539,8 +536,8 @@ var (
 )
 
 func (api *FlumeAPI) GetBlockByTransactionHash(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
-	// this function is not included in the api test but needs to be. 
-	
+	// this function is not included in the api test but needs to be.
+
 	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db, api.mempool) {
 		log.Debug("eth_getBlockByTransactionHash sent to flume heavy")
 		missMeter.Mark(1)
@@ -610,7 +607,7 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx *rpc.CallContext, partialHexStrin
 		exhaustChannels[[]string](heavyResult, errChan)
 		log.Error("Error decoding partial Hex String, flume_blockHashesWithPrefix", "err", err)
 		return nil, err
-	} 
+	}
 
 	if len(partialHexString) == 66 {
 		var present int
@@ -642,10 +639,10 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx *rpc.CallContext, partialHexStrin
 
 	if ctx.Latest > 0 {
 		statement = "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? AND block < ? LIMIT 20"
-		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 32 - zeros, ctx.Latest)
+		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 32-zeros, ctx.Latest)
 	} else {
 		statement = "SELECT hash FROM blocks.blocks WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 32 - zeros)
+		rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 32-zeros)
 	}
 	if sqlErr != nil {
 		exhaustChannels[[]string](heavyResult, errChan)
@@ -668,11 +665,11 @@ func (api *FlumeAPI) BlockHashesWithPrefix(ctx *rpc.CallContext, partialHexStrin
 	}
 
 	select {
-		case hr, ok := <- heavyResult:
-			if ok {
-				result = append(hr, result...)
-			}
-		case err := <- errChan:
+	case hr, ok := <-heavyResult:
+		if ok {
+			result = append(hr, result...)
+		}
+	case err := <-errChan:
 		return nil, err
 	}
 
@@ -750,11 +747,11 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx *rpc.CallContext, partialHe
 	augmentedBytes := incrementLastByte(bytes)
 
 	var result []string
-	
+
 	if api.mempool {
 		mpStatement := "SELECT hash FROM mempool.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-		
-		mpRows, err := api.db.QueryContext(ctx.Context(), mpStatement, bytes, augmentedBytes, 32 - zeros)
+
+		mpRows, err := api.db.QueryContext(ctx.Context(), mpStatement, bytes, augmentedBytes, 32-zeros)
 		if err != nil {
 			exhaustChannels[[]string](heavyResult, errChan)
 			log.Error("Error returned from mempool query in flume_transactionHashesWithPrefix", "err", err)
@@ -779,10 +776,10 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx *rpc.CallContext, partialHe
 
 	if ctx.Latest > 0 {
 		txStatement = "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? AND block < ?LIMIT 20"
-		txRows, sqlErr = api.db.QueryContext(ctx.Context(), txStatement, bytes, augmentedBytes, 32 - zeros, ctx.Latest)
+		txRows, sqlErr = api.db.QueryContext(ctx.Context(), txStatement, bytes, augmentedBytes, 32-zeros, ctx.Latest)
 	} else {
 		txStatement = "SELECT hash FROM transactions.transactions WHERE hash > ? AND hash < ? AND LENGTH(hash) = ? LIMIT 20"
-		txRows, sqlErr = api.db.QueryContext(ctx.Context(), txStatement, bytes, augmentedBytes, 32 - zeros)
+		txRows, sqlErr = api.db.QueryContext(ctx.Context(), txStatement, bytes, augmentedBytes, 32-zeros)
 	}
 	if sqlErr != nil {
 		exhaustChannels[[]string](heavyResult, errChan)
@@ -802,13 +799,13 @@ func (api *FlumeAPI) TransactionHashesWithPrefix(ctx *rpc.CallContext, partialHe
 	}
 
 	select {
-		case hr, ok := <- heavyResult:
-			if ok {
-				result = append(hr, result...)
-			}
-		case err := <- errChan:
-	return nil, err
-}
+	case hr, ok := <-heavyResult:
+		if ok {
+			result = append(hr, result...)
+		}
+	case err := <-errChan:
+		return nil, err
+	}
 
 	return result, nil
 }
@@ -854,7 +851,7 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 			"SELECT 1 FROM blocks WHERE coinbase = ?;",
 		}
 		if api.mempool {
-			statements = append(statements, 
+			statements = append(statements,
 				"SELECT 1 FROM mempool.transactions WHERE sender = ?;",
 				"SELECT 1 FROM mempool.transactions WHERE recipient = ?;",
 			)
@@ -897,13 +894,13 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 			"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? AND block < ? LIMIT 20",
 		}
 		if api.mempool {
-			statements = append(statements, 
+			statements = append(statements,
 				"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? AND block < ? LIMIT 20",
 				"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? AND block < ? LIMIT 20",
 			)
 		}
 		for i, statement := range statements {
-			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros, ctx.Latest)
+			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20-zeros, ctx.Latest)
 			if sqlErr != nil {
 				exhaustChannels[[]string](heavyResult, errChan)
 				log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
@@ -929,13 +926,13 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 			"SELECT DISTINCT(coinbase) FROM blocks WHERE coinbase > ? AND coinbase < ? AND LENGTH(coinbase) = ? LIMIT 20",
 		}
 		if api.mempool {
-			statements = append(statements, 
+			statements = append(statements,
 				"SELECT DISTINCT(sender) FROM mempool.transactions WHERE sender > ? AND sender < ? AND LENGTH(sender) = ? LIMIT 20",
 				"SELECT DISTINCT(recipient) FROM mempool.transactions WHERE recipient > ? AND recipient < ? AND LENGTH(recipient) = ? LIMIT 20",
 			)
 		}
 		for i, statement := range statements {
-			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20 - zeros)
+			rows, sqlErr = api.db.QueryContext(ctx.Context(), statement, bytes, augmentedBytes, 20-zeros)
 			if sqlErr != nil {
 				exhaustChannels[[]string](heavyResult, errChan)
 				log.Error("Error returned from query in flume_addressWithPrefix", "err", err)
@@ -961,14 +958,14 @@ func (api *FlumeAPI) AddressWithPrefix(ctx *rpc.CallContext, partialHexString st
 	}
 
 	select {
-		case hr, ok := <- heavyResult:
-			if ok {
-				result = append(hr, result...)
-			}
-		case err := <- errChan:
-			return nil, err
+	case hr, ok := <-heavyResult:
+		if ok {
+			result = append(hr, result...)
+		}
+	case err := <-errChan:
+		return nil, err
 	}
-	
+
 	return result, nil
 }
 
@@ -1014,22 +1011,21 @@ func (api *FlumeAPI) ResolvePrefix(ctx *rpc.CallContext, partialHexString string
 	}
 
 	result := map[string][]string{
-		"blockHashes": blockHashes,
+		"blockHashes":       blockHashes,
 		"transactionHashes": txHashes,
-		"addresses": addresses,
+		"addresses":         addresses,
 	}
 
 	select {
-		case hr, ok := <- heavyResult:
-			if ok {
-				result["blockHashes"] = append(hr["blockHashes"], result["blockHashes"]...)
-				result["transactionHashes"] = append(hr["transactionHashes"], result["transactionHashes"]...)
-				result["addresses"] = append(hr["addresses"], result["addresses"]...)
-			}
-		case err := <- errChan:
+	case hr, ok := <-heavyResult:
+		if ok {
+			result["blockHashes"] = append(hr["blockHashes"], result["blockHashes"]...)
+			result["transactionHashes"] = append(hr["transactionHashes"], result["transactionHashes"]...)
+			result["addresses"] = append(hr["addresses"], result["addresses"]...)
+		}
+	case err := <-errChan:
 		return nil, err
 	}
-
 
 	return result, nil
 }
