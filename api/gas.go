@@ -193,11 +193,6 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 	return nil
 }
 
-var (
-	BlobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
-	BlobTxMinBlobGasprice  = 1       // Minimum gas price for data blobs
-)
-
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
@@ -258,7 +253,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule on blocks.time >= blobSchedule.startTime AND blocks.time <= blobSchedule.endTime WHERE  number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
@@ -368,32 +363,6 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	}
 
 	return result, nil
-}
-
-func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, targetBlobsPerBlock int64) uint64 {
-
-	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
-	targetGas := uint64(targetBlobsPerBlock) * uint64(BlobTxBlobGasPerBlob)
-	if excessBlobGas < targetGas {
-		return 0
-	}
-	return excessBlobGas - targetGas
-}
-
-func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
-	var (
-		output = new(big.Int)
-		accum  = new(big.Int).Mul(factor, denominator)
-	)
-	for i := 1; accum.Sign() > 0; i++ {
-		output.Add(output, accum)
-
-		accum.Mul(accum, numerator)
-		accum.Div(accum, denominator)
-		accum.Div(accum, big.NewInt(int64(i)))
-	}
-	return (*hexutil.Big)(output.Div(output, denominator)) 
-	
 }
 
 type pendingBlockSimulator struct {
