@@ -1,8 +1,9 @@
 package migrations
 
 import (
-	"fmt"
 	"database/sql"
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -48,15 +49,15 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		    baseFee varchar(32))`); err != nil {
 			log.Error("migrations CREATE TABLE blocks.blocks error", "err", err.Error())
 			return nil
-			}
+		}
 		if _, err := db.Exec(`CREATE TABLE blocks.cardinal_offsets (
 			partition INT,
 			offset BIGINT,
 			topic STRING,
-			PRIMARY KEY (topic, partition))`) ; err != nil {
+			PRIMARY KEY (topic, partition))`); err != nil {
 			log.Error("migrations CREATE TABLE blocks.cardinal_offsets error", "err", err.Error())
 			return nil
-			}
+		}
 		if _, err := db.Exec(`CREATE TABLE blocks.issuance (
 					startBlock     BIGINT,
 					endBlock       BIGINT,
@@ -64,7 +65,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 					)`); err != nil {
 			log.Error("migrations CREATE TABLE blocks.issuance error", "err", err.Error())
 			return nil
-			}
+		}
 		if _, err := db.Exec(`CREATE INDEX blocks.coinbase ON blocks(coinbase)`); err != nil {
 			log.Error("migrations CREATE INDEX blocks.coinbase error", "err", err.Error())
 			return nil
@@ -110,9 +111,9 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 	if schemaVersion < 4 {
 		log.Info("Applying blocks v4 migration")
 		if _, err := db.Exec(`ALTER TABLE blocks.blocks ADD COLUMN withdrawalHash VARCHAR(32)`); err != nil {
-				log.Error("migrations ALTER TABLE blocks.blocks ADD COLUMN withdrawalHash error", "err", err.Error())
-				return nil
-			}
+			log.Error("migrations ALTER TABLE blocks.blocks ADD COLUMN withdrawalHash error", "err", err.Error())
+			return nil
+		}
 		if _, err := db.Exec(`CREATE TABLE blocks.withdrawals (
 				wtdrlIndex MEDIUMINT,
 				vldtrIndex MEDIUMINT,
@@ -121,9 +122,9 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				block     BIGINT,
 				blockHash VARCHAR(32),
 				PRIMARY KEY (block, wtdrlIndex))`); err != nil {
-				log.Error("migrations CREATE TABLE blocks.withdrawals", "err", err.Error())
-				return nil
-				}
+			log.Error("migrations CREATE TABLE blocks.withdrawals", "err", err.Error())
+			return nil
+		}
 		if _, err := db.Exec(`CREATE INDEX blocks.addressBlock ON withdrawals(address, block)`); err != nil {
 			log.Error("migrations CREATE INDEX blocks.addressBlock error", "err", err.Error())
 			return nil
@@ -210,6 +211,15 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
+		case 560048:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 0, 1742999831, 3, 6, 3338477)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1742999832, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
+				return nil
+			}
 		default:
 			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
 				log.Error("migrations default INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
@@ -270,7 +280,7 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		    gasFeeCap varchar(32),
 		    gasTipCap varchar(32))`); err != nil {
 			log.Error("migrations CREATE TABLE transactions.transactions error", "err", err.Error())
-			}
+		}
 
 		if _, err := db.Exec(`CREATE INDEX transactions.txblock ON transactions(block)`); err != nil {
 			log.Error("migrations CREATE INDEX transactions.txblock error", "err", err.Error())
@@ -332,7 +342,7 @@ func MigrateTransactions(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("transacitons migrations v4 done")
 	}
-	
+
 	log.Info("transactions migrations up to date")
 	return nil
 }
@@ -368,7 +378,7 @@ func MigrateLogs(db *sql.DB, chainid uint64) error {
 		    PRIMARY KEY (block, logIndex)
 		    )`); err != nil {
 			log.Error("migrations CREATE TABLE logs.event_logs error", "err", err.Error())
-			}
+		}
 		if _, err := db.Exec(`CREATE INDEX logs.address_compound ON event_logs(address, block)`); err != nil {
 			log.Error("migrations CREATE INDEX logs.address_compound error", "err", err.Error())
 			return nil
@@ -486,7 +496,7 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 			type TINYINT,
 			access_list blob);`); err != nil {
 			log.Error("migrationsCREATE TABLE mempool.transactions error", "err", err.Error())
-			}
+		}
 
 		if _, err := db.Exec(`CREATE INDEX mempool.sender ON transactions(sender, nonce);`); err != nil {
 			log.Error("migrations CREATE INDEX mempool.sender error", "err", err.Error())
@@ -555,7 +565,6 @@ func MigrateMempool(db *sql.DB, chainid uint64) error {
 	return nil
 }
 
-
 // *1: Previous versions of this migration had a UINIQUE constriant put on transaction hash. We found that this was redundant in practice when considered
-// alongside the txHash index, which is added below, and added considerable lag to block uptake. As of tag v1.3.0-removing-uinique-txHash0 all newer databases will have the schema 
+// alongside the txHash index, which is added below, and added considerable lag to block uptake. As of tag v1.3.0-removing-uinique-txHash0 all newer databases will have the schema
 // below while previously existing databases will retain the UNIQUE constraint but will be missing the txHash index.
