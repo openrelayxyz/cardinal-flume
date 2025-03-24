@@ -55,51 +55,39 @@ func exhaustChannels[T any](ch chan T, errChan chan error) {
 	}()
 }
 
+func recordExists(db *sql.DB, table string, column string, value interface{}) bool {
+	var response int
+	query := fmt.Sprintf("SELECT 1 FROM %s WHERE %s = ?;", table, column)
+	db.QueryRow(query, value).Scan(&response)
+	return response != 0
+}
+
 func blockDataPresent(input interface{}, cfg *config.Config, db *sql.DB) bool {
-	present := true
-	switch input.(type) {
+	switch v := input.(type) {
 	case rpc.BlockNumber:
 		if w := cfg.Waiter; w != nil {
-			w.WaitForNumber(int64(input.(rpc.BlockNumber)), cfg.WaitTime)
+			w.WaitForNumber(int64(v), cfg.WaitTime)
 		}
-		if uint64(input.(rpc.BlockNumber)) < cfg.EarliestBlock {
-			present = false
-			return present
+		if uint64(v) < cfg.EarliestBlock {
+			return false
 		}
 	case types.Hash:
 		if w := cfg.Waiter; w != nil {
-			w.WaitForHash(input.(types.Hash), cfg.WaitTime)
+			w.WaitForHash(v, cfg.WaitTime)
 		}
-		blockHash := input.(types.Hash)
-		var response int
-		statement := "SELECT 1 FROM blocks.blocks WHERE hash = ?;"
-		db.QueryRow(statement, trimPrefix(blockHash.Bytes())).Scan(&response)
-		if response == 0 {
-			present = false
-			return present
-		}
+		return recordExists(db, "blocks.blocks", "hash", trimPrefix(v.Bytes()))
 	}
-	return present
+	return false
 }
 
 func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB, mempool bool) bool {
-	var present bool
-	var response int
-	txStatement := "SELECT 1 FROM transactions.transactions WHERE hash = ?;"
-	db.QueryRow(txStatement, trimPrefix(txHash.Bytes())).Scan(&response)
-	if response != 0 {
-		present = true
-		return present
+	if recordExists(db, "transactions.transactions", "hash", trimPrefix(txHash.Bytes())) {
+		return true
 	}
 	if mempool {
-		mpStatement := "SELECT 1 FROM mempool.transactions WHERE hash = ?;"
-		db.QueryRow(mpStatement, trimPrefix(txHash.Bytes())).Scan(&response)
-		if response != 0 {
-			present = true
-			return present
-		}
+		return recordExists(db, "mempool.transactions", "hash", trimPrefix(txHash.Bytes()))
 	}
-	return present
+	return false
 }
 
 func getLatestBlock(ctx context.Context, db *sql.DB) (int64, error) {
@@ -200,19 +188,23 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	}
 	return 0, zeroInputError
 }
-func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
+func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, includeTime bool, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	
+	query := fmt.Sprintf("SELECT blocks.hash, blocks.time, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes, transactions.authListBytes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
+
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	results := []map[string]interface{}{}
+	var results sortTxMap
 	for rows.Next() {
 		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes, blobGasFeeBytes, bVHashesRLP, authListRLP []byte
-		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v uint64
+		var nonce, gasLimit, blockNumber, gasPrice, txIndex, v, time uint64
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
 			&blockHashBytes,
+			&time,
 			&blockNumber,
 			&gasLimit,
 			&gasPrice,
@@ -267,6 +259,10 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			"r":                    bytesToHexBig(r),
 			"s":                    bytesToHexBig(s),
 			"type":                 hexutil.Uint64(txType),
+		}
+
+		if includeTime {
+			item["timestamp"] = uintToHexBig(time)
 		}
 
 		switch txType {
@@ -325,12 +321,9 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 		return nil, err
 	}
 
-	return results, nil
-}
+	sort.Sort(results)
 
-func getTransactionsBlock(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes, transactions.authListBytes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v ORDER BY transactions.transactionIndex LIMIT ? OFFSET ?;", whereClause)
-	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
+	return results, nil
 }
 
 var emptyStateTrieHash types.Hash = types.HexToHash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
@@ -417,7 +410,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			fields["withdrawals"] = withdrawals
 		}
 		if includeTxs {
-			fields["transactions"], err = getTransactionsBlock(ctx, db, 0, 100000, chainid, "transactions.block = ?", number)
+			fields["transactions"], err = getTransactions(ctx, db, 0, 100000, chainid, false, "transactions.block = ?", number)
 			if err != nil {
 				return nil, err
 			}
@@ -575,11 +568,6 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 	return results, nil
 }
 
-func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap, transactions.blobVersionedHashes, transactions.authListBytes FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE transactions.rowid IN (SELECT transactions.rowid FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number WHERE %v) LIMIT ? OFFSET ?;", whereClause)
-	return getTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
-}
-
 func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, blockNumber rpc.BlockNumber, pending, mempool bool) (hexutil.Uint64, error) {
 	
 	var count sql.NullInt64
@@ -607,10 +595,10 @@ func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, bloc
 	return hexutil.Uint64(count.Int64 + 1), nil
 }
 
-func returnSingleTransaction(txs []map[string]interface{}) map[string]interface{} {
+func returnFirstItem(list []map[string]interface{}) map[string]interface{} {
 	var result map[string]interface{}
-	if len(txs) > 0 {
-		result = txs[0]
+	if len(list) > 0 {
+		result = list[0]
 	} else {
 		result = nil
 	}
@@ -621,114 +609,6 @@ func txCount(ctx context.Context, db *sql.DB, whereClause string, params ...inte
 	var count uint64
 	err := db.QueryRowContext(ctx, fmt.Sprintf("SELECT count(*) FROM transactions.transactions WHERE %v", whereClause), params...).Scan(&count)
 	return hexutil.Uint64(count), err
-}
-
-func returnSingleReceipt(txs []map[string]interface{}) map[string]interface{} {
-	var result map[string]interface{}
-	if len(txs) > 0 {
-		result = txs[0]
-	} else {
-		result = nil
-	}
-	return result
-}
-
-func getFlumeTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
-	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
-	return getFlumeTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
-}
-
-func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
-	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var results sortTxMap
-	for rows.Next() {
-		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
-		var nonce, gasLimit, blockNumber, gasPrice, time, txIndex, v uint64
-		var txTypeRaw sql.NullInt32
-		err := rows.Scan(
-			&blockHashBytes,
-			&blockNumber,
-			&time,
-			&gasLimit,
-			&gasPrice,
-			&txHash,
-			&data,
-			&nonce,
-			&to,
-			&txIndex,
-			&amount,
-			&v,
-			&r,
-			&s,
-			&from,
-			&txTypeRaw,
-			&cAccessListRLP,
-			&baseFeeBytes,
-			&gasFeeCapBytes,
-			&gasTipCapBytes,
-		)
-		if err != nil {
-			return nil, err
-		}
-		txType := uint8(txTypeRaw.Int32)
-		blockHash := bytesToHash(blockHashBytes)
-		txIndexHex := hexutil.Uint64(txIndex)
-		inputBytes, err := decompress(data)
-		if err != nil {
-			return nil, err
-		}
-		accessListRLP, err := decompress(cAccessListRLP)
-		if err != nil {
-			return nil, err
-		}
-		var accessList *evm.AccessList
-	item := map[string]interface{}{
-		"blockHash":            &blockHash,
-		"blockNumber":          uintToHexBig(blockNumber),
-		"from":                 bytesToAddress(from),
-		"timestamp":         uintToHexBig(time),
-		"gas":                  hexutil.Uint64(gasLimit),
-		"gasPrice":             uintToHexBig(gasPrice),
-		"hash":                 bytesToHash(txHash),
-		"input":                hexutil.Bytes(inputBytes),
-		"nonce":                hexutil.Uint64(nonce),
-		"to":                   bytesToAddressPtr(to),
-		"transactionIndex":     &txIndexHex,
-		"value":                bytesToHexBig(amount),
-		"v":                    uintToHexBig(v),
-		"r":                    bytesToHexBig(r),
-		"s":                    bytesToHexBig(s),
-		"type":                 hexutil.Uint64(txType),
-	}
-
-	switch txType {
-	case evm.AccessListTxType:
-		accessList = &evm.AccessList{}
-		rlp.DecodeBytes(accessListRLP, accessList)
-		item["accessList"] = accessList
-		item["chainId"] = uintToHexBig(chainid)
-		item["yParity"] = uintToHexBig(v)
-	case evm.DynamicFeeTxType:
-		accessList = &evm.AccessList{}
-		rlp.DecodeBytes(accessListRLP, accessList)
-		item["accessList"] = accessList
-		item["chainId"] = uintToHexBig(chainid)
-		item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
-		item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-		item["yParity"] = uintToHexBig(v)
-	}
-
-	results = append(results, item)
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	sort.Sort(results)
-	}
-return results, nil
 }
 
 func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
