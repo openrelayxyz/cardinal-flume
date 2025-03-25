@@ -1,6 +1,6 @@
 # About 
 
-At [Rivet](rivet.cloud) our mission is to make ETH nodes operationally manageable. Cardinal-flume, or just flume, forms part of the backbone of our Etherreum gateway servie. The project was initially designed to index Ethereum log data and make it more accessible than a conventional Ethereum node. Over time the project has grown and now indexes block and transaction data as well. Indexed data is stored in SQLite relational databases. The data is exposed through several APIs written to serve a subset of the ETH namespace as well as some custom RPC methods. 
+At [Rivet](https://rivet.cloud) our mission is to make ETH nodes operationally manageable. Cardinal-flume, or just flume, forms part of the backbone of our Etherreum gateway servie. The project was initially designed to index Ethereum log data and make it more accessible than a conventional Ethereum node. Over time the project has grown and now indexes block and transaction data as well. Indexed data is stored in SQLite relational databases. The data is exposed through several APIs written to serve a subset of the ETH namespace as well as some custom RPC methods. 
 
 # Building and running a cardinal-flume service. 
 

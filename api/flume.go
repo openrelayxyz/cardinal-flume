@@ -94,9 +94,9 @@ func (api *FlumeAPI) GetTransactionsBySender(ctx *rpc.CallContext, address commo
 	var ctxs []map[string]interface{}
 	var err error
 	if ctx.Latest > 0 {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? AND block < ?", true, false, trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "sender = ? AND block < ?", trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ?", true, false, trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "sender = ?", trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
@@ -223,9 +223,9 @@ func (api *FlumeAPI) GetTransactionsByRecipient(ctx *rpc.CallContext, address co
 	var ctxs []map[string]interface{}
 	var err error
 	if ctx.Latest > 0 {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ? AND block < ?", true, false, trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "recipient = ? AND block < ?", trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "recipient = ?", true, false, trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "recipient = ?", trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)
@@ -352,9 +352,9 @@ func (api *FlumeAPI) GetTransactionsByParticipant(ctx *rpc.CallContext, address 
 	var err error
 
 	if ctx.Latest > 0 {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "(sender = ? OR recipient = ?) AND block < ?", true, false, trimPrefix(address.Bytes()), trimPrefix(address.Bytes()), ctx.Latest)
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "(sender = ? OR recipient = ?) AND block < ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()), ctx.Latest)
 	} else {
-		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, "sender = ? OR recipient = ?", true, false, trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
+		ctxs, err = getTransactions(ctx.Context(), api.db, *offset, 1000, api.network, true, "sender = ? OR recipient = ?", trimPrefix(address.Bytes()), trimPrefix(address.Bytes()))
 	}
 	if err != nil {
 		exhaustChannels[*paginator[map[string]interface{}]](heavyResult, errChan)

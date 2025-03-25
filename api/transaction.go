@@ -74,9 +74,9 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	})
 
 	var err error
-	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", false, true, trimPrefix(txHash.Bytes()))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {
-		log.Error("Database error, getTransactionsBlock, eth_getTransactionByHash", "err", err)
+		log.Error("Database error, getTransactions, eth_getTransactionByHash", "err", err)
 		return nil, nil
 	}
 	if len(txs) == 0 {
@@ -131,7 +131,7 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 	}
 
 	var err error
-	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", false, true, trimPrefix(blockHash.Bytes()), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", false, true, uint64(blockNumber), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
 	if err != nil {
 		return nil, err
 	}
