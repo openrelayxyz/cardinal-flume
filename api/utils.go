@@ -11,19 +11,18 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	evm "github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-flume/config"
-	rpc "github.com/openrelayxyz/cardinal-rpc"
-	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-flume/config"
 
+	log "github.com/inconshreveable/log15"
+	"github.com/klauspost/compress/zlib"
 	"io"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"sort"
-
-	log "github.com/inconshreveable/log15"
-	"github.com/klauspost/compress/zlib"
 )
 
 var (
@@ -50,8 +49,8 @@ func dedup[T comparable](sliceA, sliceB []T) []T {
 func exhaustChannels[T any](ch chan T, errChan chan error) {
 	go func() {
 		select {
-		case <-ch:
-		case <-errChan:
+		case <- ch:
+		case <- errChan:
 		}
 	}()
 }
@@ -171,7 +170,7 @@ func incrementLastByte(prefix []byte) []byte {
 	copy(prefixCopy, prefix)
 
 	lastByteIndex := len(prefixCopy) - 1
-
+	
 	if prefixCopy[lastByteIndex] == 0xFF {
 		return nil
 	}
@@ -246,25 +245,21 @@ func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid
 		var accessList *evm.AccessList
 
 		item := map[string]interface{}{
-			"blockHash":        &blockHash,
-			"blockNumber":      uintToHexBig(blockNumber),
-			"from":             bytesToAddress(from),
-			"gas":              hexutil.Uint64(gasLimit),
-			"gasPrice":         uintToHexBig(gasPrice),
-			"hash":             bytesToHash(txHash),
-			"input":            hexutil.Bytes(inputBytes),
-			"nonce":            hexutil.Uint64(nonce),
-			"to":               bytesToAddressPtr(to),
-			"transactionIndex": &txIndexHex,
-			"value":            bytesToHexBig(amount),
-			"v":                uintToHexBig(v),
-			"r":                bytesToHexBig(r),
-			"s":                bytesToHexBig(s),
-			"type":             hexutil.Uint64(txType),
-		}
-
-		if includeTime {
-			item["timestamp"] = uintToHexBig(time)
+			"blockHash":            &blockHash,
+			"blockNumber":          uintToHexBig(blockNumber),
+			"from":                 bytesToAddress(from),
+			"gas":                  hexutil.Uint64(gasLimit),
+			"gasPrice":             uintToHexBig(gasPrice),
+			"hash":                 bytesToHash(txHash),
+			"input":                hexutil.Bytes(inputBytes),
+			"nonce":                hexutil.Uint64(nonce),
+			"to":                   bytesToAddressPtr(to),
+			"transactionIndex":     &txIndexHex,
+			"value":                bytesToHexBig(amount),
+			"v":                    uintToHexBig(v),
+			"r":                    bytesToHexBig(r),
+			"s":                    bytesToHexBig(s),
+			"type":                 hexutil.Uint64(txType),
 		}
 
 		if includeTime {
@@ -285,7 +280,7 @@ func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			item["yParity"] = uintToHexBig(v)
+			item["yParity"] = uintToHexBig(v)		
 		case evm.BlobTxType:
 			accessList = &evm.AccessList{}
 			rlp.DecodeBytes(accessListRLP, accessList)
@@ -293,7 +288,7 @@ func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			item["yParity"] = uintToHexBig(v)
+			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(bVHashesRLP) > 0 {
 				bVHashes := &[]types.Hash{}
@@ -309,7 +304,7 @@ func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			item["yParity"] = uintToHexBig(v)
+			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
@@ -326,8 +321,6 @@ func getTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	sort.Sort(results)
-
 	sort.Sort(results)
 
 	return results, nil
@@ -401,7 +394,7 @@ func getBlocks(ctx context.Context, db *sql.DB, includeTxs bool, chainid uint64,
 			fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(intermediateBGU.Actual))
 		}
 		if intermediateBGU.Valid {
-			fields["excessBlobGas"] = hexutil.EncodeUint64(uint64(intermediateEBG.Actual))
+			fields["excessBlobGas"] = hexutil.EncodeUint64(uint64(intermediateEBG.Actual)) 
 		}
 		if len(parentBeaconBlockRootBytes) > 0 {
 			fields["parentBeaconBlockRoot"] = bytesToHash(parentBeaconBlockRootBytes)
@@ -453,7 +446,7 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 	results := []map[string]interface{}{}
 	if !mempool {
 		return results, nil
-	}
+	} 
 	query := fmt.Sprintf("SELECT transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, transactions.gasFeeCap, transactions.gasTipCap, transactions.maxFeePerBlobGas, transactions.blobVersionedHashes, transactions.authListBytes FROM mempool.transactions WHERE %v LIMIT ? OFFSET ?;", whereClause)
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -465,11 +458,24 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 		var nonce, gasLimit, gasPrice, v uint64
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
-			&gasLimit, &gasPrice, &txHash, &data,
-			&nonce, &to, &amount, &v,
-			&r, &s, &from, &txTypeRaw,
-			&cAccessListRLP, &gasFeeCapBytes, &gasTipCapBytes, &blobGasFeeBytes,
-			&bVHashesRLP, &authListRLP,
+			&gasLimit,
+			&gasPrice,
+			&txHash,
+			&data,
+			&nonce,
+			&to,
+			&amount,
+			&v,
+			&r,
+			&s,
+			&from,
+			&txTypeRaw,
+			&cAccessListRLP,
+			&gasFeeCapBytes,
+			&gasTipCapBytes,
+			&blobGasFeeBytes,
+			&bVHashesRLP,
+			&authListRLP,
 		)
 		if err != nil {
 			return nil, err
@@ -488,22 +494,22 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 		var nilBlockNumber *interface{}
 		var nilTxIndex *interface{}
 		item := map[string]interface{}{
-			"blockHash":        nilBlockHash,
-			"blockNumber":      nilBlockNumber,
+			"blockHash": nilBlockHash,
+			"blockNumber": nilBlockNumber,
 			"transactionIndex": nilTxIndex,
-			"from":             bytesToAddress(from),
-			"gas":              hexutil.Uint64(gasLimit),
-			"gasPrice":         uintToHexBig(gasPrice),
-			"hash":             bytesToHash(txHash),
-			"input":            hexutil.Bytes(inputBytes),
-			"nonce":            hexutil.Uint64(nonce),
-			"to":               bytesToAddressPtr(to),
-			"value":            bytesToHexBig(amount),
-			"v":                uintToHexBig(v),
-			"r":                bytesToHexBig(r),
-			"s":                bytesToHexBig(s),
-			"type":             hexutil.Uint64(txType),
-			"chainId":          uintToHexBig(chainid),
+			"from":       bytesToAddress(from),
+			"gas":        hexutil.Uint64(gasLimit),
+			"gasPrice":   uintToHexBig(gasPrice),
+			"hash":       bytesToHash(txHash),
+			"input":      hexutil.Bytes(inputBytes),
+			"nonce":      hexutil.Uint64(nonce),
+			"to":         bytesToAddressPtr(to),
+			"value":      bytesToHexBig(amount),
+			"v":          uintToHexBig(v),
+			"r":          bytesToHexBig(r),
+			"s":          bytesToHexBig(s),
+			"type":       hexutil.Uint64(txType),
+			"chainId":	  uintToHexBig(chainid),
 		}
 
 		switch txType {
@@ -526,12 +532,12 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			item["accessList"] = accessList
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			item["yParity"] = uintToHexBig(v)
+			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(bVHashesRLP) > 0 {
 				bVHashes := &[]types.Hash{}
 				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
-					log.Error("Error rlp decoding blockVersionedHashes, getPendingTransactions", "err", err)
+					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
 				}
 				item["blobVersionedHashes"] = bVHashes
 			}
@@ -542,12 +548,12 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 			item["chainId"] = uintToHexBig(chainid)
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
-			item["yParity"] = uintToHexBig(v)
+			item["yParity"] = uintToHexBig(v)			
 			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
 				if err = rlp.DecodeBytes(authListRLP, authList); err != nil {
-					log.Error("Error rlp decoding authList, getPendingTransactions", "err", err)
+					log.Error("Error rlp decoding authList, getTransactionsQuery", "err", err)
 				}
 				item["authorizationList"] = authList
 			}
@@ -557,19 +563,19 @@ func getPendingTransactions(ctx context.Context, db *sql.DB, mempool bool, offse
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
+	
 	return results, nil
 }
 
 func getSenderNonce(ctx context.Context, db *sql.DB, sender common.Address, blockNumber rpc.BlockNumber, pending, mempool bool) (hexutil.Uint64, error) {
-
+	
 	var count sql.NullInt64
 	if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM transactions.transactions WHERE sender = ? AND block <= ?", trimPrefix(sender.Bytes()), int64(blockNumber)).Scan(&count); err != nil {
 		return 0, err
 	}
 
 	var nonce sql.NullInt64
-	if pending && mempool {
+	if pending && mempool{
 		if err := db.QueryRowContext(ctx, "SELECT max(nonce) FROM mempool.transactions WHERE sender = ?", trimPrefix(sender.Bytes())).Scan(&nonce); err != nil {
 			return 0, err
 		}
@@ -622,7 +628,7 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.rowid LIMIT ? OFFSET ?;`, whereClause)
 	}
-
+	
 	logsQuery := fmt.Sprintf(`
 		SELECT event_logs.transactionHash, event_logs.block, event_logs.address, event_logs.topic0, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.data, event_logs.logIndex
 		FROM event_logs
@@ -800,10 +806,10 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 			return nil, err
 		}
 		item := map[string]interface{}{
-			"index":          hexutil.Uint64(wtdrlIdx),
-			"validatorIndex": hexutil.Uint64(vldtrIdx),
+			"index":            hexutil.Uint64(wtdrlIdx),
+			"validatorIndex":   hexutil.Uint64(vldtrIdx),
 			"address":        bytesToAddress(addressBytes),
-			"amount":         hexutil.Uint64(amount),
+			"amount":           hexutil.Uint64(amount),
 		}
 
 		results = append(results, item)
