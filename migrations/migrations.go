@@ -211,7 +211,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				return nil
 			}
 		case 560048:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1742999831, 1742999832, 3, 6, 3338477)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 0, 1742999832, 3, 6, 3338477)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
 				return nil
 			}
