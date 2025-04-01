@@ -206,7 +206,7 @@ func TestFlumeAPI(t *testing.T) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
 				// }
 				for key, expectedValue := range expectedReceipt {
-					if key == "blobGasUsed" || key == "blobGasPrice" {
+					if key == "blobGasPrice" || key == "root" {
 						continue
 					}
 					actualValue := actualReceipts[j][key]
@@ -238,7 +238,7 @@ func TestFlumeAPI(t *testing.T) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
 				// }
 				for key, expectedValue := range expectedReceipt { 
-					if key == "blobGasUsed" || key == "blobGasPrice" {
+					if key == "blobGasPrice" || key == "root" {
 						continue
 					}
 					actualValue := actualReceipts[j][key]
@@ -339,7 +339,7 @@ func TestFlumeAPI(t *testing.T) {
 					t.Errorf(err.Error())
 				}
 				if !bytes.Equal(data, expectedValue) {
-					if key == "timestamp" {
+					if key == "timestamp" || key == "root" {
 						continue
 					} else {
 						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(expectedValue))

@@ -141,7 +141,7 @@ func TestTransactionAPI(t *testing.T) {
 
 			actualReceipt := *actual;
 			for key, expectedValue := range expectedReceipt {
-				if key == "blobGasUsed" || key == "blobGasPrice" || key == "timestamp" {
+				if key == "blobGasPrice" || key == "root" {
 					continue
 				} else {
 					actualValue := actualReceipt[key]

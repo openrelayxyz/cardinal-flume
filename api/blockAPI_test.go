@@ -106,17 +106,17 @@ func blocksDecompress() ([]map[string]json.RawMessage, error) {
 }
 
 func receiptsDecompress() ([]map[string]json.RawMessage, error) {
-	file, _ := ioutil.ReadFile("../testing-resources/receipt_test_data.json.gz")
-	r, err := gzip.NewReader(bytes.NewReader(file))
+	file, err := ioutil.ReadFile("../testing-resources/new_receipts.json")
+	// r, err := gzip.NewReader(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
 	}
-	raw, _ := ioutil.ReadAll(r)
-	if err == io.EOF || err == io.ErrUnexpectedEOF {
-		return nil, err
-	}
+	// raw, _ := ioutil.ReadAll(r)
+	// if err == io.EOF || err == io.ErrUnexpectedEOF {
+	// 	return nil, err
+	// }
 	var receiptsObject []map[string]json.RawMessage
-	json.Unmarshal(raw, &receiptsObject)
+	json.Unmarshal(file, &receiptsObject)
 	return receiptsObject, nil
 }
 
