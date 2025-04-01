@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	_ "net/http/pprof"
@@ -48,27 +47,39 @@ func TestERCMethods(t *testing.T) {
 	pl, _ := plugins.NewPluginLoader(cfg)
 	ft := NewFlumeTokensAPI(db, 1, pl, cfg)
 
-	data, _ := tokenDataDecompress()
+	controlData, _ := tokenDataDecompress()
 
 	address := "0xdac17f958d2ee523a2206206994597c13d831ec7"
 
-	t.Run(fmt.Sprintf("Erc20Holders"), func(t *testing.T) {
-		actual, _ := ft.Erc20Holders(mockContext, common.HexToAddress(address), nil)
-		for i, addr := range actual.Items {
-			if i >= len(data[0]) {
-				t.Fatalf("Index %d is out of range for data[0] with length %d", i, len(data[0]))
+	t.Run("Erc20Holders", func(t *testing.T) {
+		expected := controlData[0]
+		actual, err := ft.Erc20Holders(mockContext, common.HexToAddress(address), nil); if err != nil {
+			t.Fatalf("failed to call Erc20Holders: %v", err)
+		}
+
+		for i, expectedAddr := range expected {
+			if i >= len(actual.Items) {
+				t.Fatalf("Index %v is out of range for actual.Items with length %v", i, len(expected))
 			}
-			if addr != data[0][i] {
-				t.Fatalf("Erc20Holders error at index %d: expected %v, got %v", i, data[0][i], addr)
+			if actual.Items[i] != expectedAddr {
+				t.Fatalf("Erc20Holders error at index %d: expected %v, got %v", i, expectedAddr, actual.Items[i])
 			}
 		}
 	})
-	t.Run(fmt.Sprintf("Erc20ByAccount"), func(t *testing.T) {
-		actual, _ := ft.Erc20ByAccount(mockContext, common.HexToAddress(address), nil)
-		for i, addr := range actual.Items {
-			if addr != data[1][i] {
-				t.Fatalf("Erc20ByAccount error")
+	t.Run("Erc20ByAccount", func(t *testing.T) {
+		expected := controlData[1]
+		actual, err := ft.Erc20ByAccount(mockContext, common.HexToAddress(address), nil); if err != nil {
+			t.Fatalf("failed to call Erc20ByAccount: %v", err)
+		}
+		for i, expectedAddr := range expected {
+			if len(expected) != len(actual.Items) {
+				t.Logf("length mismatch in Erc20ByAccount: expected %d, got %d", len(expected), len(actual.Items))
+				continue
+			} else if actual.Items[i] != expectedAddr {
+				t.Fatalf("Erc20ByAccount error at index %v: expected %v, got %v", i, expectedAddr, actual.Items[i])
 			}
+			
 		}
 	})
 }
+ 

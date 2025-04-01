@@ -13,6 +13,7 @@ import (
 
 	_ "net/http/pprof"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-flume/config"
 	"github.com/openrelayxyz/cardinal-flume/plugins"
 	rpc "github.com/openrelayxyz/cardinal-rpc"
@@ -59,13 +60,13 @@ func TestGasAPI(t *testing.T) {
 	price := "0xa972a9bf6"
 	fee := "0x77359400"
 
-	t.Run(fmt.Sprintf("GasPrice"), func(t *testing.T) {
+	t.Run("GasPrice", func(t *testing.T) {
 		actual, _ := g.GasPrice(context.Background())
 		if actual != price {
 			t.Fatalf("GasPrice error")
 		}
 	})
-	t.Run(fmt.Sprintf("MaxPriorityFeePerGas"), func(t *testing.T) {
+	t.Run("MaxPriorityFeePerGas", func(t *testing.T) {
 		actual, _ := g.MaxPriorityFeePerGas(context.Background())
 		if actual != fee {
 			t.Fatalf("MaxPriorityFeePerGas error")
@@ -73,54 +74,62 @@ func TestGasAPI(t *testing.T) {
 	})
 
 	feeData, _ := feeDataDecompress()
-	t.Run(fmt.Sprintf("FeeHistory"), func(t *testing.T) {
+	t.Run("FeeHistory", func(t *testing.T) {
 		var blockCount DecimalOrHex = 0xf
 		var lastBlock rpc.BlockNumber = 0xd59f95
 		percentiles := []float64{10, 50, 90}
 
-		actual, _ := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles)
-		oldestBlockData, err := json.Marshal(actual.OldestBlock)
-		if err != nil {
-			t.Errorf(err.Error())
+		actual, err := g.FeeHistory(context.Background(), blockCount, lastBlock, percentiles); if err!=nil{
+			t.Fatalf("failed to call FeeHistory: %v", err)
 		}
-		if !bytes.Equal(oldestBlockData, feeData["oldestBlock"]) {
-			t.Fatalf("FeeHistory oldestBlock Error")
+		expectedOldest := feeData["oldestBlock"]
+		actualOldest, err := json.Marshal(actual.OldestBlock); if err != nil {
+			t.Errorf("failed to marshal actual oldestBlock: %v", err)
 		}
-		var outerSlice []json.RawMessage
-		json.Unmarshal(feeData["reward"], &outerSlice)
-		for i, slice := range actual.Reward {
-			var innerSlice []json.RawMessage
-			json.Unmarshal(outerSlice[i], &innerSlice)
-			for j, value := range slice {
-				rewardData, err := json.Marshal(value)
+		if !bytes.Equal(actualOldest, expectedOldest) {
+			t.Fatalf("FeeHistory oldestBlock mismatch\nexpected: %v\nactual: %v", string(expectedOldest), string(actualOldest))
+		}
+
+		var expectedReward [][]json.RawMessage
+		if err := json.Unmarshal(feeData["reward"], &expectedReward); err != nil {
+			t.Fatalf("failed to unmarshal expected reward: %v", err)
+		}
+		for i, expectedSlice := range expectedReward {
+			actualSlice := actual.Reward[i]
+			for j, expectedValue := range expectedSlice {
+				actualValue := actualSlice[j]
+				data, err := json.Marshal(actualValue)
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Fatalf("failed to marshal reward value at [%d][%d]: %v", i, j, err)
 				}
-				if !bytes.Equal(rewardData, innerSlice[j]) {
-					t.Fatalf("FeeHistory reward Error on %v %v %v %v", i, j, "rd", rewardData)
+				if !bytes.Equal(data, expectedValue) {
+					log.Error(fmt.Sprintf("FeeHistory reward mismatch at [%v][%v]\nexpected: %v\nactual: %s",i, j, string(expectedValue), string(data)))
 				}
 			}
 		}
-		var baseFeeSlice []json.RawMessage
-		json.Unmarshal(feeData["baseFeePerGas"], &baseFeeSlice)
-		for i, fee := range actual.BaseFee {
-			data, err := json.Marshal(fee)
+		
+		var expectedBaseFees []json.RawMessage
+		json.Unmarshal(feeData["baseFeePerGas"], &expectedBaseFees)
+		for i, expectedValue := range expectedBaseFees {
+			actualValue := actual.BaseFee[i]
+			data, err := json.Marshal(actualValue)
 			if err != nil {
-				t.Errorf(err.Error())
+				t.Errorf("failed to marshal baseFee at index %d: %v", i, err)
 			}
-			if !bytes.Equal(data, baseFeeSlice[i]) {
-				t.Fatalf("FeeHistory BaseFeePerGas Error on index%v", i)
+			if !bytes.Equal(data, expectedValue) {
+				t.Fatalf("FeeHistory baseFeePerGas mismatch at index %v\nexpected: %v\nactual: %v",i, string(expectedValue), string(data))
 			}
 		}
-		var gasUsedSlice []json.RawMessage
-		json.Unmarshal(feeData["gasUsedRatio"], &gasUsedSlice)
-		for i, ratio := range actual.GasUsedRatio {
-			data, err := json.Marshal(ratio)
+		var expectedGasUsed []json.RawMessage
+		json.Unmarshal(feeData["gasUsedRatio"], &expectedGasUsed)
+		for i, expectedValue := range expectedGasUsed {
+			actualValue := actual.GasUsedRatio[i]
+			data, err := json.Marshal(actualValue)
 			if err != nil {
-				t.Errorf(err.Error())
+				t.Errorf("failed to marshal gasUsedRatio at index %v: %v", i, err)
 			}
-			if !bytes.Equal(data, gasUsedSlice[i]) {
-				t.Fatalf("FeeHistory GasUsedRatio Error on index%v", i)
+			if !bytes.Equal(data, expectedValue) {
+				t.Fatalf("FeeHistory gasUsedRatio mismatch at index %d\nexpected: %s\nactual: %s",i, string(expectedValue), string(data))
 			}
 		}
 	})

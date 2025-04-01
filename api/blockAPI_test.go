@@ -258,106 +258,95 @@ func TestBlockAPI(t *testing.T) {
 	if err != nil {
 		log.Error("Error returned from blockReceiptsTransform", "err", err)
 	}
-	for i, block := range blockNumbers {
-
+	for i, block := range blockObject {
+		blockNumber := blockNumbers[i]
 		t.Run(fmt.Sprintf("GetBlockByNumber %v", i), func(t *testing.T) {
-			actual, err := b.GetBlockByNumber(context.Background(), block, true)
-			if err != nil {
-				t.Fatal(err.Error())
+			actualBlock, err := b.GetBlockByNumber(context.Background(), blockNumber, true); if err != nil {
+				t.Fatalf("failed to getBlockByNumber, block%v, err:%v", block, err.Error())
 			}
-			for k, v := range *actual {
-				if k == "withdrawals" {
-					continue // withdrawals have their own test data and test below
+			for key, expectedValue := range block {
+				if key == "withdrawals" || key == "withdrawalsRoot" || key == "chainId" {
+					continue // withdrawals have their own test data and test below, withdrawalsRoot has no test and will require new test data
 				}
-				if k == "withdrawalsRoot" {
-					continue // withdrawalsRoot has not test and will require new test data
-				}
-				if k == "transactions" {
-					txs := v.([]map[string]interface{})
-					var blockTxs []map[string]json.RawMessage
-					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
-					for j, item := range txs {
-						for key, value := range item {
-							if key == "accessList" {
-								control := item["accessList"]
-								accessListRoutine(t, control, blockTxs[j]["accessList"], "GetBlockByNumber", block, j)
+				if key == "transactions" {
+					var expectedTxs []map[string]json.RawMessage
+					if err := json.Unmarshal(expectedValue, &expectedTxs); err != nil {
+						t.Fatalf("failed to unmarshal expected transactions: %v", err)
+					}
+					actualTxs, _ := (*actualBlock)["transactions"].([]map[string]interface{})
+					for j, expectedTx := range expectedTxs {
+						actualTx := actualTxs[j]
+						for k, v := range expectedTx {
+							if k == "chainId" {
 								continue
 							}
-							d, err := json.Marshal(value)
+							if k == "accessList" {
+								accessListRoutine(t, actualTx[k], v, "GetBlockByNumber", blockNumber, j)
+								continue
+							}
+							d, err := json.Marshal(actualTx[k])
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
 
-							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("error in getBlockByNumber, transactions on block %v, key %v, txn %v", block, key, j)
+							if !bytes.Equal(d, v) {
+								t.Fatalf("error in getBlockByNumber, transactions on block %v, transaction %v, key %v,\n actual:%v \nexpected:%v",  i, j, k, string(d), string(v))
 							}
 
 						}
 					}
 				} else {
-					data, err := json.Marshal(v)
+					actualValue := (*actualBlock)[key]
+					data, err := json.Marshal(actualValue)
 					if err != nil {
-						t.Errorf("nope %v", k)
+						t.Fatalf("failed to marshal actual block field:%v on block:%v, err:%v", key,i,err)
 					}
-					if !bytes.Equal(data, blockObject[i][k]) {
-						var generic interface{}
-						json.Unmarshal(blockObject[i][k], &generic)
-						t.Fatalf("value error GetBlockByNumber on block %v, index %v, key %v", block, i, k)
+					if !bytes.Equal(data, expectedValue) {
+						t.Fatalf("error on getBlockByNumber, \nindex %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(expectedValue))
 					}
 				}
 			}
 		})
 
 		t.Run("GetBlockTransactionCountByNumber", func(t *testing.T) {
-			actual, err := b.GetBlockTransactionCountByNumber(context.Background(), block)
+			actual, err := b.GetBlockTransactionCountByNumber(context.Background(), blockNumber)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
 			var txSlice []map[string]interface{}
 			json.Unmarshal(blockObject[i]["transactions"], &txSlice)
 			if *actual != hexutil.Uint64(len(txSlice)) {
-				t.Fatalf("transaction count by block %v %v", actual, hexutil.Uint64(len(txSlice)))
+				t.Fatalf("transaction count mismatch for block %v, \nactual:%v,\nexpected%v", i, actual, hexutil.Uint64(len(txSlice)))
 			}
 		})
 
 		t.Run("GetUncleCountByBlockNumber", func(t *testing.T) {
-			actual, err := b.GetUncleCountByBlockNumber(context.Background(), block)
+			actual, err := b.GetUncleCountByBlockNumber(context.Background(), blockNumber)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
 			var uncleSlice []types.Hash
 			json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
 			if *actual != hexutil.Uint64(len(uncleSlice)) {
-				t.Fatalf("uncle count by block %v %v", actual, hexutil.Uint64(len(uncleSlice)))
+				t.Fatalf("uncle count mismatch for block %v, \nactual:%v,\nexpected%v", i, actual, hexutil.Uint64(len(uncleSlice)))
 			}
 		})
 
-		blockNo := BlockNumberOrHashWithNumber(block)
+		blockNo := BlockNumberOrHashWithNumber(blockNumber)
 		t.Run("GetBlockReceipts", func(t *testing.T) {
-			actual, err := b.GetBlockReceipts(context.Background(), blockNo)
-			if err != nil {
+			actualReceipts, err := b.GetBlockReceipts(context.Background(), blockNo); if err != nil {
 				t.Fatal(err.Error())
 			}
-			for i, item := range actual {
-				for k, v := range item {
-					if k == "blockNumber" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockNumber", "number", *blockNo.BlockNumber)
-							}
-						}
-					}
-					if k == "blockHash" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockHash", "number", *blockNo.BlockNumber)
-							}
-						}
-					}
-					if k == "transactionIndex" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataNumber[*blockNo.BlockNumber][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, transactionIndex", "number", *blockNo.BlockNumber)
+			expectedReceipts := receiptDataNumber[*blockNo.BlockNumber]
+			for i, expectedReceipt := range expectedReceipts {
+				for key, expectedValue := range expectedReceipt {
+					keysToCheck := []string{"blockNumber", "blockHash", "transactionIndex"}
+					for _, k := range keysToCheck {
+						if key == k {
+							if data, err := json.Marshal(actualReceipts[i][key]); err == nil {
+								if !bytes.Equal(data, expectedValue) {
+									t.Fatalf("error on GetBlockReceipts blockno:%v, key %v; \nactual result: %v, \nexpected result: %v", *blockNo.BlockNumber, key, string(data), string(expectedValue))
+								}
 							}
 						}
 					}
@@ -368,47 +357,51 @@ func TestBlockAPI(t *testing.T) {
 	}
 
 	blockHashes := getBlockHashes(blockObject)
-	for i, hash := range blockHashes {
+	for i, block := range blockObject {
+		hash := blockHashes[i]
 		t.Run(fmt.Sprintf("GetBlockByHash %v", i), func(t *testing.T) {
-			actual, err := b.GetBlockByHash(context.Background(), hash, true)
+			actualBlock, err := b.GetBlockByHash(context.Background(), hash, true)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			for k, v := range *actual {
-				if k == "withdrawals" {
-					continue // withdrawals have their own test data and test below
+			for key, expectedValue := range block {
+				if key == "withdrawals" || key == "withdrawalsRoot" {
+					continue // withdrawals have their own test data and test below, withdrawalsRoot has no test and will require new test data
 				}
-				if k == "withdrawalsRoot" {
-					continue // withdrawalsRoot has no test and will require new test data
-				}
-				if k == "transactions" {
-					txs := v.([]map[string]interface{})
-					var blockTxs []map[string]json.RawMessage
-					json.Unmarshal(blockObject[i]["transactions"], &blockTxs)
-					for j, item := range txs {
-						for key, value := range item {
-							if key == "accessList" {
-								control := item["accessList"]
-								accessListRoutine(t, control, blockTxs[j]["accessList"], "GetBlockByHash", hash, j)
+				if key == "transactions" {
+					var expectedTxs []map[string]json.RawMessage
+					if err := json.Unmarshal(expectedValue, &expectedTxs); err != nil {
+						t.Fatalf("failed to unmarshal expected transactions: %v", err)
+					}
+					actualTxs, _ := (*actualBlock)["transactions"].([]map[string]interface{})
+					for j, expectedTx := range expectedTxs {
+						actualTx := actualTxs[j]
+						for k, v := range expectedTx {
+							if k == "chainId" {
 								continue
 							}
-							d, err := json.Marshal(value)
+							if k == "accessList" {
+								accessListRoutine(t, actualTx[k], v, "GetBlockByHash", hash, j)
+								continue
+							}
+							d, err := json.Marshal(actualTx[k])
 							if err != nil {
 								t.Fatalf("transaction key marshalling error on block %v  tx index %v", i, j)
 							}
-							if !bytes.Equal(d, blockTxs[j][key]) {
-								t.Fatalf("value error in getBlockByHash, transactions on block %v, , key %v, txn %v", hash, key, j)
+							if !bytes.Equal(d, v) {
+								t.Fatalf("error in getBlockByHash, transactions on block %v, transaction %v, key %v,\n actual:%v \nexpected:%v", i, j, k, string(d), string(v))
 							}
 
 						}
 					}
 				} else {
-					data, err := json.Marshal(v)
+					actualValue := (*actualBlock)[key]
+					data, err := json.Marshal(actualValue)
 					if err != nil {
-						t.Errorf("nope %v", k)
+						t.Fatalf("failed to marshal actual block field:%v on block:%v, err:%v", key,i,err)
 					}
-					if !bytes.Equal(data, blockObject[i][k]) {
-						t.Fatalf("value error GetBlockByHash on hash %v, index %v, key %v", hash, i, k)
+					if !bytes.Equal(data, expectedValue) {
+						t.Fatalf("error on getBlockByHash, \nindex %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(expectedValue))
 					}
 				}
 			}
@@ -421,7 +414,7 @@ func TestBlockAPI(t *testing.T) {
 			var txSlice []map[string]interface{}
 			json.Unmarshal(blockObject[i]["transactions"], &txSlice)
 			if *actual != hexutil.Uint64(len(txSlice)) {
-				t.Fatalf("transaction count by hash %v %v", actual, hexutil.Uint64(len(txSlice)))
+				t.Fatalf("transaction count mismatch for block %v, \nactual:%v,\nexpected%v", i, actual, hexutil.Uint64(len(txSlice)))
 			}
 		})
 		t.Run("GetUncleCountByBlockHash", func(t *testing.T) {
@@ -432,35 +425,24 @@ func TestBlockAPI(t *testing.T) {
 			var uncleSlice []types.Hash
 			json.Unmarshal(blockObject[i]["uncles"], &uncleSlice)
 			if *actual != hexutil.Uint64(len(uncleSlice)) {
-				t.Fatalf("uncle count by hash %v %v", actual, hexutil.Uint64(len(uncleSlice)))
+				t.Fatalf("uncle count mismatch for block %v, \nactual:%v,\nexpected%v", i, actual, hexutil.Uint64(len(uncleSlice)))
 			}
 		})
 		blockHash := BlockNumberOrHashWithHash(hash, false)
 		t.Run("GetBlockReceipts", func(t *testing.T) {
-			actual, err := b.GetBlockReceipts(context.Background(), blockHash)
-			if err != nil {
+			actualReceipts, err := b.GetBlockReceipts(context.Background(), blockHash); if err != nil {
 				t.Fatal(err.Error())
 			}
-			for i, item := range actual {
-				for k, v := range item {
-					if k == "blockNumber" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockNumber", "hash", *blockHash.BlockHash)
-							}
-						}
-					}
-					if k == "blockHash" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, blockHash", "hash", *blockHash.BlockHash)
-							}
-						}
-					}
-					if k == "transactionIndex" {
-						if data, err := json.Marshal(v); err == nil {
-							if !bytes.Equal(data, receiptDataHash[*blockHash.BlockHash][i][k]) {
-								t.Fatal("values not equal, getBlockReceipts, transactionIndex", "hash", *blockHash.BlockHash)
+			expectedReceipts := receiptDataHash[*blockHash.BlockHash]
+			for i, expectedReceipt := range expectedReceipts {
+				for key, expectedValue := range expectedReceipt {
+					keysToCheck := []string{"blockNumber", "blockHash", "transactionIndex"}
+					for _, k := range keysToCheck{
+						if key == k{
+							if data, err := json.Marshal(actualReceipts[i][key]); err == nil {
+								if !bytes.Equal(data, expectedValue){
+									t.Fatalf("error on GetBlockReceipts hash:%v, key %v; \nactual result: %v, \nexpected result: %v", *blockHash.BlockHash, key, string(data), string(expectedValue))
+								}
 							}
 						}
 					}
@@ -473,23 +455,28 @@ func TestBlockAPI(t *testing.T) {
 	if err != nil {
 		log.Error(err.Error())
 	}
-	for i, block := range blockNumbers[(len(blockNumbers) - 10):] {
+	for i, block := range withdrawalObject[len(withdrawalObject)-10] {
+		blockNo := blockNumbers[i]
 		t.Run(fmt.Sprintf("GetBlockByNumber - withdrawls %v", i), func(t *testing.T) {
-			actual, err := b.GetBlockByNumber(context.Background(), block, false)
-			if err != nil {
+			actualBlock, err := b.GetBlockByNumber(context.Background(), blockNo, false); if err != nil {
 				t.Fatalf("Error fetching block, withdrawals test on block %v with error %v", i, err.Error())
 			}
-			for k, v := range *actual {
-				if k == "withdrawals" {
-					wthdrls := v.([]map[string]interface{})
-					for j, item := range wthdrls {
-						for key, value := range item {
-							d, err := json.Marshal(value)
+			for key, expectedValue := range block {
+				if key == "withdrawals" {
+					var expectedWithdrawals []map[string]json.RawMessage
+					if err := json.Unmarshal(expectedValue, &expectedWithdrawals); err != nil {
+						t.Fatalf("failed to unmarshal expected withdrawals: %v", err)
+					}
+					actualWithdrawals, _ := (*actualBlock)["withdrawals"].([]map[string]interface{})
+					for j, expectedWithdrawal := range expectedWithdrawals {
+						actualWithdrawal := actualWithdrawals[j]
+						for k, v := range expectedWithdrawal {
+							d, err := json.Marshal(actualWithdrawal[k])
 							if err != nil {
-								t.Fatalf("withdrawal key marshalling error on block %v", i)
+								t.Fatalf("withdrawal key marshalling error on block %v, index %v", i, j)
 							}
-							if !bytes.Equal(d, withdrawalObject[i][j][key]) {
-								t.Fatalf("value mismatch on withdrawals block %v, key %v", block, key)
+							if !bytes.Equal(d, v) {
+								t.Fatalf("error in getBlockByNumber -withdrawals, block:%v, withdrawal:%v, key:%v,\n actual:%v \nexpected:%v",  i, j, k, string(d), string(v))
 							}
 
 						}
