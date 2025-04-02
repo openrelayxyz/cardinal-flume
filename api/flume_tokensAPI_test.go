@@ -49,36 +49,37 @@ func TestERCMethods(t *testing.T) {
 
 	controlData, _ := tokenDataDecompress()
 
-	address := "0xdac17f958d2ee523a2206206994597c13d831ec7"
+	topic2 := "0xdac17f958d2ee523a2206206994597c13d831ec7"
 
 	t.Run("Erc20Holders", func(t *testing.T) {
-		expected := controlData[0]
-		actual, err := ft.Erc20Holders(mockContext, common.HexToAddress(address), nil); if err != nil {
+		control := controlData[0]
+		test, err := ft.Erc20Holders(mockContext, common.HexToAddress(topic2), nil); if err != nil {
 			t.Fatalf("failed to call Erc20Holders: %v", err)
 		}
-
-		for i, expectedAddr := range expected {
-			if i >= len(actual.Items) {
-				t.Fatalf("Index %v is out of range for actual.Items with length %v", i, len(expected))
-			}
-			if actual.Items[i] != expectedAddr {
-				t.Fatalf("Erc20Holders error at index %d: expected %v, got %v", i, expectedAddr, actual.Items[i])
+		if len(control) != len(test.Items) {
+			t.Fatalf("length mismatch in Erc20Holders: control len %d, test len %d", len(control), len(test.Items))
+		} 
+		for i, controlAddr := range control {
+			if controlAddr != test.Items[i] {
+				t.Fatalf("Erc20Holders error at index %d: expected %v, got %v", i, controlAddr, test.Items[i])
 			}
 		}
 	})
+
+	address := "0x74de5d4fcbf63e00296fd95d33236b9794016631"
+
 	t.Run("Erc20ByAccount", func(t *testing.T) {
-		expected := controlData[1]
-		actual, err := ft.Erc20ByAccount(mockContext, common.HexToAddress(address), nil); if err != nil {
+		control := controlData[1]
+		test, err := ft.Erc20ByAccount(mockContext, common.HexToAddress(address), nil); if err != nil {
 			t.Fatalf("failed to call Erc20ByAccount: %v", err)
 		}
-		for i, expectedAddr := range expected {
-			if len(expected) != len(actual.Items) {
-				t.Logf("length mismatch in Erc20ByAccount: expected %d, got %d", len(expected), len(actual.Items))
-				continue
-			} else if actual.Items[i] != expectedAddr {
-				t.Fatalf("Erc20ByAccount error at index %v: expected %v, got %v", i, expectedAddr, actual.Items[i])
+		if len(control) != len(test.Items) {
+			t.Fatalf("length mismatch in Erc20ByAccount: control len %d, test len %d", len(control), len(test.Items))
+		}
+		for i, controlAddr := range control {
+			if controlAddr != test.Items[i] {
+				t.Fatalf("Erc20ByAccount error at index %v: control %v, test %v", i, controlAddr, test.Items[i])
 			}
-			
 		}
 	})
 }
