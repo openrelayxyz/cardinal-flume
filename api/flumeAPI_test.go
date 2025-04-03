@@ -196,29 +196,29 @@ func TestFlumeAPI(t *testing.T) {
 
 	for i, hash := range bkHashes {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
-			actualReceipts, err := f.GetTransactionReceiptsByBlockHash(context.Background(), hash); if err != nil{
+			test, err := f.GetTransactionReceiptsByBlockHash(context.Background(), hash); if err != nil{
 				t.Fatalf("failed to get transaction receipts for block hash %v: %v", hash, err.Error())
 			}
-			expectedReceipts := receiptsByHash[hash] 
-			for j, expectedReceipt := range expectedReceipts {
+			control := receiptsByHash[hash] 
+			for j, controlReceipt := range control {
 				// TODO: eip 4844 (both the comment and the nested if below)
 				// if len(receipt) != len(receiptsByHash[hash][j]) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
 				// }
-				for key, expectedValue := range expectedReceipt {
-					if key == "blobGasPrice" || key == "root" {
+				for key, controlValue := range controlReceipt {
+					if key == "root" {
 						continue
 					}
-					actualValue := actualReceipts[j][key]
-					data, err := json.Marshal(actualValue)
+					testValue := test[j][key]
+					data, err := json.Marshal(testValue)
 						if err != nil {
 							t.Errorf(err.Error())
 						}
-					if !bytes.Equal(data, expectedValue) { 
-						if key == "timestamp" && actualValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+					if !bytes.Equal(data, controlValue) { 
+						if key == "timestamp" && testValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
 							continue
 						} else {
-							t.Fatalf("error on getTransactionReceiptsByBlockHash hash %v \n,receipt %v, key %v;\napi result: %v,\n expected result:%v,\n", hash, j, key, string(data), string(expectedValue))
+							t.Fatalf("error on getTransactionReceiptsByBlockHash hash %v \n,receipt %v, key %v;\napi result: %v,\n expected result:%v,\n", hash, j, key, string(data), string(controlValue))
 						}
 					}
 				}
@@ -228,29 +228,29 @@ func TestFlumeAPI(t *testing.T) {
 
 	for i, number := range bkNumbers {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
-			actualReceipts, err := f.GetTransactionReceiptsByBlockNumber(context.Background(), number); if err != nil{
+			test, err := f.GetTransactionReceiptsByBlockNumber(context.Background(), number); if err != nil{
 				t.Fatalf("failed to get transaction receipts for block %v: %v", number, err.Error())
 			}
-			expectedReceipts := receiptsByBlock[number]
-			for j, expectedReceipt := range expectedReceipts {
+			control := receiptsByBlock[number]
+			for j, controlReceipt := range control {
 				// TODO: eip 4844 (both the comment and the nested if below)
 				// if len(receipt) != len(receiptsByBlock[number][j]) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
 				// }
-				for key, expectedValue := range expectedReceipt { 
-					if key == "blobGasPrice" || key == "root" {
+				for key, controlValue := range controlReceipt { 
+					if key == "root" {
 						continue
 					}
-					actualValue := actualReceipts[j][key]
-					data, err := json.Marshal(actualValue)
+					testValue := test[j][key]
+					data, err := json.Marshal(testValue)
 						if err != nil {
 							t.Errorf(err.Error())
 						}
-						if !bytes.Equal(data, expectedValue) {
-							if key == "timestamp" && actualValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+						if !bytes.Equal(data, controlValue) {
+							if key == "timestamp" && testValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
 								continue
 							} else {
-								t.Fatalf("error on getTransactionReceiptsByBlockNumber, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(expectedValue))
+								t.Fatalf("error on getTransactionReceiptsByBlockNumber, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 							}
 						}
 				}
@@ -261,24 +261,24 @@ func TestFlumeAPI(t *testing.T) {
 	blockhashesData, _ := getHashblocks(blockObject)
 	for txhash := range blockhashesData {
 		t.Run("GetBlockByTransactionHash", func(t *testing.T) {
-			actualBlock, err := f.GetBlockByTransactionHash(context.Background(), txhash)
+			test, err := f.GetBlockByTransactionHash(context.Background(), txhash)
 			if err != nil {
 				t.Fatalf("failed to get block, txhash %v: %v", txhash, err.Error())
 			}
 
-			expectedBlock := blockhashesData[txhash]
-			for key, expectedValue := range expectedBlock {
+			control := blockhashesData[txhash]
+			for key, controlValue := range control {
 				if key == "blockHash" {
-					if data, err := json.Marshal(*actualBlock); err == nil {
-						if !bytes.Equal(data, expectedValue) {
-							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', \napi result: %v,\nexpected result: %v", string(data), expectedValue)
+					if data, err := json.Marshal(*test); err == nil {
+						if !bytes.Equal(data, controlValue) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', \napi result: %v,\nexpected result: %v", string(data), controlValue)
 						}
 					}
 				}
 				if key == "blockNumber" {
-					if data, err := json.Marshal(*actualBlock); err == nil {
-						if !bytes.Equal(data, expectedValue) {
-							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber',\napi result:%v,\nexpected result %v", string(data), expectedValue)
+					if data, err := json.Marshal(*test); err == nil {
+						if !bytes.Equal(data, controlValue) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber',\napi result:%v,\nexpected result %v", string(data), controlValue)
 						}
 					}
 				}
@@ -288,28 +288,28 @@ func TestFlumeAPI(t *testing.T) {
 
 	sender := common.HexToAddress(senderAddr)
 	t.Run(("GetTransactionsBySender"), func(t *testing.T) {
-		actualTxs, err := f.GetTransactionsBySender(mockContext, sender, nil); if err != nil{
+		test, err := f.GetTransactionsBySender(mockContext, sender, nil); if err != nil{
 			t.Fatalf("failed to getTransactionsBySender, address%v, err:%v", sender, err.Error())
 		}
-		expectedTxs := getTransactionList(blockObject, senderAddr, "from")
-		if len(expectedTxs) != 47 {
-			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(expectedTxs))
+		control := getTransactionList(blockObject, senderAddr, "from")
+		if len(control) != 47 {
+			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(control))
 		}
-		if len(actualTxs.Items) != len(expectedTxs) {
+		if len(test.Items) != len(control) {
 			t.Fatalf("length error getTransactionsBySender on address %v", sender)
 		}
-		for i, expectedTx := range expectedTxs{
-			for key, expectedValue := range expectedTx {
-			   actualValue := actualTxs.Items[i][key]
-				data, err := json.Marshal(actualValue)
+		for i, controlTx := range control{
+			for key, controlValue := range controlTx {
+			   testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, expectedValue) {
+				if !bytes.Equal(data, controlValue) {
 					if key == "timestamp" || key == "chainId" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -317,32 +317,32 @@ func TestFlumeAPI(t *testing.T) {
 	})
 
 	t.Run("GetTransactionReceiptsBySender", func(t *testing.T) {
-		actualReceipts, err := f.GetTransactionReceiptsBySender(mockContext, sender, nil); if err!= nil{
+		test, err := f.GetTransactionReceiptsBySender(mockContext, sender, nil); if err!= nil{
 			t.Fatalf("failed to getTransactionReceiptsBySender, address%v, err:%v", sender, err.Error())
 		}
-		expectedReceipts := getReceiptList(receiptObject, senderAddr, "from")
-		if len(expectedReceipts) != 47 {
-			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(expectedReceipts))
+		control := getReceiptList(receiptObject, senderAddr, "from")
+		if len(control) != 47 {
+			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(control))
 		}
-		if len(actualReceipts.Items) != len(expectedReceipts) {
+		if len(test.Items) != len(control) {
 			t.Fatalf("length error getTransactionReceiptsBySender on address %v", sender)
 		}
-		for i, expectedReceipt := range expectedReceipts {
+		for i, controlReceipt := range control {
 			// TODO: eip 4844 (both the comment and the nested if below)
 			// if len(tx) != len(senderReceipts[i]) {
 			// 	t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
 			// }
-			for key, expectedValue := range expectedReceipt {
-				actualValue := actualReceipts.Items[i][key]
-				data, err := json.Marshal(actualValue)
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, expectedValue) {
+				if !bytes.Equal(data, controlValue) {
 					if key == "timestamp" || key == "root" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -351,28 +351,28 @@ func TestFlumeAPI(t *testing.T) {
 	
 	recipient := common.HexToAddress(recipientAddr)
 	t.Run("GetTransactionsByRecipient", func(t *testing.T) {
-		actualTxs, err := f.GetTransactionsByRecipient(mockContext, recipient, nil); if err!=nil {
+		test, err := f.GetTransactionsByRecipient(mockContext, recipient, nil); if err!=nil {
 			t.Fatalf("failed to getTransactionsByRecipient, address%v, err:%v", recipient, err.Error())
 		}
-		expectedTxs := getTransactionList(blockObject, recipientAddr, "to")
-		if len(expectedTxs) != 143 {
-			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(expectedTxs))
+		control := getTransactionList(blockObject, recipientAddr, "to")
+		if len(control) != 143 {
+			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(control))
 		}
-		if len(actualTxs.Items) != len(expectedTxs) {
-			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(actualTxs.Items), len(expectedTxs))
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(test.Items), len(control))
 		}
-		for i, expectedTx := range expectedTxs {
-			for key, expectedValue := range expectedTx{
-				actualValue := actualTxs.Items[i][key]
-				data, err := json.Marshal(actualValue)
+		for i, controlTx := range control {
+			for key, controlValue := range controlTx{
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, expectedValue) {
+				if !bytes.Equal(data, controlValue) {
 					if key == "timestamp" || key == "chainId" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -380,32 +380,32 @@ func TestFlumeAPI(t *testing.T) {
 	})
 
 	t.Run("GetTransactionsReceiptsByRecipient", func(t *testing.T) {
-		actualReceipts, err := f.GetTransactionReceiptsByRecipient(mockContext, recipient, nil); if err != nil{
+		test, err := f.GetTransactionReceiptsByRecipient(mockContext, recipient, nil); if err != nil{
 			t.Fatalf("failed to getTransactionsReceiptsByRecipient, address%v, err:%v", recipient, err.Error())
 		}
-		expectedReceipts := getReceiptList(receiptObject, recipientAddr, "to")
-		if len(expectedReceipts) != 143 {
-			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(expectedReceipts))
+		control := getReceiptList(receiptObject, recipientAddr, "to")
+		if len(control) != 143 {
+			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(control))
 		}
-		if len(actualReceipts.Items) != len(expectedReceipts) {
-			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(actualReceipts.Items), len(expectedReceipts))
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(test.Items), len(control))
 		}
-		for i, expectedReceipt := range expectedReceipts {
+		for i, controlReceipt := range control {
 			// TODO: eip 4844 (both the comment and the nested if below)
 			// if len(tx) != len(recipientReceipts[i]) {
 			// 	t.Fatalf("length error getTransactionReceiptsByRecipient on address %v, reciept %v", recipient, i)
 			// }
-			for key, expectedValue := range expectedReceipt {
-				actualValue := actualReceipts.Items[i][key]
-				data, err := json.Marshal(actualValue)
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, expectedValue) {
+				if !bytes.Equal(data, controlValue) {
 					if key == "timestamp" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionReceiptsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionReceiptsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -413,28 +413,28 @@ func TestFlumeAPI(t *testing.T) {
 	})
 	participant := common.HexToAddress(genericAddr)
 	t.Run("GetTransactionsByParticipant", func(t *testing.T) {
-		actualTxs, err := f.GetTransactionsByParticipant(mockContext, participant, nil); if err != nil{
+		test, err := f.GetTransactionsByParticipant(mockContext, participant, nil); if err != nil{
 			t.Fatalf("failed to getTransactionsByParticipant, address%v, err:%v", participant, err.Error())
 		}
-		expectedTxs := getParticipantTransactionList(blockObject, genericAddr, "to", "from");
-		if len(actualTxs.Items) != len(expectedTxs) {
-			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actualTxs.Items), len(expectedTxs))
+		control := getParticipantTransactionList(blockObject, genericAddr, "to", "from");
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(test.Items), len(control))
 		}
-		for i, expectedTx := range expectedTxs {
-			if len(expectedTx) + 1 != len(actualTxs.Items[i]) {
+		for i, controlTx := range control {
+			if len(controlTx) + 1 != len(test.Items[i]) {
 				t.Fatalf("length error getTransactionsByParticipant on address %v, tx %v", participant, i)
 			}
-			for key, expectedValue := range expectedTx {
-				actualValue := actualTxs.Items[i][key]
-				data, err := json.Marshal(actualValue)
+			for key, controlValue := range controlTx {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data,expectedValue) {
+				if !bytes.Equal(data,controlValue) {
 					if key == "timestamp" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -442,29 +442,29 @@ func TestFlumeAPI(t *testing.T) {
 	})
 
 	t.Run("GetTransactionsReceiptsByParticipant", func(t *testing.T) {
-		actualReceipts, err := f.GetTransactionReceiptsByParticipant(mockContext, participant, nil); if err!=nil{
+		test, err := f.GetTransactionReceiptsByParticipant(mockContext, participant, nil); if err!=nil{
 			t.Fatalf("failed to getTransactionsReceiptsByParticipant, address%v, err:%v", participant, err.Error())
 		}
-		expectedReceipts := getParticipantReceiptList(receiptObject, genericAddr, "to", "from")
-		if len(actualReceipts.Items) != len(expectedReceipts) {
-			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actualReceipts.Items), len(expectedReceipts))
+		control := getParticipantReceiptList(receiptObject, genericAddr, "to", "from")
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(test.Items), len(control))
 		}
-		for i, expectedReceipt := range expectedReceipts {
+		for i, controlReceipt := range control {
 			// TODO: eip 4844 (both the comment and the nested if below)
 			// if len(tx) != len(participantReceipts[i]) {
 			// 	t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
 			// }
-			for key, expectedValue := range expectedReceipt {
-				actualValue := actualReceipts.Items[i][key]
-				data, err := json.Marshal(actualValue)
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, expectedValue) {
+				if !bytes.Equal(data, controlValue) {
 					if key == "timestamp" {
 						continue
 					} else {
-						t.Fatalf("error on getTransactionReceiptsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(expectedValue))
+						t.Fatalf("error on getTransactionReceiptsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}
