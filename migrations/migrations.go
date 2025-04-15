@@ -210,6 +210,15 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations holesky INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
+		case 560048:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 0, 1742999832, 3, 6, 3338477)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1742999833, maxInt, 6, 9, 5007716)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v2 error", "err", err.Error())
+				return nil
+			}
 		default:
 			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, maxInt, maxInt, 1, 1, 1)); err != nil {
 				log.Error("migrations default INSERT INTO blocks.blobSchedule v1 error", "err", err.Error())
