@@ -128,6 +128,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			blobVersionedHashes, _ = rlp.EncodeToBytes(transaction.BlobHashes())
 		case evm.SetCodeTxType:
 			authList, _ = rlp.EncodeToBytes(transaction.AuthList())
+			gasPrice = math.BigMin(new(big.Int).Add(transaction.GasTipCap(), header.BaseFee), transaction.GasFeeCap()).Uint64()
 		}
 		input := getCopy(compress(transaction.Data()))
 		statements = append(statements, ApplyParameters(
