@@ -101,6 +101,8 @@ github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjY
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/openrelayxyz/cardinal-evm v1.12.2 h1:lVJgiHY/fFzo2pZbCOrfw228F+zzrIcNVCAJRwniVH4=
 github.com/openrelayxyz/cardinal-evm v1.12.2/go.mod h1:Rx7loNSDxagUZ5hnuNWGTuRUJqyeOsF1zfi4dUfZsks=
+github.com/openrelayxyz/cardinal-evm v1.15.0-p17-acclist-pointer0 h1:ZnkKTbje01C4kNL3st3W9xHYYT/qxUPQQodh8ouiASs=
+github.com/openrelayxyz/cardinal-evm v1.15.0-p17-acclist-pointer0/go.mod h1:BX4WoCB/AJyZ4otLCHx9pFYOknMou1seiziBoAh1N4U=
 github.com/openrelayxyz/cardinal-evm v1.15.0-prague0 h1:hlE8cKt+8zy4Qrj3PsZCEEqsYA2b3xtgHLLHDCHdIC8=
 github.com/openrelayxyz/cardinal-evm v1.15.0-prague0/go.mod h1:oZUCtPPYXZp6GfcrL3TgaDX29Ey9JTqtTPp67/4um8o=
 github.com/openrelayxyz/cardinal-evm v1.15.0-prague1 h1:LSYalekAPCn4DoBL1BuIYtHLkhWwTBFzKwkdLmlnSrk=
