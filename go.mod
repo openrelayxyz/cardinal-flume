@@ -1,6 +1,6 @@
 module github.com/openrelayxyz/cardinal-flume
 
-go 1.18
+go 1.22
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1
