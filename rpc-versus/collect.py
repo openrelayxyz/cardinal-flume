@@ -38,6 +38,9 @@ class RPCClient:
         
         response = self.session.post(self.rpc_url, json=payload)
 
+        print(f"response method {method}")
+        print(f"{response.json()}")
+
         if response.status_code == 200:
             return response.json().get("result")
         else:
@@ -115,7 +118,9 @@ def aggregate_data(args):
     }
 
     for i, block_number in enumerate(range(latest_block, latest_block - number_of_blocks, -1)):
-        
+
+        print(f"inside loop block {block_number}")
+
         prms = block_number
         block_data = client.get_block_by_number(prms)
         results['blocks']['by_number'].append({'arg':prms,'resp':block_data})
@@ -197,54 +202,15 @@ def aggregate_data(args):
     with open(f"{file_name}.json", "w") as file:
         json.dump(results, file, indent=4)
 
-def print_string(args):
-    s = args.samplestring
-    b = args.number
-    x = args.thing
-
-    if args.thing == None:
-        print("thing must be a thing")
-    else:
-        print(f"this is the args string:{s}, num:{b}, thing:{x}")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test accuracy of flume APIs against a Geth node')
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # Subcommand: command-one with its own flags
-    parser_one = subparsers.add_parser("collect", help='collect data from rpc endpoint')
-    parser_one.add_argument('-p', '--port', default='8000')
-    parser_one.add_argument('-f', '--filename', default='results')
-    parser_one.add_argument('-b', '--latestblock', required=True, help="An integer that must be provided")
-    parser_one.add_argument('-r', '--blockrange', type=int, default=20)
-    parser_one.add_argument("--option1", type=str, default="default_value", help="Option for command-one")
-    parser_one.set_defaults(func=aggregate_data)
-
-    # # Subcommand: command-two runs pytest
-    # parser_two = subparsers.add_parser("test", help="Run tests with pytest")
-    # parser_two.add_argument("--test-path", type=str, default="tests/", help="Path to test files")
-    # parser_two.set_defaults(func=lambda args: pytest.main([args.test_path]))
-    parser_two = subparsers.add_parser("test", help="Run tests with pytest")
-    parser_two.add_argument('-f', '--samplestring', type=str, default='defaut string')
-    parser_two.add_argument('-n', '--number', type=int, default=77)
-    parser_two.add_argument('-t', '--thing', default=None)
-    parser_two.set_defaults(func=print_string)
+    parser.add_argument('-p', '--port', default='8000')
+    parser.add_argument('-f', '--filename', default='results')
+    parser.add_argument('-b', '--latestblock', required=True, help="An integer that must be provided")
+    parser.add_argument('-r', '--blockrange', type=int, default=20)
 
     args = parser.parse_args()
-    args.func(args)  # Calls the function mapped to the subcommand
-
-
-
-    # parser = argparse.ArgumentParser(
-    #                 prog='Flume accuracy test',
-    #                 description='Test accuracy of flume APIs against a Geth node')
-
-    # parser.add_argument('-p', '--port', default='8000')
-    # parser.add_argument('-f', '--filename', default='results')
-    # parser.add_argument('-b', '--latestblock', type=int, default=None)
-    # parser.add_argument('-r', '--blockrange', type=int, default=20)
-    
-    # args = parser.parse_args()
-
+    aggregate_data(args)
     # main(args.port, args.filename, args.latestblock, args.blockrange)
