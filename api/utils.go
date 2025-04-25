@@ -735,7 +735,7 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 	var postBlast int
 	var query string
 	statement := "SELECT 1 FROM transactions.transactions WHERE id > 0 LIMIT 1;"
-	db.QueryRow(statement).Scan(postBlast)
+	db.QueryRow(statement).Scan(&postBlast)
 	if postBlast == 0 {
 		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
@@ -814,7 +814,6 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	if err := logRows.Err(); err != nil {
 		return nil, err
 	}
-
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
