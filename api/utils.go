@@ -814,7 +814,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	if err := logRows.Err(); err != nil {
 		return nil, err
 	}
-
+	log.Debug("Running receipt query", "query", query, "params", params)
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
