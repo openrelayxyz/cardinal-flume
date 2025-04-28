@@ -287,14 +287,12 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
-	if cfg.Brokers[0].URL != "null://" {
-		for {
-			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
-				log.Debug("Earliest block set", "block", minBlock)
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
+	for {
+		if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+			log.Debug("Earliest block set", "block", minBlock)
+			break
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	//if this > 0 then this is a light server
 	cfg.EarliestBlock = uint64(minBlock)
