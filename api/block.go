@@ -421,7 +421,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)
-			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockReceipts", blockHash)
+			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockReceipts", blockHash)
 			if err != nil {
 				return nil, err
 			}

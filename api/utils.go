@@ -108,7 +108,7 @@ func previousBlockPresent(input interface{}, cfg *config.Config, db *sql.DB, isT
 	if isTx {
 		txStatement := "SELECT block FROM transactions.transactions WHERE hash = ?;"
 		db.QueryRow(txStatement, trimPrefix(input.(types.Hash).Bytes())).Scan(&response)
-		if uint64(response -1) <= cfg.EarliestBlock {
+		if uint64(response -1) >= cfg.EarliestBlock {
 			present = true
 		}
 	} else {
@@ -117,7 +117,7 @@ func previousBlockPresent(input interface{}, cfg *config.Config, db *sql.DB, isT
 		}
 		statement := "SELECT number FROM blocks.blocks WHERE hash = ?;"
 		db.QueryRow(statement, trimPrefix(input.(types.Hash).Bytes())).Scan(&response)
-		if uint64(response -1) <= cfg.EarliestBlock {
+		if uint64(response -1) >= cfg.EarliestBlock {
 			present = true
 		}
 	}
