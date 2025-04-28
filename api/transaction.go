@@ -188,7 +188,7 @@ var (
 )
 
 func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash types.Hash) (*map[string]interface{}, error) {
-	if len(api.cfg.HeavyServer) > 0 && !txDataPresent(txHash, api.cfg, api.db, api.mempool) {
+	if len(api.cfg.HeavyServer) > 0 && !previousBlockPresent(txHash, api.cfg, api.db, true) {
 		log.Debug("eth_getTransactionReceipt sent to flume heavy")
 		missMeter.Mark(1)
 		gtrcMissMeter.Mark(1)

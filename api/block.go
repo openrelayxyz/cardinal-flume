@@ -417,7 +417,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 	
 	if hshOk{
 
-		if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+		if !previousBlockPresent(blockHash, api.cfg, api.db, false) && len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)

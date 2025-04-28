@@ -102,6 +102,29 @@ func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB, mempool bo
 	return present
 }
 
+func previousBlockPresent(input interface{}, cfg *config.Config, db *sql.DB, isTx bool) bool {
+	var present bool
+	var response int
+	if isTx {
+		if txDataPresent((input.(types.Hash)), cfg, db, false) {
+			txStatement := "SELECT block FROM transactions.transactions WHERE hash = ?;"
+			db.QueryRow(txStatement, trimPrefix(input.(types.Hash).Bytes())).Scan(&response)
+			if uint64(response -1) <= cfg.EarliestBlock {
+				present = true
+			}
+		} 
+	} else {
+		if blockDataPresent(input, cfg, db) {
+			statement := "SELECT number FROM blocks.blocks WHERE hash = ?;"
+			db.QueryRow(statement, trimPrefix(input.(types.Hash).Bytes())).Scan(&response)
+			if uint64(response -1) <= cfg.EarliestBlock {
+				present = true
+			}
+		}
+	}
+	return present
+}
+
 func getLatestBlock(ctx context.Context, db *sql.DB) (int64, error) {
 	var result int64
 	var hash []byte
