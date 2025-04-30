@@ -301,9 +301,11 @@ func main() {
 		liteTailMeter.Update(int64(minBlock))
 	}
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
-	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
-		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
-		os.Exit(1)
+	if cfg.Brokers[0].URL != "null://" {
+		if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
+			log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
+			os.Exit(1)
+		}
 	}
 	if !*exitWhenSynced {
 		if cfg.Statsd != nil {
