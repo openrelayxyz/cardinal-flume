@@ -418,6 +418,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 	if hshOk{
 
 		if !receiptDataPresentBlock(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+			log.Error("hash not present reverting to heavy")
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)
@@ -431,6 +432,8 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			heavyBlockHashHit.Mark(1)
 			return *rt, nil
 		}
+
+		log.Error("hash present staying in light")
 	
 		if len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts served from flume light")
@@ -444,6 +447,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			return nil, nil
 		}
 
+		log.Error("lengeth of receipts from api", "len", len(receipts))
 		for _, item := range receipts {
 			for k, _ := range item {
 				if k =="timestamp" {

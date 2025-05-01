@@ -103,6 +103,7 @@ func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB, mempool bo
 }
 
 func receiptDataPresentBlock(input types.Hash, cfg *config.Config, db *sql.DB) bool {
+	log.Error("inside of block data present")
 	var present bool
 	var response int
 	
@@ -114,10 +115,12 @@ func receiptDataPresentBlock(input types.Hash, cfg *config.Config, db *sql.DB) b
 	if response != 0 && uint64(response -1) >= cfg.EarliestBlock {
 		present = true
 	}
+	log.Error("inside of block data present", "present", present)
 	return present
 }
 
 func receiptDataPresentTx(input types.Hash, cfg *config.Config, db *sql.DB) bool {
+	log.Error("inside of tx data present")
 	var present bool
 	var response int
 	
@@ -126,6 +129,7 @@ func receiptDataPresentTx(input types.Hash, cfg *config.Config, db *sql.DB) bool
 	if response != 0 && uint64(response -1) >= cfg.EarliestBlock {
 		present = true
 	}
+	log.Error("inside of tx data present", "present", present)
 	return present
 }
 
