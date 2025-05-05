@@ -372,7 +372,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 
 	if numOk{
 
-		if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+		if !blockDataPresent(blockNumber - 1, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)
@@ -417,11 +417,11 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 	
 	if hshOk{
 
-		if !blockDataPresent(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+		if !receiptDataPresentBlock(blockHash, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 			log.Debug("eth_getBlockReceipts sent to flume heavy")
 			missMeter.Mark(1)
 			gbrMissMeter.Mark(1)
-			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "flume_getBlockReceipts", blockHash)
+			rt, err := heavy.CallHeavy[[]map[string]interface{}](ctx, api.cfg.HeavyServer, "eth_getBlockReceipts", blockHash)
 			if err != nil {
 				return nil, err
 			}

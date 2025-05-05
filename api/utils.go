@@ -91,6 +91,33 @@ func txDataPresent(txHash types.Hash, cfg *config.Config, db *sql.DB, mempool bo
 	return false
 }
 
+func receiptDataPresentBlock(input types.Hash, cfg *config.Config, db *sql.DB) bool {
+	var present bool
+	var response int
+	
+	if w := cfg.Waiter; w != nil {
+		w.WaitForHash(input, cfg.WaitTime)
+	}
+	statement := "SELECT number FROM blocks.blocks WHERE hash = ?;"
+	db.QueryRow(statement, trimPrefix(input.Bytes())).Scan(&response)
+	if response != 0 && uint64(response -1) >= cfg.EarliestBlock {
+		present = true
+	}
+	return present
+}
+
+func receiptDataPresentTx(input types.Hash, cfg *config.Config, db *sql.DB) bool {
+	var present bool
+	var response int
+	
+	statement := "SELECT block FROM transactions.transactions WHERE hash = ?;"
+	db.QueryRow(statement, trimPrefix(input.Bytes())).Scan(&response)
+	if response != 0 && uint64(response -1) >= cfg.EarliestBlock {
+		present = true
+	}
+	return present
+}
+
 func getLatestBlock(ctx context.Context, db *sql.DB) (int64, error) {
 	var result int64
 	var hash []byte
@@ -614,17 +641,19 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 	var postBlast int
 	var query string
 	statement := "SELECT 1 FROM transactions.transactions WHERE id > 0 LIMIT 1;"
-	db.QueryRow(statement).Scan(postBlast)
+	db.QueryRow(statement).Scan(&postBlast)
 	if postBlast == 0 {
-		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, blocks.blobGasUsed, blocks.excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
+		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
+		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
 		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.block, transactions.transactionIndex LIMIT ? OFFSET ?;`, whereClause)
 	} else {
-		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, blocks.blobGasUsed, blocks.excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
+		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
+		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
 		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.rowid LIMIT ? OFFSET ?;`, whereClause)
 	}
@@ -691,7 +720,6 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	if err := logRows.Err(); err != nil {
 		return nil, err
 	}
-
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
 		return nil, err
@@ -701,13 +729,13 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	for rows.Next() {
 		var to, from, blockHash, txHash, contractAddress, bloomBytes, bVHashesRLP []byte
 		var blockNumber, txIndex, time, gasUsed, cumulativeGasUsed, status, gasPrice uint64
-		var excessBlobGas, blobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
+		var prevExcessBlobGas, prevBlobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
 		var txTypeRaw sql.NullInt32
 		err := rows.Scan(
 			&blockHash,
 			&time,
-			&blobGasUsed,
-			&excessBlobGas,
+			&prevBlobGasUsed,
+			&prevExcessBlobGas,
 			&blockNumber,
 			&gasUsed,
 			&cumulativeGasUsed,
@@ -770,9 +798,17 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 				if err = rlp.DecodeBytes(bVHashesRLP, bVHashes); err != nil {
 					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
 				}
+
 				fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(BlobTxBlobGasPerBlob * len(*bVHashes)))
 			}
-			excess := CalcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual)
+			var pebg, pbgu int64
+			if prevExcessBlobGas.Valid {
+				pebg = prevExcessBlobGas.Actual
+			}
+			if prevBlobGasUsed.Valid {
+				pbgu = prevBlobGasUsed.Actual
+			}
+			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual)
 			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
 		results = append(results, fields)
