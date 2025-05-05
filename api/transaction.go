@@ -6,8 +6,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	rpc "github.com/openrelayxyz/cardinal-rpc"
-	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 
@@ -41,7 +41,7 @@ var (
 	gtbhHitMeter  = metrics.NewMinorMeter("/flume/gtbh/hit")
 	gtbhMissMeter = metrics.NewMinorMeter("/flume/gtbh/miss")
 
-	heavyTxHashHit  = metrics.NewMinorMeter("/flume/hth/hit")
+	heavyTxHashHit = metrics.NewMinorMeter("/flume/hth/hit")
 	heavyTxHashMiss = metrics.NewMinorMeter("/flume/hth/miss")
 )
 
@@ -147,7 +147,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNumber rpc.BlockNumber, index hexutil.Uint64) (*map[string]interface{}, error) {
 
-	if !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
+	if  !blockDataPresent(blockNumber, api.cfg, api.db) && len(api.cfg.HeavyServer) > 0 {
 		log.Debug("eth_getTransactionByBlockNumberAndIndex sent to flume heavy")
 		missMeter.Mark(1)
 		gtbniMissMeter.Mark(1)
@@ -222,7 +222,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	result := returnFirstItem(receipts)
 
 	for k, _ := range result {
-		if k == "timestamp" {
+		if k =="timestamp" {
 			delete(result, k)
 		}
 	}
@@ -247,7 +247,7 @@ var (
 
 func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.Address, blockNumber rpc.BlockNumber) (*hexutil.Uint64, error) {
 
-	var pending bool
+	var pending bool 
 	if int64(blockNumber) < 0 {
 		if blockNumber == rpc.PendingBlockNumber && api.mempool {
 			pending = true
@@ -265,7 +265,7 @@ func (api *TransactionAPI) GetTransactionCount(ctx context.Context, addr common.
 		return nil, err
 	}
 
-	if len(api.cfg.HeavyServer) > 0 && nonce < 1 {
+	if len(api.cfg.HeavyServer) > 0  && nonce < 1 {
 		log.Debug("eth_getTransactionCount sent to flume heavy")
 		missMeter.Mark(1)
 		gtcMissMeter.Mark(1)
