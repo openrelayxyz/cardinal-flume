@@ -287,14 +287,12 @@ func main() {
 
 	<-consumer.Ready()
 	var minBlock int
-	if cfg.Brokers[0].URL != "null://" {
-		for {
-			if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
-				log.Debug("Earliest block set", "block", minBlock)
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
+	for {
+		if err := logsdb.QueryRowContext(context.Background(), "SELECT min(number) FROM blocks.blocks;").Scan(&minBlock); err == nil {
+			log.Debug("Earliest block set", "block", minBlock)
+			break
 		}
+		time.Sleep(500 * time.Millisecond)
 	}
 	//if this > 0 then this is a light server
 	cfg.EarliestBlock = uint64(minBlock)
@@ -303,9 +301,11 @@ func main() {
 		liteTailMeter.Update(int64(minBlock))
 	}
 	log.Debug("earliest block config", "number", cfg.EarliestBlock)
-	if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
-		log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
-		os.Exit(1)
+	if cfg.Brokers[0].URL != "null://" {
+		if len(cfg.HeavyServer) == 0 && minBlock > cfg.MinSafeBlock {
+			log.Error("Minimum block error", "Earliest log found on block:", minBlock, "Should be less than or equal to:", cfg.MinSafeBlock)
+			os.Exit(1)
+		}
 	}
 	if !*exitWhenSynced {
 		if cfg.Statsd != nil {
