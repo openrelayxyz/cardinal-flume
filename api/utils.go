@@ -637,6 +637,104 @@ func txCount(ctx context.Context, db *sql.DB, whereClause string, params ...inte
 	return hexutil.Uint64(count), err
 }
 
+func getFlumeTransactions(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
+	query := fmt.Sprintf("SELECT blocks.hash, transactions.block, blocks.time, transactions.gas, transactions.gasPrice, transactions.hash, transactions.input, transactions.nonce, transactions.recipient, transactions.transactionIndex, transactions.value, transactions.v, transactions.r, transactions.s, transactions.sender, transactions.type, transactions.access_list, blocks.baseFee, transactions.gasFeeCap, transactions.gasTipCap FROM transactions.transactions INNER JOIN blocks.blocks ON blocks.number = transactions.block WHERE %v LIMIT ? OFFSET ?;", whereClause)
+	return getFlumeTransactionsQuery(ctx, db, offset, limit, chainid, query, params...)
+}
+
+func getFlumeTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
+	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var results sortTxMap
+	for rows.Next() {
+		var amount, to, from, data, blockHashBytes, txHash, r, s, cAccessListRLP, baseFeeBytes, gasFeeCapBytes, gasTipCapBytes []byte
+		var nonce, gasLimit, blockNumber, gasPrice, time, txIndex, v uint64
+		var txTypeRaw sql.NullInt32
+		err := rows.Scan(
+			&blockHashBytes,
+			&blockNumber,
+			&time,
+			&gasLimit,
+			&gasPrice,
+			&txHash,
+			&data,
+			&nonce,
+			&to,
+			&txIndex,
+			&amount,
+			&v,
+			&r,
+			&s,
+			&from,
+			&txTypeRaw,
+			&cAccessListRLP,
+			&baseFeeBytes,
+			&gasFeeCapBytes,
+			&gasTipCapBytes,
+		)
+		if err != nil {
+			return nil, err
+		}
+		txType := uint8(txTypeRaw.Int32)
+		blockHash := bytesToHash(blockHashBytes)
+		txIndexHex := hexutil.Uint64(txIndex)
+		inputBytes, err := decompress(data)
+		if err != nil {
+			return nil, err
+		}
+		accessListRLP, err := decompress(cAccessListRLP)
+		if err != nil {
+			return nil, err
+		}
+		var accessList *evm.AccessList
+	item := map[string]interface{}{
+		"blockHash":            &blockHash,
+		"blockNumber":          uintToHexBig(blockNumber),
+		"from":                 bytesToAddress(from),
+		"timestamp":         uintToHexBig(time),
+		"gas":                  hexutil.Uint64(gasLimit),
+		"gasPrice":             uintToHexBig(gasPrice),
+		"hash":                 bytesToHash(txHash),
+		"input":                hexutil.Bytes(inputBytes),
+		"nonce":                hexutil.Uint64(nonce),
+		"to":                   bytesToAddressPtr(to),
+		"transactionIndex":     &txIndexHex,
+		"value":                bytesToHexBig(amount),
+		"v":                    uintToHexBig(v),
+		"r":                    bytesToHexBig(r),
+		"s":                    bytesToHexBig(s),
+		"type":                 hexutil.Uint64(txType),
+	}
+
+	switch txType {
+	case evm.AccessListTxType:
+		accessList = &evm.AccessList{}
+		rlp.DecodeBytes(accessListRLP, accessList)
+		item["accessList"] = accessList
+		item["chainId"] = uintToHexBig(chainid)
+		item["yParity"] = uintToHexBig(v)
+	case evm.DynamicFeeTxType:
+		accessList = &evm.AccessList{}
+		rlp.DecodeBytes(accessListRLP, accessList)
+		item["accessList"] = accessList
+		item["chainId"] = uintToHexBig(chainid)
+		item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
+		item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
+		item["yParity"] = uintToHexBig(v)
+	}
+
+	results = append(results, item)
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Sort(results)
+	}
+return results, nil
+}
+
 func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, whereClause string, params ...interface{}) ([]map[string]interface{}, error) {
 	var postBlast int
 	var query string
