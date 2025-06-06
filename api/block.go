@@ -49,10 +49,6 @@ func (api *BlockAPI) ChainId(ctx context.Context) hexutil.Uint64 {
 	return hexutil.Uint64(api.cfg.Chainid)
 }
 
-func (api *BlockAPI) Config(ctx context.Context) config.Config {
-	return *api.cfg
-}
-
 func (api *BlockAPI) BlockNumber(ctx context.Context) hexutil.Uint64 {
 
 	log.Debug("eth_blockNumber served from flume light by default")
