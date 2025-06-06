@@ -2,11 +2,8 @@ package config
 
 import (
 	"time"
-	"database/sql"
-	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	log "github.com/inconshreveable/log15"
@@ -71,7 +68,6 @@ type Config struct {
 	HeavyServer   	string `yaml:"heavyserver"`
 	EarliestBlock 	uint64 
 	LatestBlock   	uint64
-	BaseFeeChangeBlockHeight uint64
 	LightSeed       int64
 	ExtraConfig     map[string]map[string]string `yaml:extra`
 	WhitelistExternal map[uint64]types.Hash
@@ -128,7 +124,6 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 137
-		cfg.BaseFeeChangeBlockHeight = 38189056
 	case "mumbai":
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
@@ -145,10 +140,6 @@ func LoadConfig(fname string) (*Config, error) {
 
 	if cfg.WaitTime == 0 {
 		cfg.WaitTime = 250 * time.Millisecond
-	}
-
-	if cfg.BaseFeeChangeBlockHeight == 0 {
-		cfg.BaseFeeChangeBlockHeight = 1000000000
 	}
 
 	var logLvl log.Lvl
@@ -252,20 +243,4 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 	
 	return &cfg, nil
-}
-
-var (
-	preForkDenominator = big.NewInt(8)
-	postForkDenominator = big.NewInt(16)
-  )
-
-func (cfg *Config) GetBaseFeeDenominator(db *sql.DB) *big.Int {
-
-	var blockNumber uint64
-	db.QueryRowContext(context.Background(), "SELECT max(number) FROM blocks.blocks;").Scan(&blockNumber)
-
-	if blockNumber > cfg.BaseFeeChangeBlockHeight {
-		return postForkDenominator
-	}
-	return preForkDenominator
 }

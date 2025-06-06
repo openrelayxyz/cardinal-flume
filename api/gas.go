@@ -76,14 +76,15 @@ func (api *GasAPI) gasTip(ctx context.Context) (*big.Int, error) {
 
 func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time. 
-	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
-
+	
+	var blockNumber int64
 	var baseFeeBytes []byte
 	var gasLimit, gasUsed int64
-	err := api.db.QueryRowContext(ctx, "SELECT baseFee, gasUsed, gasLimit FROM blocks.blocks ORDER BY blocks.number DESC LIMIT 1;").Scan(&baseFeeBytes, &gasUsed, &gasLimit)
+	err := api.db.QueryRowContext(ctx, "SELECT number, baseFee, gasUsed, gasLimit FROM blocks.blocks ORDER BY blocks.number DESC LIMIT 1;").Scan(&blockNumber, &baseFeeBytes, &gasUsed, &gasLimit)
 	if err != nil {
 		return nil, err
 	}
+	baseFeeDenominator := getBaseFeeDenominator(api.db, blockNumber)
 	baseFee := new(big.Int).SetBytes(baseFeeBytes)
 	gasTarget := gasLimit / 2
 	if gasUsed == gasTarget {
@@ -195,7 +196,7 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
-	baseFeeDenominator := api.cfg.GetBaseFeeDenominator(api.db)
+	baseFeeDenominator := getBaseFeeDenominator(api.db, int64(terminalBlock))
 	
 	defer eh.HandleErr(&err)
 	
