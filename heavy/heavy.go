@@ -17,6 +17,7 @@ import (
 
 var (
 	heavyMissMeter  = metrics.NewMajorMeter("/flume/heavy/miss")
+	connMissMeter = metrics.NewMajorCounter("/flume/heavy/conn")
 	
 	genericError string = "failed to retrieve data"
 )
@@ -84,17 +85,20 @@ func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint6
 
 	resp, err := client.Do(request)
 	if err != nil {
+		connMissMeter.Inc(1)
 		log.Error("callHeavy connection error", "err", err)
 		return nil, rpc.NewRPCError(-32503, genericError)
 	}
 	defer resp.Body.Close()
 	result, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		connMissMeter.Inc(1)
 		log.Error("callHeavy response read error", "err", err)
 		return nil, rpc.NewRPCError(-32504, genericError)
 	}
 	response := &rpc.RawResponse{}
 	if err := json.Unmarshal(result, &response); err != nil {
+		connMissMeter.Inc(1)
 		log.Error("callHeavy result unmarshalling error", "err", err, "response", string(result))
 		return nil, rpc.NewRPCError(-32500, genericError)
 	}
@@ -104,6 +108,7 @@ func callHeavy[T any](ctx context.Context, backendURL string, cutoffBlock *uint6
 	}
 	ret := new(T)
 	if err := json.Unmarshal(response.Result, ret); err != nil {
+		connMissMeter.Inc(1)
 		log.Error("callHeavy response unmarshalling error", "err", err)
 		return nil, rpc.NewRPCError(-32500, genericError)
 	}
