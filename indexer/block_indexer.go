@@ -26,6 +26,27 @@ var (
 
 type rlpData []byte
 
+func nilTxCheck(t interface{}) (chainId *big.Int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic calling ChainId(): %v", r)
+		}
+	}()
+
+	if t == nil {
+		return nil, fmt.Errorf("nil transaction passed into nilTxCheck")
+	}
+
+	switch v := t.(type) {
+	case evm.Transaction:
+		return (&v).ChainId(), nil
+	case *evm.Transaction:
+		return v.ChainId(), nil
+	default:
+		return nil, fmt.Errorf("unknown type passed into nil tx check flume indexer") 
+	}
+}
+
 func (d rlpData) EncodeRLP(w io.Writer) error {
 	_, err := w.Write(d)
 	return err
@@ -103,6 +124,13 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	eblock.Txs = make([]evm.Transaction, len(txData))
 	for i, v := range txData {
 		eblock.Txs[int(i)] = v
+	}
+	
+	for i, t := range eblock.Txs {
+		if _, err := nilTxCheck(t); err != nil {
+			log.Error("nil transaction found, flume block indexer", "index", i)
+			eblock.Txs = append(eblock.Txs[:i], eblock.Txs[i+1:]...)
+		}
 	}
 	eblock.Uncles = make([]rlpData, len(uncleData))
 	for i, v := range uncleData {

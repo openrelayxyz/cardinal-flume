@@ -65,6 +65,12 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			tx := &evm.Transaction{}
 			tx.UnmarshalBinary(v)
 
+			if _, err := nilTxCheck(tx); err != nil {
+				log.Error("nil transaction found, tx indexer")
+				delete(pb.Values, k)
+				continue
+			}
+
 			var signer evm.Signer
 			ch := make(chan common.Address, 1)
 			senderMap[tx.Hash()] = ch
@@ -110,6 +116,13 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 	for i := 0; i < len(txData); i++ {
 		transaction := txData[int(i)]
 		receipt := receiptData[int(i)]
+
+		if _, err := nilTxCheck(transaction); err != nil {
+			log.Error("nil transaction found, flume transaction indexer pos three", "index", i)
+			delete(txData, int(i))
+			continue
+		}
+
 		sender := <-senderMap[transaction.Hash()]
 		v, r, s := transaction.RawSignatureValues()
 
