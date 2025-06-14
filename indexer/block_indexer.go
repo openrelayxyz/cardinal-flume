@@ -116,7 +116,11 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			Uncles: eblock.Uncles,
 			Withdrawals: withdrawals,
 		}
-		ebwd, _ := rlp.EncodeToBytes(eblockWithWithdrawals)
+		ebwd, err := rlp.EncodeToBytes(eblockWithWithdrawals)
+		if err != nil {
+			log.Error("this is our rlp error from flume", "err", err)
+			log.Error("And the block", "block", eblockWithWithdrawals)
+		}
 		size = len(ebwd)
 	} else {
 		ebd, _ := rlp.EncodeToBytes(eblock)
