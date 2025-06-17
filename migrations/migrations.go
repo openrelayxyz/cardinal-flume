@@ -249,11 +249,11 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 38189056, maxInt, 16)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 38189056, 73440255, 16)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, maxInt, maxInt, 64)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 73440256, maxInt, 64)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
 				return nil
 			}
