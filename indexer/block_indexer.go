@@ -116,7 +116,9 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 			parts := txRegexp.FindSubmatch([]byte(k))
 			txIndex, _ := strconv.ParseInt(string(parts[2]), 16, 64)
 			var tx evm.Transaction
-			tx.UnmarshalBinary(v)
+			if err := tx.UnmarshalBinary(v); err != nil {
+				log.Error("NNNNNNEEEEEEWWWWWWW ERROR", "err", err)
+			}
 			txData[int64(txIndex)] = tx
 		default:
 		}
