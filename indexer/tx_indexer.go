@@ -66,7 +66,7 @@ func (indexer *TxIndexer) Index(pb *delivery.PendingBatch) ([]string, error) {
 			tx.UnmarshalBinary(v)
 
 			if _, err := nilTxCheck(tx); err != nil {
-				log.Error("nil transaction found, tx indexer")
+				log.Error("nil transaction found, tx indexer", "k", k)
 				delete(pb.Values, k)
 				continue
 			}

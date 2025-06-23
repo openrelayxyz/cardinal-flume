@@ -128,7 +128,7 @@ func (indexer *BlockIndexer) Index(pb *delivery.PendingBatch) ([]string, error) 
 	
 	for i, t := range eblock.Txs {
 		if _, err := nilTxCheck(t); err != nil {
-			log.Error("nil transaction found, flume block indexer", "index", i)
+			log.Error("nil transaction found, flume block indexer", "index", i, "blocknumber", eblock.Header.Number)
 			eblock.Txs = append(eblock.Txs[:i], eblock.Txs[i+1:]...)
 		}
 	}
