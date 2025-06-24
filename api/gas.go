@@ -196,8 +196,6 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
 	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
-	baseFeeDenominator := getBaseFeeDenominator(api.db, int64(terminalBlock))
-	
 	defer eh.HandleErr(&err)
 	
 	if blockCount > 128 {
@@ -230,6 +228,8 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	} else {
 		lastBlock = terminalBlock
 	}
+
+	baseFeeDenominator := getBaseFeeDenominator(api.db, int64(lastBlock))
 
 	if lastBlock > rpc.BlockNumber(latestBlock) {
 		return nil, rpc.NewRPCError(-32000, fmt.Sprintf("request beyond head block: requested %v, head %v", lastBlock, latestBlock))
