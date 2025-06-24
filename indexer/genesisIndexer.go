@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"fmt"
 	"sync"
 	"context"
 	"database/sql"
@@ -31,6 +32,31 @@ type outerResult struct {
 	Result  *resultMessage `json:"result"`
 	JsonRPC string         `json:"jsonrpc"`
 	Id		int			   `json:"id"`
+}
+
+func replaceStatements(number uint64, statements []string) []string {
+
+	for i, stmnt := range statements {
+		if strings.Contains(stmnt, "number >=") || strings.Contains(stmnt, "block >=") {
+			dfrom := stmnt
+			words := strings.Fields(dFrom)
+			n := len(words)
+			mod := words[:n-2]
+			prefix := strings.Join(mod, " ")
+			suffix := " " + "=" + " " + fmt.Sprintf("%d", number)
+			replacement := prefix + suffix
+		}
+	}
+
+	// dFrom := statements[0]
+	// words := strings.Fields(dFrom)
+	// n := len(words)
+	// mod := words[:n-2]
+	// prefix := strings.Join(mod, " ")
+	// suffix := " " + "=" + " " + fmt.Sprintf("%d", number)
+	// replacement := prefix + suffix
+
+	return append([]string{replacement}, statements[1:]...)
 }
 
 func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
@@ -105,6 +131,8 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 			log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
 			return err
 		}
+		test := replaceStatements(uint64(12345), statements)
+		log.Error("these are the genesis statements", "len", len(statements), "stmts", statements, "test", test)
 		genesisStatements = append(genesisStatements, statements...)
 	}
 
