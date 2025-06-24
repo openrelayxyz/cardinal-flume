@@ -979,6 +979,15 @@ func getWithdrawals(ctx context.Context, db *sql.DB, whereClause string, params 
 	return results, nil
 }
 
+func getBaseFeeDenominator(db *sql.DB, blockNumber int64) *big.Int {
+
+	var denominator int64
+	statement := "SELECT denominator FROM blocks.baseFeeDenominatorSchedule where startBlock < ? AND endBlock > ?;"
+	db.QueryRow(statement, blockNumber, blockNumber).Scan(&denominator)
+
+	return big.NewInt(denominator)
+}
+
 // eip4844 helper functions
 
 var (

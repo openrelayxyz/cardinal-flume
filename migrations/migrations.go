@@ -232,6 +232,44 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		log.Info("blocks v7 migrations done")
 	}
 
+		if schemaVersion < 8 {
+		log.Info("Applying blocks v8 migration")
+		if _, err := db.Exec(`CREATE TABLE blocks.baseFeeDenominatorSchedule (
+			startBlock    INT,
+			endBlock      INT,
+			denominator   INT
+			)`); err != nil {
+			log.Error("migrations CREATE TABLE blocks.baseFeeDenominatorSchedule error", "err", err.Error())
+			return nil
+		}
+		// until foundation Geth, or some other supported network changes the value of the baseFee denominator the default case will aply to all networks outside of polygon. 
+		switch chainid {
+		case 137:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 0, 38189055, 8)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 38189056, 73440255, 16)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 73440256, maxInt, 64)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
+				return nil
+			}
+		default:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.baseFeeDenominatorSchedule(startBlock, endBlock, denominator) VALUES (%v, %v, %v)`, 0, maxInt, 8)); err != nil {
+				log.Error("migrations default INSERT INTO blocks.baseFeeDenominatorSchedule error", "err", err.Error())
+				return nil
+			}
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 8;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v8 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v8 migrations done")
+	}
+
 	log.Info("blocks migration up to date")
 	return nil
 }
