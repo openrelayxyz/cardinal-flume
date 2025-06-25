@@ -54,6 +54,11 @@ func replaceStatements(number uint64, statements []string) []string {
 
 func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
 
+	if number > uint64(cfg.LatestBlock) {
+		log.Error("skip ahead indexing not allowed", "latest block", cfg.LatestBlock)
+		return nil
+	}
+
 	var wsURL string
 
 	for _, broker := range cfg.BrokerParams {
@@ -72,7 +77,6 @@ func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Inde
 	
 	conn, _, err := dialer.Dial(wsURL, nil)
     if err != nil {
-		log.Error("Websocket dial error, stand alone indexer", "err", err)
 		return err
 	}
 
@@ -86,23 +90,21 @@ func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Inde
 
 	msg, err := json.Marshal(message)
 	if err != nil {
-		log.Error("cannot json marshal message, stand alone indexer, number", number, "err", err)
+		return err
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Error("failed to send message, genesis indexer", "err", err.Error())
+		return err
 	}
 
 	_, resultBytes, err := conn.ReadMessage()
 	if err != nil {
-		log.Error("Error reading transport batch, stand alone indexer, on block", number, "err", err)
 		return err
 	}
 
 	var or *outerResult
 
 	if err := json.Unmarshal(resultBytes, &or); err != nil {
-		log.Error("cannot unmarshal transportBytes, stand alone indexer, on block", number, "err", err)
 		return err
 	}
 
@@ -113,7 +115,6 @@ func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Inde
 	for _, indexer := range indexers {
 		statements, err := indexer.Index(pb.ToPendingBatch())
 		if err != nil {
-			log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err)
 			return err
 		}
 		modStatements := replaceStatements(number, statements)
@@ -124,15 +125,12 @@ func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Inde
 	mut.Lock()
 	dbtx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		log.Error("Error creating database transaction stand alone indexer", "err", err)
 		return err
 	}
 	if _, err := dbtx.Exec(strings.Join(insertStatements, " ; ")); err != nil {
-		log.Error("Failed to execute statement stand alone indexer", "err", err)
 		return err
 	}
 	if err := dbtx.Commit(); err != nil {
-		log.Error("Failed to commit block stand alone indexer", "err", err)
 		return err
 	}
 

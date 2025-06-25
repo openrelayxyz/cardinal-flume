@@ -226,6 +226,9 @@ func main() {
 			panic(err)
 		} else {
 			log.Info("stand alone block indexed", "block", *singleIndex)
+			logsdb.Close()
+			time.Sleep(time.Second)
+			os.Exit(0)
 		}
 	}
 
