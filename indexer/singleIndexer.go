@@ -39,8 +39,7 @@ func replaceStatements(number uint64, statements []string) []string {
 
 	for i, stmnt := range statements {
 		if strings.Contains(stmnt, "number >=") || strings.Contains(stmnt, "block >=") {
-			dFrom := stmnt
-			words := strings.Fields(dFrom)
+			words := strings.Fields(stmnt)
 			n := len(words)
 			prefix := strings.Join(words[:n-2], " ")
 			suffix := " " + "=" + " " + fmt.Sprintf("%d", number)
