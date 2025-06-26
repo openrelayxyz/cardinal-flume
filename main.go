@@ -212,7 +212,7 @@ func main() {
 	if *genesisIndex {
 		err := indexer.InsertSingle(cfg, uint64(0), logsdb, indexes, mut)
 		if err != nil {
-			log.Error("Failed to index genesis block", "err", err)
+			log.Error("Failed to index genesis block")
 			panic(err)
 		} else {
 			log.Info("genesis block indexed")
@@ -222,7 +222,7 @@ func main() {
 	if *singleIndex != 0 {
 		err := indexer.InsertSingle(cfg, uint64(*singleIndex), logsdb, indexes, mut)
 		if err != nil {
-			log.Error("Failed to index stand alone block", "err", err)
+			log.Error("Failed to index stand alone block")
 			panic(err)
 		} else {
 			log.Info("stand alone block indexed", "block", *singleIndex)

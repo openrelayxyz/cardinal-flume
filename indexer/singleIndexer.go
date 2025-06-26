@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 	"encoding/json"
+	"errors"
 
 	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
@@ -54,8 +55,7 @@ func replaceStatements(number uint64, statements []string) []string {
 func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
 
 	if number > uint64(cfg.LatestBlock) {
-		log.Error("skip ahead indexing not allowed", "latest block", cfg.LatestBlock)
-		return nil
+		return errors.New(fmt.Sprintf("skip ahead indexing not allowed, latest block: %v", cfg.LatestBlock))
 	}
 
 	var wsURL string
