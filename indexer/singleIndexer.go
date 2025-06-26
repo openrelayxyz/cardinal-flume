@@ -41,8 +41,7 @@ func replaceStatements(number uint64, statements []string) []string {
 			dFrom := stmnt
 			words := strings.Fields(dFrom)
 			n := len(words)
-			mod := words[:n-2]
-			prefix := strings.Join(mod, " ")
+			prefix := strings.Join(words[:n-2], " ")
 			suffix := " " + "=" + " " + fmt.Sprintf("%d", number)
 			replacement := prefix + suffix
 			statements[i] = replacement
