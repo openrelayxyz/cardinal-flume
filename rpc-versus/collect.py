@@ -29,17 +29,8 @@ class RPCClient:
             "params": params or [],
             "id": 1
         }
-
-        if payload['method'] == 'eth_feeHistory':
-            print(payload)
-
-        if payload['method'] == 'eth_getLogs':
-            print(payload)
         
         response = self.session.post(self.rpc_url, json=payload)
-
-        print(f"response method {method}")
-        print(f"{response.json()}")
 
         if response.status_code == 200:
             return response.json().get("result")
@@ -119,7 +110,8 @@ def aggregate_data(args):
 
     for i, block_number in enumerate(range(latest_block, latest_block - number_of_blocks, -1)):
 
-        print(f"inside loop block {block_number}")
+        if block_number % 100 == 0:
+            print(f"inside collection loop, block: {block_number}")
 
         prms = block_number
         block_data = client.get_block_by_number(prms)
@@ -175,13 +167,7 @@ def aggregate_data(args):
                 rcpt_data = client.get_transaction_receipt(prms)
                 results['txns']['receipt'].append({'arg':prms,'resp':rcpt_data})
 
-                prms = (client.recipients[0], block_number)
-                ct_data = client.get_transaction_count(*prms)
-                results['txns']['counts'].append({'arg':prms,'resp':ct_data})
-
-                prms = (client.recipients[-1], block_number)
-                ct_data = client.get_transaction_count(*prms)
-                results['txns']['counts'].append({'arg':prms,'resp':ct_data})
+                # NOTE at this point we are only testing transactionCount using the old, partially accurate flume behavior
 
                 prms = (client.senders[0], block_number)
                 ct_data = client.get_transaction_count(*prms)
@@ -199,6 +185,7 @@ def aggregate_data(args):
             fee_data = client.fee_history(*prms)
             results['fees'].append({'arg':prms,'resp':fee_data})
 
+    print(f"data aggregation complete, printing to file: {file_name}")
     with open(f"{file_name}.json", "w") as file:
         json.dump(results, file, indent=4)
 
@@ -213,4 +200,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     aggregate_data(args)
-    # main(args.port, args.filename, args.latestblock, args.blockrange)
