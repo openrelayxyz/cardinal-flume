@@ -15,8 +15,6 @@ ignored_patterns = [
     re.compile(r"blocks\.by_hash\[\d+\]\.resp\.transactions\[\d+\]"),
     re.compile(r"blocks\.by_number\[\d+\]\.resp\.transactions\[\d+\]"),
     re.compile(r"txns\.by_hash\[\d+\]\.resp"),
-    re.compile(r"txns\.counts\[\d+\]\.resp") # needs to be taken out of the aggregator 
-    # TODO the only nonces flume accounts for are senders not countracts. Need to address how addresses are aggregated. 
 ]
 
 
@@ -65,4 +63,4 @@ def test_main(control_path, test_path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    test_main(sys.argv[1], sys.argv[2])

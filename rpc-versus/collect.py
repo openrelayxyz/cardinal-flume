@@ -78,8 +78,9 @@ class RPCClient:
     def get_transaction_receipt(self, tx_hash): 
         return self.call_rpc("eth_getTransactionReceipt", [tx_hash])
 
-    def get_transaction_count(self, addr, block_number): 
-        return self.call_rpc("eth_getTransactionCount", [addr, hex(block_number)])
+    # def get_transaction_count(self, addr, block_number): 
+    #     return self.call_rpc("eth_getTransactionCount", [addr, hex(block_number)])
+    # this method is being skipped for now. It is only partially implemented in flume.
 
     # logs API
 
@@ -102,7 +103,7 @@ def aggregate_data(args):
         
     results = {
         'blocks': {'by_number':[],'by_hash':[],'tx_ct_by_num':[],'tx_ct_by_hsh':[],'ucl_ct_by_num':[],'ucl_ct_by_hsh':[]},
-        'txns': {'by_hash':[],'hash_dex':[],'num_dex':[],'receipt':[],'counts':[]},
+        'txns': {'by_hash':[],'hash_dex':[],'num_dex':[],'receipt':[]},
         'receipts': [],
         'logs': [],
         'fees': []
@@ -167,15 +168,15 @@ def aggregate_data(args):
                 rcpt_data = client.get_transaction_receipt(prms)
                 results['txns']['receipt'].append({'arg':prms,'resp':rcpt_data})
 
-                # NOTE at this point we are only testing transactionCount using the old, partially accurate flume behavior
+                # NOTE at this point we are not testing getTransactionCount as it is only partially implemented in Flume. 
 
-                prms = (client.senders[0], block_number)
-                ct_data = client.get_transaction_count(*prms)
-                results['txns']['counts'].append({'arg':prms,'resp':ct_data})
+                # prms = (client.senders[0], block_number)
+                # ct_data = client.get_transaction_count(*prms)
+                # results['txns']['counts'].append({'arg':prms,'resp':ct_data})
 
-                prms = (client.senders[-1], block_number)
-                ct_data = client.get_transaction_count(*prms)
-                results['txns']['counts'].append({'arg':prms,'resp':ct_data})
+                # prms = (client.senders[-1], block_number)
+                # ct_data = client.get_transaction_count(*prms)
+                # results['txns']['counts'].append({'arg':prms,'resp':ct_data})
 
             prms = {'fromBlock': hex(block_number - 1), 'toBlock': hex(block_number)}
             log_data = client.get_logs(prms)
