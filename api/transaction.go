@@ -74,9 +74,9 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 	})
 
 	var err error
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "transactions.hash = ?", trimPrefix(txHash.Bytes()))
 	if err != nil {
-		log.Error("Database error, getTransactionsBlock, eth_getTransactionByHash", "err", err)
+		log.Error("Database error, getTransactions, eth_getTransactionByHash", "err", err)
 		return nil, nil
 	}
 	if len(txs) == 0 {
@@ -87,7 +87,7 @@ func (api *TransactionAPI) GetTransactionByHash(ctx context.Context, txHash type
 		}
 	}
 
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	for _, fni := range pluginMethods {
 		fn := fni.(func(map[string]interface{}, types.Hash, *sql.DB) (map[string]interface{}, error))
@@ -131,11 +131,11 @@ func (api *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context
 	}
 
 	var err error
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "blocks.hash = ? AND transactionIndex = ?", trimPrefix(blockHash.Bytes()), uint64(index))
 	if err != nil {
 		return nil, err
 	}
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	return &result, nil
 }
@@ -172,12 +172,12 @@ func (api *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Conte
 		blockNumber = rpc.BlockNumber(latestBlock)
 	}
 
-	txs, err := getTransactionsBlock(ctx, api.db, 0, 1, api.network, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
+	txs, err := getTransactions(ctx, api.db, 0, 1, api.network, false, "block = ? AND transactionIndex = ?", uint64(blockNumber), uint64(index))
 	if err != nil {
 		return nil, err
 	}
 
-	result := returnSingleTransaction(txs)
+	result := returnFirstItem(txs)
 
 	return &result, nil
 }
@@ -219,7 +219,7 @@ func (api *TransactionAPI) GetTransactionReceipt(ctx context.Context, txHash typ
 	if err != nil {
 		return nil, err
 	}
-	result := returnSingleReceipt(receipts)
+	result := returnFirstItem(receipts)
 
 	for k, _ := range result {
 		if k =="timestamp" {
