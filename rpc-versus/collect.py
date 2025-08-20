@@ -78,9 +78,8 @@ class RPCClient:
     def get_transaction_receipt(self, tx_hash): 
         return self.call_rpc("eth_getTransactionReceipt", [tx_hash])
 
-    # def get_transaction_count(self, addr, block_number): 
-    #     return self.call_rpc("eth_getTransactionCount", [addr, hex(block_number)])
-    # this method is being skipped for now. It is only partially implemented in flume.
+    def get_transaction_count(self, addr, block_number): 
+        return self.call_rpc("eth_getTransactionCount", [addr, hex(block_number)])
 
     # logs API
 
@@ -94,16 +93,16 @@ class RPCClient:
 
 
 def aggregate_data(args):
-    port = args.port
+    endpoint = args.endpoint
     file_name = args.filename
     latest_block = int(args.latestblock)
     number_of_blocks = args.blockrange
 
-    client = RPCClient(f'http://localhost:{port}')
+    client = RPCClient(f'{endpoint}')
         
     results = {
         'blocks': {'by_number':[],'by_hash':[],'tx_ct_by_num':[],'tx_ct_by_hsh':[],'ucl_ct_by_num':[],'ucl_ct_by_hsh':[]},
-        'txns': {'by_hash':[],'hash_dex':[],'num_dex':[],'receipt':[]},
+        'txns': {'by_hash':[],'hash_dex':[],'num_dex':[],'receipt':[], 'counts':[]},
         'receipts': [],
         'logs': [],
         'fees': []
@@ -168,15 +167,16 @@ def aggregate_data(args):
                 rcpt_data = client.get_transaction_receipt(prms)
                 results['txns']['receipt'].append({'arg':prms,'resp':rcpt_data})
 
-                # NOTE at this point we are not testing getTransactionCount as it is only partially implemented in Flume. 
+                # NOTE at this point getTransactionCount as it is only partially implemented in Flume. 
 
-                # prms = (client.senders[0], block_number)
-                # ct_data = client.get_transaction_count(*prms)
-                # results['txns']['counts'].append({'arg':prms,'resp':ct_data})
+                if not args.range_beyond_state:
+                    prms = (client.senders[0], block_number)
+                    ct_data = client.get_transaction_count(*prms)
+                    results['txns']['counts'].append({'arg':prms,'resp':ct_data})
 
-                # prms = (client.senders[-1], block_number)
-                # ct_data = client.get_transaction_count(*prms)
-                # results['txns']['counts'].append({'arg':prms,'resp':ct_data})
+                    prms = (client.senders[-1], block_number)
+                    ct_data = client.get_transaction_count(*prms)
+                    results['txns']['counts'].append({'arg':prms,'resp':ct_data})
 
             prms = {'fromBlock': hex(block_number - 1), 'toBlock': hex(block_number)}
             log_data = client.get_logs(prms)
@@ -194,10 +194,13 @@ def aggregate_data(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test accuracy of flume APIs against a Geth node')
 
-    parser.add_argument('-p', '--port', default='8000')
+    parser.add_argument('-p', '--endpoint', default='http://localhost:8000')
     parser.add_argument('-f', '--filename', default='results')
     parser.add_argument('-b', '--latestblock', required=True, help="An integer that must be provided")
     parser.add_argument('-r', '--blockrange', type=int, default=20)
+    parser.add_argument('-s', '--range_beyond_state', action='store_true')
+    # masters will likely not have the state to fill the getTransactionCount requests in blocks older than 128
+    # the above flag disables the collection of getTransactionCount
 
     args = parser.parse_args()
     aggregate_data(args)
