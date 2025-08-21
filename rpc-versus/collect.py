@@ -127,6 +127,7 @@ def aggregate_data(args):
             results['txns']['by_hash'].append({'arg':prms,'resp':tx_data})
 
         if i % 2 == 0:
+        # we are only collecting receipts every other block so as to keep the size of the results files managable.
             prms = hex(block_number)
             receipt_data = client.get_block_receipts(prms)
         else:
@@ -136,6 +137,7 @@ def aggregate_data(args):
         
 
         if i == 1 or i % 10 == 0:
+        # similarly here, we are colleting from every 10th block to cut down on the size of the test and control files.
             prms = block_number
             tx_ct_by_num = client.get_block_transaction_count_by_number(prms)
             results['blocks']['tx_ct_by_num'].append({'arg':prms,'resp':tx_ct_by_num})
