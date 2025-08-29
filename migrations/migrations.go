@@ -269,7 +269,40 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		log.Info("blocks v8 migrations done")
 	}
-
+	if schemaVersion < 9 {
+		log.Info("Applying blocks v9 migration")
+		if _, err := db.Exec(`CREATE TABLE blocks.features (
+			startTime     BIGINT,
+			startBlock    BIGINT,
+			eip           INT,
+			)`); err != nil {
+			log.Error("migrations CREATE TABLE blocks.features error", "err", err.Error())
+			return nil
+		}
+		switch chainid { // TODO PHILIP: These values will need to be added in either ahead of the first testnet fork or manually as each network's forktime is announced
+		case 1:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, maxInt,  7918)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
+		case 11155111:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, maxInt, 7918)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
+		case 17000:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, maxInt, 7918)); err != nil {
+				log.Error("migrations holesky INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
+		case 560048:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, maxInt, 7918)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
+		}
+		log.Info("blocks v9 migrations done")
+	}
 	log.Info("blocks migration up to date")
 	return nil
 }
