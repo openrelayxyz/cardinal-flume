@@ -228,7 +228,7 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	return 0, zeroInputError
 }
 
-func isEIP(db *sql.DB, time, blockNumber *uint64, EIP int) bool {
+func isEIP(db *sql.DB, time, blockNumber *uint64, EIP string) bool {
 	activated bool
 	if time != nil {
 		var response int
@@ -956,8 +956,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			if prevBlobGasUsed.Valid {
 				pbgu = prevBlobGasUsed.Actual
 			}
-			sevenNineOneEight := isEIP(db, &time, 7918)
-			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, bytesToHexBig(prevBaseFee).Uint64(), sevenNineOneEight)
+			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, bytesToHexBig(prevBaseFee).Uint64(), isEIP(db, &time, "7918"))
 			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
 		results = append(results, fields)
@@ -1029,6 +1028,16 @@ var (
 // }
 
 // BlobTxBlobGasPerBlob = = 1 << 17
+
+// CalcBlobFee calculates the blobfee from the header's excess blob gas field.
+// func CalcBlobFee(config *params.ChainConfig, header *types.Header) *big.Int {
+// 	blobConfig := latestBlobConfig(config, header.Time)
+// 	if blobConfig == nil {
+// 		panic("calculating blob fee on unsupported fork")
+// 	}
+// 	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(*header.ExcessBlobGas), new(big.Int).SetUint64(blobConfig.UpdateFraction))
+// }
+
 
 
 func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, parentBaseFee *big.Int, osakaActive bool) uint64 {
