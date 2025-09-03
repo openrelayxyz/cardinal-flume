@@ -163,7 +163,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 		whereClause = append(whereClause, fmt.Sprintf("(%v)", strings.Join(topicsClause, " AND ")))
 	}
 	
-	query := fmt.Sprintf("SELECT address, topic0, topic1, topic2, topic3, data, block, transactionHash, transactionIndex, blockHash, logIndex FROM event_logs %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
+	query := fmt.Sprintf("SELECT l.address, l.topic0, l.topic1, l.topic2, l.topic3, l.data, l.block, l.transactionHash, l.transactionIndex, l.blockHash, l.logIndex, b.time FROM event_logs l JOIN blocks b ON l.block = b.number %v WHERE %v;", indexClause, strings.Join(whereClause, " AND "))
 	pluginMethods := api.pl.Lookup("AppendBorLogs", func(v interface{}) bool {
 		_, ok := v.(func(string, string, []interface{}) (string, []interface{}))
 		return ok
@@ -195,9 +195,9 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 	blockNumbersInResponse := make(map[uint64]struct{})
 	for rows.Next() {
 		var address, topic0, topic1, topic2, topic3, data, transactionHash, blockHash []byte
-		var blockNumber uint64
+		var blockNumber, time uint64
 		var transactionIndex, logIndex uint
-		err := rows.Scan(&address, &topic0, &topic1, &topic2, &topic3, &data, &blockNumber, &transactionHash, &transactionIndex, &blockHash, &logIndex)
+		err := rows.Scan(&address, &topic0, &topic1, &topic2, &topic3, &data, &blockNumber, &transactionHash, &transactionIndex, &blockHash, &logIndex, &time)
 		if err != nil {
 			exhaustChannels[[]*logType](heavyResult, errChan)
 			log.Error("Error scanning", "err", err)
@@ -231,6 +231,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			TxHash:      bytesToHash(transactionHash),
 			TxIndex:     hexutil.Uint(transactionIndex),
 			BlockHash:   bytesToHash(blockHash),
+			BlockTimestamp: time,
 			Index:       hexutil.Uint(logIndex),
 		})
 		if len(logs) > 10000 && len(blockNumbersInResponse) > 1 {
