@@ -286,6 +286,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			if i == len(result.BaseFeePerBlobGas) -2 {
 				excess := calcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), baseFee, isEIP(api.db, time + 12, number + 1, "7918")) 
+				// the excess is being calculated on the current block but being used in the next block, which is why we augment the time and blocknumber arguments
 				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			}
 
