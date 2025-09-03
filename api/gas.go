@@ -283,13 +283,13 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
 		if blobGasUsed.Valid {
-			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			if i == len(result.BaseFeePerBlobGas) -2 {
-				excess := CalcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual, blobScheduleMax.Actual, baseFee, isEIP(api.db, time + 12, number + 1, "7918")) 
-				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+				excess := calcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), baseFee, isEIP(api.db, time + 12, number + 1, "7918")) 
+				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			}
 
-			maxBlobGas := float64(uint64(blobScheduleMax.Actual) * uint64(BlobTxBlobGasPerBlob)) // maxBlobsPerBlock * (Gas consumption of a single data blob (== blob byte size))
+			maxBlobGas := float64(uint64(blobScheduleMax.Actual) * uint64(blobTxBlobGasPerBlob)) // maxBlobsPerBlock * (Gas consumption of a single data blob (== blob byte size))
 			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) / maxBlobGas
 		}
 		

@@ -230,7 +230,6 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 
 func isEIP(db *sql.DB, time, blockNumber uint64, eip string) bool {
 	var response int
-	
 	statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND ((time IS NOT NULL AND time >= ?) OR (block IS NOT NULL AND block >= ?));"
 	if err := db.QueryRow(statement, eip, time, blockNumber).Scan(&response); err != nil {
 		log.Error("error returned from isEIP, time condition", "err", err)
@@ -932,7 +931,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
 				}
 
-				fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(BlobTxBlobGasPerBlob * len(*bVHashes)))
+				fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(blobTxBlobGasPerBlob * len(*bVHashes)))
 			}
 			var pebg, pbgu int64
 			if prevExcessBlobGas.Valid {
@@ -941,8 +940,8 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			if prevBlobGasUsed.Valid {
 				pbgu = prevBlobGasUsed.Actual
 			}
-			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, new(big.Int).SetBytes(prevBaseFee), isEIP(db, time, blockNumber, "7918"))
-			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			excess := calcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), new(big.Int).SetBytes(prevBaseFee), isEIP(db, time, blockNumber, "7918"))
+			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
 		results = append(results, fields)
 	}
@@ -1003,87 +1002,43 @@ func getBaseFeeDenominator(db *sql.DB, blockNumber int64) *big.Int {
 // eip4844 helper functions
 
 var (
-	BlobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
-	BlobTxMinBlobGasprice  = 1       // Minimum gas price for data blobs
+	blobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
+	blobTxMinBlobGasprice  = 1 // Minimum gas price for data blobs
+	blobBaseCost = big.NewInt(1 << 13) // Base execution gas cost for a blob.
+	minBlobGasPrice = big.NewInt(int64(blobTxMinBlobGasprice))
 )
 
-// func calcBlobPrice(config *params.ChainConfig, header *types.Header) *big.Int {
-// 	blobBaseFee := CalcBlobFee(config, header)
-// 	return new(big.Int).Mul(blobBaseFee, big.NewInt(params.BlobTxBlobGasPerBlob))
-// }
-
-// BlobTxBlobGasPerBlob = = 1 << 17
-
-// CalcBlobFee calculates the blobfee from the header's excess blob gas field.
-// func CalcBlobFee(config *params.ChainConfig, header *types.Header) *big.Int {
-// 	blobConfig := latestBlobConfig(config, header.Time)
-// 	if blobConfig == nil {
-// 		panic("calculating blob fee on unsupported fork")
-// 	}
-// 	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(*header.ExcessBlobGas), new(big.Int).SetUint64(blobConfig.UpdateFraction))
-// }
-
-
-
-func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, parentBaseFee *big.Int, osakaActive bool) uint64 {
+func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, updateFraction, parentBaseFee *big.Int, osakaActive bool) uint64 {
 
 	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
-	targetGas := uint64(target) * uint64(BlobTxBlobGasPerBlob)
+	targetGas := uint64(target) * uint64(blobTxBlobGasPerBlob)
 	if excessBlobGas < targetGas {
 		return 0
 	}
-
-	if !osakaActive {
-		return excessBlobGas - targetGas
-	} else {
-		baseCost := big.NewInt(1 << 13)
-		reservePrice := baseCost.Mul(baseCost, parentBaseFee)
-		blobPrice    = calcBlobPrice(config, parent) // still working here 
-		// blobPrice = new(big.Int).Mul(blobBaseFee, big.NewInt(1 << 17))
+	
+	if osakaActive {
+		
+		reservePrice := blobBaseCost.Mul(blobBaseCost, parentBaseFee)
+		blobPrice    := blobPrice(parentExcessBlobGas, updateFraction)
+		
 		if reservePrice.Cmp(blobPrice) > 0 {
-			scaledExcess := parentBlobGasUsed * max-target / max
+			scaledExcess := parentBlobGasUsed * (max-target) / max
 			return uint64(parentExcessBlobGas + scaledExcess)
 		}
-		return excessBlobGas - targetGas
 	}
+
+	return excessBlobGas - targetGas
 }
 
-// Geth's implementation:
-// func CalcExcessBlobGas(config *params.ChainConfig, parent *types.Header, headTimestamp uint64) uint64 {
-// 	var (
-// 		parentExcessBlobGas uint64
-// 		parentBlobGasUsed   uint64
-// 	)
-// 	if parent.ExcessBlobGas != nil {
-// 		parentExcessBlobGas = *parent.ExcessBlobGas
-// 		parentBlobGasUsed = *parent.BlobGasUsed
-// 	}
-// 	var (
-// 		excessBlobGas = parentExcessBlobGas + parentBlobGasUsed
-// 		target        = targetBlobsPerBlock(config, headTimestamp)
-// 		targetGas     = uint64(target) * params.BlobTxBlobGasPerBlob
-// 	)
-// 	if excessBlobGas < targetGas {
-// 		return 0
-// 	}
-// 	if !config.IsOsaka(config.LondonBlock, headTimestamp) {
-// 		// Pre-Osaka, we use the formula defined by EIP-4844.
-// 		return excessBlobGas - targetGas
-// 	}
+func blobPrice(excessBlobGas int64, updateFraction *big.Int) *big.Int {
+	f := blobBaseFee(uint64(excessBlobGas), updateFraction)
+	return new(big.Int).Mul(f, big.NewInt(int64(blobTxBlobGasPerBlob)))
+}
 
-// 	// EIP-7918 (post-Osaka) introduces a different formula for computing excess.
-// 	var (
-// 		baseCost     = big.NewInt(params.BlobBaseCost) // BlobBaseCost = 1 << 13
-// 		reservePrice = baseCost.Mul(baseCost, parent.BaseFee)
-// 		blobPrice    = calcBlobPrice(config, parent)
-// 	)
-// 	if reservePrice.Cmp(blobPrice) > 0 {
-// 		max := MaxBlobsPerBlock(config, headTimestamp)
-// 		scaledExcess := parentBlobGasUsed * uint64(max-target) / uint64(max)
-// 		return parentExcessBlobGas + scaledExcess
-// 	}
-// 	return excessBlobGas - targetGas
-// }
+func blobBaseFee(excessBlobGas uint64, updateFraction *big.Int) *big.Int {
+	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(excessBlobGas), new(big.Int).SetUint64(updateFraction.Uint64())).ToInt()
+}
+
 
 func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
 	var (
