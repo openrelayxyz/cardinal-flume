@@ -274,7 +274,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		if _, err := db.Exec(`CREATE TABLE blocks.features (
 			startTime     BIGINT,
 			startBlock    BIGINT,
-			eip           VARCHAR(12),
+			eip           VARCHAR(12)
 			)`); err != nil {
 			log.Error("migrations CREATE TABLE blocks.features error", "err", err.Error())
 			return nil
