@@ -230,7 +230,7 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 
 func isEIP(db *sql.DB, time, blockNumber uint64, eip string) bool {
 	var response int
-	statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND ((time IS NOT NULL AND time >= ?) OR (block IS NOT NULL AND block >= ?));"
+	statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND ((startTime IS NOT NULL AND startTime <= ?) OR (startBlock IS NOT NULL AND startBlock <= ?));"
 	if err := db.QueryRow(statement, eip, time, blockNumber).Scan(&response); err != nil {
 		log.Error("error returned from isEIP, time condition", "err", err)
 	}
