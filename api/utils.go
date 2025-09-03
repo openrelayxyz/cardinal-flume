@@ -228,29 +228,14 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	return 0, zeroInputError
 }
 
-func isEIP(db *sql.DB, time, blockNumber *uint64, EIP string) bool {
-	activated bool
-	if time != nil {
-		var response int
-		statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND time >= ?;"
-		if err := db.QueryRow(statement, eip, *time).Scan(&response); err != nil {
-			log.Error("error returned from isEIP, time condition", "err", err)
-		}
-		if response > 0 {
-			activated = true
-		}
+func isEIP(db *sql.DB, time, blockNumber uint64, eip string) bool {
+	var response int
+	
+	statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND ((time IS NOT NULL AND time >= ?) OR (block IS NOT NULL AND block >= ?));"
+	if err := db.QueryRow(statement, eip, time, blockNumber).Scan(&response); err != nil {
+		log.Error("error returned from isEIP, time condition", "err", err)
 	}
-	if block != nil {
-		var response int
-		statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND block >= ?;"
-		if err := db.QueryRow(statement, eip, blockNumber).Scan(&response); err != nil {
-			log.Error("error returned from isEIP, block condition", "err", err)
-		}
-		if response > 0 {
-			activated = true
-		}
-	}
-	return activated
+	return response > 0
 }
 
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
@@ -874,7 +859,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	defer rows.Close()
 	results := sortTxMap{}
 	for rows.Next() {
-		var to, from, blockHash, txHash, contractAddress, bloomBytes, bVHashesRLP, prevabaseFee []byte
+		var to, from, blockHash, txHash, contractAddress, bloomBytes, bVHashesRLP, prevBaseFee []byte
 		var blockNumber, txIndex, time, gasUsed, cumulativeGasUsed, status, gasPrice uint64
 		var prevExcessBlobGas, prevBlobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
 		var txTypeRaw sql.NullInt32
@@ -883,7 +868,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			&time,
 			&prevBlobGasUsed,
 			&prevExcessBlobGas,
-			&prevBaseFee
+			&prevBaseFee,
 			&blockNumber,
 			&gasUsed,
 			&cumulativeGasUsed,
@@ -956,7 +941,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			if prevBlobGasUsed.Valid {
 				pbgu = prevBlobGasUsed.Actual
 			}
-			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, bytesToHexBig(prevBaseFee).Uint64(), isEIP(db, &time, "7918"))
+			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, new(big.Int).SetBytes(prevBaseFee), isEIP(db, time, blockNumber, "7918"))
 			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
 		results = append(results, fields)
@@ -1051,13 +1036,13 @@ func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64
 	if !osakaActive {
 		return excessBlobGas - targetGas
 	} else {
-		baseCost = big.NewInt(1 << 13)
-		reservePrice = baseCost.Mul(baseCost, parentBaseFee)
+		baseCost := big.NewInt(1 << 13)
+		reservePrice := baseCost.Mul(baseCost, parentBaseFee)
 		blobPrice    = calcBlobPrice(config, parent) // still working here 
 		// blobPrice = new(big.Int).Mul(blobBaseFee, big.NewInt(1 << 17))
 		if reservePrice.Cmp(blobPrice) > 0 {
-			scaledExcess := parentBlobGasUsed * uint64(max-target) / uint64(max)
-			return parentExcessBlobGas + scaledExcess
+			scaledExcess := parentBlobGasUsed * max-target / max
+			return uint64(parentExcessBlobGas + scaledExcess)
 		}
 		return excessBlobGas - targetGas
 	}
