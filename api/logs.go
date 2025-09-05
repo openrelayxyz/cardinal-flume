@@ -231,7 +231,7 @@ func (api *LogsAPI) GetLogs(ctx context.Context, crit FilterQuery) ([]*logType, 
 			TxHash:      bytesToHash(transactionHash),
 			TxIndex:     hexutil.Uint(transactionIndex),
 			BlockHash:   bytesToHash(blockHash),
-			BlockTimestamp: time,
+			BlockTimestamp: hexutil.EncodeUint64(time),
 			Index:       hexutil.Uint(logIndex),
 		})
 		if len(logs) > 10000 && len(blockNumbersInResponse) > 1 {

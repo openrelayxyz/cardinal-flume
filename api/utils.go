@@ -780,9 +780,10 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 	}
 	
 	logsQuery := fmt.Sprintf(`
-		SELECT event_logs.transactionHash, event_logs.block, event_logs.address, event_logs.topic0, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.data, event_logs.logIndex
+		SELECT event_logs.transactionHash, event_logs.block, event_logs.address, event_logs.topic0, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.data, event_logs.logIndex, blocks.time
 		FROM event_logs
-		WHERE (transactionHash, block) IN (
+		INNER JOIN blocks.blocks ON event_logs.block = blocks.number
+		WHERE (event_logs.transactionHash, event_logs.block) IN (
 			SELECT transactions.hash, block
 			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
 			WHERE %v LIMIT ? OFFSET ?
@@ -801,8 +802,8 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	for logRows.Next() {
 		var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 		var logIndex uint
-		var blockNumber uint64
-		err := logRows.Scan(&txHashBytes, &blockNumber, &address, &topic0, &topic1, &topic2, &topic3, &data, &logIndex)
+		var blockNumber, time uint64
+		err := logRows.Scan(&txHashBytes, &blockNumber, &address, &topic0, &topic1, &topic2, &topic3, &data, &logIndex, &time)
 		if err != nil {
 			logRows.Close()
 			return nil, err
@@ -834,6 +835,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			Data:        input,
 			BlockNumber: hexutil.EncodeUint64(blockNumber),
 			TxHash:      txHash,
+			BlockTimestamp: hexutil.EncodeUint64(time),
 			Index:       hexutil.Uint(logIndex),
 		})
 	}
