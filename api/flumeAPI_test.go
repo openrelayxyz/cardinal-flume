@@ -214,7 +214,7 @@ func TestFlumeAPI(t *testing.T) {
 							if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
 								continue
 							} else {
-								t.Fatalf("getTransactionReceiptsByBlockHash error hash %v,  index %v, key %v", hash, j, k)
+								t.Fatalf("getTransactionReceiptsByBlockHash error \n hash %v, \n  index %v, \n key %v, \n test %v, \n control %v", hash, j, k, string(data), string(receiptsByHash[hash][j][k]))
 							}
 						}
 					}
