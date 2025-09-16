@@ -279,6 +279,10 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 			log.Error("migrations CREATE TABLE blocks.features error", "err", err.Error())
 			return nil
 		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 9;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v9 error", "err", err.Error())
+			return nil
+		}
 		log.Info("blocks v9 migrations done")
 	}
 	log.Info("blocks migration up to date")
