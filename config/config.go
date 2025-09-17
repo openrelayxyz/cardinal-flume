@@ -128,6 +128,10 @@ func LoadConfig(fname string) (*Config, error) {
 		cfg.HomesteadBlock = 0
 		cfg.Eip155Block = 0
 		cfg.Chainid = 80001
+	case "fd5":
+		cfg.HomesteadBlock = 0
+		cfg.Eip155Block = 0
+		cfg.Chainid = 7092415936
 	case "":
 		if cfg.Chainid == 0 {
 			err := errors.New("Network name, eipp155Block, and homestead Block values must be set in configuration file")
