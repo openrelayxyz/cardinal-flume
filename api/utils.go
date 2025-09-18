@@ -940,6 +940,9 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			if prevBlobGasUsed.Valid {
 				pbgu = prevBlobGasUsed.Actual
 			}
+			if blobScheduleUpdateFraction.Actual == 0 {
+				log.Error("The update fraction is zero")
+			}
 			excess := calcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), new(big.Int).SetBytes(prevBaseFee), isEIP(db, time, blockNumber, "7918"))
 			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
@@ -1041,6 +1044,9 @@ func blobBaseFee(excessBlobGas uint64, updateFraction *big.Int) *big.Int {
 
 
 func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
+	if denominator == nil {
+		log.Error("the denominator in fake exponential is nil")
+	}
 	var (
 		output = new(big.Int)
 		accum  = new(big.Int).Mul(factor, denominator)
