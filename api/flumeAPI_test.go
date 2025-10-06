@@ -196,26 +196,29 @@ func TestFlumeAPI(t *testing.T) {
 
 	for i, hash := range bkHashes {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockHash %v", i), func(t *testing.T) {
-			actual, _ := f.GetTransactionReceiptsByBlockHash(context.Background(), hash)
-			for j, receipt := range actual {
+			test, err := f.GetTransactionReceiptsByBlockHash(context.Background(), hash); if err != nil{
+				t.Fatalf("failed to get transaction receipts for block hash %v: %v", hash, err.Error())
+			}
+			control := receiptsByHash[hash] 
+			for j, controlReceipt := range control {
 				// TODO: eip 4844 (both the comment and the nested if below)
 				// if len(receipt) != len(receiptsByHash[hash][j]) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockHash on hash %v, receipt %v", hash, j)
 				// }
-				for k, v := range receipt {
-					if k == "blobGasUsed" || k == "blobGasPrice" {
+				for key, controlValue := range controlReceipt {
+					if key == "root" {
 						continue
-					} else {
-						data, err := json.Marshal(v)
+					}
+					testValue := test[j][key]
+					data, err := json.Marshal(testValue)
 						if err != nil {
 							t.Errorf(err.Error())
 						}
-						if !bytes.Equal(data, receiptsByHash[hash][j][k]) {
-							if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
-								continue
-							} else {
-								t.Fatalf("getTransactionReceiptsByBlockHash error hash %v,  index %v, key %v", hash, j, k)
-							}
+					if !bytes.Equal(data, controlValue) { 
+						if key == "timestamp" && testValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+							continue
+						} else {
+							t.Fatalf("error on getTransactionReceiptsByBlockHash hash %v \n,receipt %v, key %v;\napi result: %v,\n expected result:%v,\n", hash, j, key, string(data), string(controlValue))
 						}
 					}
 				}
@@ -225,28 +228,31 @@ func TestFlumeAPI(t *testing.T) {
 
 	for i, number := range bkNumbers {
 		t.Run(fmt.Sprintf("GetTransactionReceiptsByBlockNumber %v", i), func(t *testing.T) {
-			actual, _ := f.GetTransactionReceiptsByBlockNumber(context.Background(), number)
-			for j, receipt := range actual {
+			test, err := f.GetTransactionReceiptsByBlockNumber(context.Background(), number); if err != nil{
+				t.Fatalf("failed to get transaction receipts for block %v: %v", number, err.Error())
+			}
+			control := receiptsByBlock[number]
+			for j, controlReceipt := range control {
 				// TODO: eip 4844 (both the comment and the nested if below)
 				// if len(receipt) != len(receiptsByBlock[number][j]) {
 				// 	t.Fatalf("length error GetTransactionReceiptsByBlockNumber on number %v, receipt %v", number, j)
 				// }
-				for k, v := range receipt {
-					if k == "blobGasUsed" || k == "blobGasPrice" {
+				for key, controlValue := range controlReceipt { 
+					if key == "root" {
 						continue
-					} else {
-						data, err := json.Marshal(v)
+					}
+					testValue := test[j][key]
+					data, err := json.Marshal(testValue)
 						if err != nil {
 							t.Errorf(err.Error())
 						}
-						if !bytes.Equal(data, receiptsByBlock[number][j][k]) {
-							if k == "timestamp" && actual[j][k].(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
+						if !bytes.Equal(data, controlValue) {
+							if key == "timestamp" && testValue.(*hexutil.Big).String() == hexutil.EncodeUint64(timeStamps[i]) {
 								continue
 							} else {
-								t.Fatalf("getTransactionReceiptsByBlockNumber error block %v, index %v, key %v", number, j, k)
+								t.Fatalf("error on getTransactionReceiptsByBlockNumber, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 							}
 						}
-					}
 				}
 			}
 		})
@@ -254,23 +260,25 @@ func TestFlumeAPI(t *testing.T) {
 
 	blockhashesData, _ := getHashblocks(blockObject)
 	for txhash := range blockhashesData {
-		t.Run(fmt.Sprint("GetBlockByTransactionHash"), func(t *testing.T) {
-			actual, err := f.GetBlockByTransactionHash(context.Background(), txhash)
+		t.Run("GetBlockByTransactionHash", func(t *testing.T) {
+			test, err := f.GetBlockByTransactionHash(context.Background(), txhash)
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatalf("failed to get block, txhash %v: %v", txhash, err.Error())
 			}
-			for k, v := range *actual {
-				if k == "blockHash" {
-					if data, err := json.Marshal(v); err == nil {
-						if !bytes.Equal(data, blockhashesData[txhash][k]) {
-							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', block %v, key %v", blockhashesData[txhash], k)
+
+			control := blockhashesData[txhash]
+			for key, controlValue := range control {
+				if key == "blockHash" {
+					if data, err := json.Marshal(*test); err == nil {
+						if !bytes.Equal(data, controlValue) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockHash', \napi result: %v,\nexpected result: %v", string(data), controlValue)
 						}
 					}
 				}
-				if k == "blockNumber" {
-					if data, err := json.Marshal(v); err == nil {
-						if !bytes.Equal(data, blockhashesData[txhash][k]) {
-							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber', block %v, key %v", blockhashesData[txhash], k)
+				if key == "blockNumber" {
+					if data, err := json.Marshal(*test); err == nil {
+						if !bytes.Equal(data, controlValue) {
+							t.Fatalf("Error in getBlockByTransactionHash, mismatch on 'blockNumber',\napi result:%v,\nexpected result %v", string(data), controlValue)
 						}
 					}
 				}
@@ -278,165 +286,185 @@ func TestFlumeAPI(t *testing.T) {
 		})
 	}
 
-	senderTxns := getTransactionList(blockObject, senderAddr, "from")
 	sender := common.HexToAddress(senderAddr)
-	if len(senderTxns) != 47 {
-		t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(senderTxns))
-	}
-	t.Run(fmt.Sprintf("GetTransactionsBySender"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsBySender(mockContext, sender, nil)
-		if len(actual.Items) != len(senderTxns) {
+	t.Run(("GetTransactionsBySender"), func(t *testing.T) {
+		test, err := f.GetTransactionsBySender(mockContext, sender, nil); if err != nil{
+			t.Fatalf("failed to getTransactionsBySender, address%v, err:%v", sender, err.Error())
+		}
+		control := getTransactionList(blockObject, senderAddr, "from")
+		if len(control) != 47 {
+			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(control))
+		}
+		if len(test.Items) != len(control) {
 			t.Fatalf("length error getTransactionsBySender on address %v", sender)
 		}
-		for i, tx := range actual.Items {
-			for k, v := range tx {
-				data, err := json.Marshal(v)
+		for i, controlTx := range control{
+			for key, controlValue := range controlTx {
+			   testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, senderTxns[i][k]) {
-					if k == "timestamp" {
+				if !bytes.Equal(data, controlValue) {
+					if key == "timestamp" || key == "chainId" {
 						continue
 					} else {
-						t.Fatalf("getTransactionsBySender error index %v, key %v", i, k)
+						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		}
 	})
-	senderReceipts := getReceiptList(receiptObject, senderAddr, "from")
-	if len(senderReceipts) != 47 {
-		t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(senderReceipts))
-	}
-	t.Run(fmt.Sprintf("GetTransactionReceiptsBySender"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsBySender(mockContext, sender, nil)
-		if len(actual.Items) != len(senderReceipts) {
-			t.Fatalf("getTransactionReceiptsBySender result of incorrect length expected %v got %v", len(actual.Items), len(senderReceipts))
+
+	t.Run("GetTransactionReceiptsBySender", func(t *testing.T) {
+		test, err := f.GetTransactionReceiptsBySender(mockContext, sender, nil); if err!= nil{
+			t.Fatalf("failed to getTransactionReceiptsBySender, address%v, err:%v", sender, err.Error())
 		}
-		for i, tx := range actual.Items {
-			if len(tx) != len(senderReceipts[i]) {
-				t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
-			}
-			for k, v := range tx {
-				data, err := json.Marshal(v)
+		control := getReceiptList(receiptObject, senderAddr, "from")
+		if len(control) != 47 {
+			t.Fatalf("sender transactions list of incorrect length expected 47 got %v", len(control))
+		}
+		if len(test.Items) != len(control) {
+			t.Fatalf("length error getTransactionReceiptsBySender on address %v", sender)
+		}
+		for i, controlReceipt := range control {
+			// TODO: eip 4844 (both the comment and the nested if below)
+			// if len(tx) != len(senderReceipts[i]) {
+			// 	t.Fatalf("length error getTransactionReceiptsBySender on address %v, reciept %v", sender, i)
+			// }
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, senderReceipts[i][k]) {
-					if k == "timestamp" {
+				if !bytes.Equal(data, controlValue) {
+					if key == "timestamp" || key == "root" {
 						continue
 					} else {
-						t.Fatalf("getTransactionReceiptsBySender error index %v, key %v", i, k)
+						t.Fatalf("error on getTransactionsBySender, \n index %v, key %v; \n actual result: %v, \n expected result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		}
 	})
-	recipientTxns := getTransactionList(blockObject, recipientAddr, "to")
+	
 	recipient := common.HexToAddress(recipientAddr)
-	if len(recipientTxns) != 143 {
-		t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(recipientTxns))
-	}
-	t.Run(fmt.Sprintf("GetTransactionsByRecipient"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsByRecipient(mockContext, recipient, nil)
-		if len(actual.Items) != len(recipientTxns) {
-			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientTxns))
+	t.Run("GetTransactionsByRecipient", func(t *testing.T) {
+		test, err := f.GetTransactionsByRecipient(mockContext, recipient, nil); if err!=nil {
+			t.Fatalf("failed to getTransactionsByRecipient, address%v, err:%v", recipient, err.Error())
 		}
-		for i, tx := range actual.Items {
-			for k, v := range tx {
-				data, err := json.Marshal(v)
+		control := getTransactionList(blockObject, recipientAddr, "to")
+		if len(control) != 143 {
+			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(control))
+		}
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionsByRecipient result of incorrect length expected %v got %v", len(test.Items), len(control))
+		}
+		for i, controlTx := range control {
+			for key, controlValue := range controlTx{
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, recipientTxns[i][k]) {
-					if k == "timestamp" {
+				if !bytes.Equal(data, controlValue) {
+					if key == "timestamp" || key == "chainId" {
 						continue
 					} else {
-						t.Fatalf("getTransactionsByReceipiant error index %v, key %v", i, k)
+						t.Fatalf("error on getTransactionsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		}
 	})
-	recipientReceipts := getReceiptList(receiptObject, recipientAddr, "to")
-	if len(recipientReceipts) != 143 {
-		t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(recipientReceipts))
-	}
-	t.Run(fmt.Sprintf("GetTransactionsReceiptsByRecipient"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsByRecipient(mockContext, recipient, nil)
-		if len(actual.Items) != len(recipientReceipts) {
-			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(actual.Items), len(recipientReceipts))
+
+	t.Run("GetTransactionsReceiptsByRecipient", func(t *testing.T) {
+		test, err := f.GetTransactionReceiptsByRecipient(mockContext, recipient, nil); if err != nil{
+			t.Fatalf("failed to getTransactionsReceiptsByRecipient, address%v, err:%v", recipient, err.Error())
 		}
-		for i, tx := range actual.Items {
+		control := getReceiptList(receiptObject, recipientAddr, "to")
+		if len(control) != 143 {
+			t.Fatalf("recipient transactions list of incorrect length expected 143 got %v", len(control))
+		}
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionReceiptsByRecipient result of incorrect length expected %v got %v", len(test.Items), len(control))
+		}
+		for i, controlReceipt := range control {
 			// TODO: eip 4844 (both the comment and the nested if below)
 			// if len(tx) != len(recipientReceipts[i]) {
 			// 	t.Fatalf("length error getTransactionReceiptsByRecipient on address %v, reciept %v", recipient, i)
 			// }
-			for k, v := range tx {
-				if k == "blobGasUsed" || k == "blobGasPrice" {
-					continue
-				} else {
-					data, err := json.Marshal(v)
-					if err != nil {
-						t.Errorf(err.Error())
-					}
-					if !bytes.Equal(data, recipientReceipts[i][k]) {
-						if k == "timestamp" {
-							continue
-						} else {
-							t.Fatalf("getTransactionReceiptsByRecipient error index %v, key %v", i, k)
-						}
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
+				if err != nil {
+					t.Errorf(err.Error())
+				}
+				if !bytes.Equal(data, controlValue) {
+					if key == "timestamp" {
+						continue
+					} else {
+						t.Fatalf("error on getTransactionReceiptsByRecipient, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		}
 	})
-	participantTxns := getParticipantTransactionList(blockObject, genericAddr, "to", "from")
 	participant := common.HexToAddress(genericAddr)
-	t.Run(fmt.Sprintf("GetTransactionsByParicipant"), func(t *testing.T) {
-		actual, _ := f.GetTransactionsByParticipant(mockContext, participant, nil)
-		if len(actual.Items) != len(participantTxns) {
-			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantTxns))
+	t.Run("GetTransactionsByParticipant", func(t *testing.T) {
+		test, err := f.GetTransactionsByParticipant(mockContext, participant, nil); if err != nil{
+			t.Fatalf("failed to getTransactionsByParticipant, address%v, err:%v", participant, err.Error())
 		}
-		for i, tx := range actual.Items {
-			if len(tx) != len(participantTxns[i])+1 {
+		control := getParticipantTransactionList(blockObject, genericAddr, "to", "from");
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionsByParticipant result of incorrect length expected %v got %v", len(test.Items), len(control))
+		}
+		for i, controlTx := range control {
+			if len(controlTx) + 1 != len(test.Items[i]) {
 				t.Fatalf("length error getTransactionsByParticipant on address %v, tx %v", participant, i)
 			}
-			for k, v := range tx {
-				data, err := json.Marshal(v)
+			for key, controlValue := range controlTx {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, participantTxns[i][k]) {
-					if k == "timestamp" {
+				if !bytes.Equal(data,controlValue) {
+					if key == "timestamp" {
 						continue
 					} else {
-						t.Errorf("getTransactionsByParticipant error index %v, key %v, value %v != %v", i, k, string(participantTxns[i][k]), string(data))
+						t.Fatalf("error on getTransactionsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		}
 	})
-	participantReceipts := getParticipantReceiptList(receiptObject, genericAddr, "to", "from")
-	t.Run(fmt.Sprintf("GetTransactionsReceiptsByParticipant"), func(t *testing.T) {
-		actual, _ := f.GetTransactionReceiptsByParticipant(mockContext, participant, nil)
-		if len(actual.Items) != len(participantReceipts) {
-			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(actual.Items), len(participantReceipts))
+
+	t.Run("GetTransactionsReceiptsByParticipant", func(t *testing.T) {
+		test, err := f.GetTransactionReceiptsByParticipant(mockContext, participant, nil); if err!=nil{
+			t.Fatalf("failed to getTransactionsReceiptsByParticipant, address%v, err:%v", participant, err.Error())
 		}
-		for i, tx := range actual.Items {
-			if len(tx) != len(participantReceipts[i]) {
-				t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
-			}
-			for k, v := range tx {
-				data, err := json.Marshal(v)
+		control := getParticipantReceiptList(receiptObject, genericAddr, "to", "from")
+		if len(test.Items) != len(control) {
+			t.Fatalf("getTransactionReceiptsByParticipant result of incorrect length expected %v got %v", len(test.Items), len(control))
+		}
+		for i, controlReceipt := range control {
+			// TODO: eip 4844 (both the comment and the nested if below)
+			// if len(tx) != len(participantReceipts[i]) {
+			// 	t.Fatalf("length error getTransactionReceiptsByParticipant on address %v, reciept %v", participant, i)
+			// }
+			for key, controlValue := range controlReceipt {
+				testValue := test.Items[i][key]
+				data, err := json.Marshal(testValue)
 				if err != nil {
 					t.Errorf(err.Error())
 				}
-				if !bytes.Equal(data, participantReceipts[i][k]) {
-					if k == "timestamp" {
+				if !bytes.Equal(data, controlValue) {
+					if key == "timestamp" {
 						continue
 					} else {
-						t.Fatalf("getTransactionReceiptsByParticipant error index %v, key %v", i, k)
+						t.Fatalf("error on getTransactionReceiptsByParticipant, \n index %v, key %v; \n actual result: %v, \n expected result: %v, \n ", i, key, string(data), string(controlValue))
 					}
 				}
 			}

@@ -20,7 +20,7 @@ import (
 )
 
 // TODO: eip 4844 -> some changes were necessary both in this file and and the flumeAPI test file to accommodate api changes to support EIP 4844
-// at some point we need to go in and investigate the discrepencies and address them.  
+// at some point we need to go in and investigate the discrepencies and address them.
 
 func getTransactionsForTesting(blockObject []map[string]json.RawMessage) []map[string]json.RawMessage {
 	result := []map[string]json.RawMessage{}
@@ -107,91 +107,111 @@ func TestTransactionAPI(t *testing.T) {
 	txHashes := getTransactionHashes(blockObject)
 
 	for i, hash := range txHashes {
+		control := transactions[i]
 		t.Run(fmt.Sprintf("GetTransactionByHash %v", i), func(t *testing.T) {
-			actual, err := tx.GetTransactionByHash(context.Background(), hash)
+			test, err := tx.GetTransactionByHash(context.Background(), hash)
 			if err != nil {
 				t.Fatal(err.Error())
 			}
-			for k, v := range *actual {
-				if k == "accessList" {
-					var indexable map[string]interface{}
-					indexable = *actual
-					accessListRoutine(t, indexable["accessList"], transactions[i][k], "GetTransactionByHash", hash, indexable["transactionIndex"])
+			testTx := *test
+			for key, controlValue := range control {
+				if key == "chainId" {
 					continue
 				}
-				data, err := json.Marshal(v)
-				if err != nil {
-					t.Errorf("marshalling error gtbh on key: %v", k)
+				if key == "accessList" {
+					accessListRoutine(t, testTx["accessList"], controlValue, "GetTransactionByHash", hash, testTx["transactionIndex"])
+					continue
 				}
-				if !bytes.Equal(data, transactions[i][k]) {
-					t.Fatalf("error on transaction %v, key %v", hash, k)
+				data, err := json.Marshal(testTx[key])
+				if err != nil {
+					t.Fatalf("failed to marshal test transactions %v on block:%v, err:%v", key, i, err)
+				}
+				if !bytes.Equal(data, controlValue) {
+					t.Fatalf("error on getTransactionByHash, \nindex %v, key %v; \n test result: %v, \n control result: %v", i, key, string(data), string(controlValue))
 				}
 			}
 		})
 		t.Run(fmt.Sprintf("GetTransactionReceipt%v", i), func(t *testing.T) {
-			actual, _ := tx.GetTransactionReceipt(context.Background(), hash)
+			controlReceipt := receiptsMap[i]
+			test, _ := tx.GetTransactionReceipt(context.Background(), hash)
 			// TODO: eip 4844 (both the comment and the nested if below)
-			// if len(*actual)+1 != len(receiptsMap[i]) {
+			// if len(*test)+1 != len(receiptsMap[i]) {
 			// 	t.Fatalf("length error GetTransactionReceipt on hash %v", hash)
 			// }
-			for k, v := range *actual {
-				if k == "blobGasPrice" || k == "blobGasUsed" {
+
+			testReceipt := *test
+			for key, controlValue := range controlReceipt {
+				if key == "root" {
 					continue
 				} else {
-					data, err := json.Marshal(v)
+					testValue := testReceipt[key]
+					data, err := json.Marshal(testValue)
 					if err != nil {
-						t.Errorf(err.Error())
+						t.Fatalf("failed to marshal test receipts %v on block:%v, err:%v", key, i, err)
 					}
-					if !bytes.Equal(data, receiptsMap[i][k]) {
-						t.Fatalf("error on getTransactionReceipt, \n index %v, key %v; \n api_result: %v, \n testdata: %v, \n ", i, k, v, string(receiptsMap[i][k]))
+					if !bytes.Equal(data, controlValue) {
+						t.Fatalf("error on getTransactionReceipt, \n index %v, key %v; \n test result: %v, \n control result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		})
 	}
 	for i, block := range blockObject {
+		controlList := transactionLists[i]
 		t.Run(fmt.Sprintf("GetTransactionByBlockHashAndIndex %v", i), func(t *testing.T) {
-			var h types.Hash
-			json.Unmarshal(block["hash"], &h)
-			for j := range transactionLists[i] {
-				actual, _ := tx.GetTransactionByBlockHashAndIndex(context.Background(), h, hexutil.Uint64(j))
-				for k, v := range *actual {
-					if k == "accessList" {
-						var indexable map[string]interface{}
-						indexable = *actual
-						accessListRoutine(t, indexable["accessList"], transactionLists[i][j][k], "GetTransactionByBlockHashAndIndex", h, hexutil.Uint64(j))
+			var blockHash types.Hash
+			if err := json.Unmarshal(block["hash"], &blockHash); err != nil {
+				t.Fatalf("failed to unmarshal block hash: %v", err)
+			}
+
+			for j, control := range controlList {
+				test, err := tx.GetTransactionByBlockHashAndIndex(context.Background(), blockHash, hexutil.Uint64(j))
+				if err != nil {
+					t.Fatalf("failed to getTransactionByBlockHashAndIndex at block %v index %v: %v", i, j, err)
+				}
+				testTx := *test
+				for key, controlValue := range control {
+					if key == "chainId" {
 						continue
 					}
-					data, err := json.Marshal(v)
-					if err != nil {
-						t.Errorf(err.Error())
+					if key == "accessList" {
+						accessListRoutine(t, testTx["accessList"], controlValue, "GetTransactionByBlockHashAndIndex", blockHash, hexutil.Uint64(j))
+						continue
 					}
-					if !bytes.Equal(data, transactionLists[i][j][k]) {
-						t.Fatalf("error on blockHash %v, transaction %v, key %v", h, j, k)
+					data, err := json.Marshal(testTx[key])
+					if err != nil {
+						t.Fatalf("failed to marshal test transactions %v on block:%v, err:%v", key, i, err)
+					}
+					if !bytes.Equal(data, controlValue) {
+						t.Fatalf("error on getTransactionByBlockHashAndIndex, \n index %v, key %v; \n test result: %v, \n control result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
 		})
 		t.Run(fmt.Sprintf("GetTransactionByBlockNumberAndIndex %v", i), func(t *testing.T) {
-			var n rpc.BlockNumber
-			json.Unmarshal(block["number"], &n)
-			for j := range transactionLists[i] {
-				actual, _ := tx.GetTransactionByBlockNumberAndIndex(context.Background(), n, hexutil.Uint64(j))
-				for k, v := range *actual {
-					if k == "accessList" {
-						var indexable map[string]interface{}
-						indexable = *actual
-						accessListRoutine(t, indexable["accessList"], transactionLists[i][j][k], "GetTransactionByBlockNumberAndIndex", n, hexutil.Uint64(j))
+			controlList := transactionLists[i]
+			var blockNo rpc.BlockNumber
+			json.Unmarshal(block["number"], &blockNo)
+			for j, control := range controlList {
+				test, err := tx.GetTransactionByBlockNumberAndIndex(context.Background(), blockNo, hexutil.Uint64(j))
+				if err != nil {
+					t.Fatalf("failed to getTransactionByBlockNumberAndIndex at block %v index %v: %v", i, j, err)
+				}
+				testTx := *test
+				for key, controlValue := range control {
+					if key == "chainId" {
 						continue
 					}
-					data, err := json.Marshal(v)
-					if err != nil {
-						t.Errorf(err.Error())
+					if key == "accessList" {
+						accessListRoutine(t, testTx["accessList"], controlValue, "GetTransactionByBlockNumberAndIndex", blockNo, hexutil.Uint64(j))
+						continue
 					}
-					if !bytes.Equal(data, transactionLists[i][j][k]) {
-						var x interface{}
-						json.Unmarshal(transactionLists[i][j][k], &x)
-						t.Fatalf("value error on block %v, transaction %v, key %v", i, j, k)
+					data, err := json.Marshal(testTx[key])
+					if err != nil {
+						t.Fatalf("failed to marshal test transactions %v on block:%v, err:%v", key, i, err)
+					}
+					if !bytes.Equal(data, controlValue) {
+						t.Fatalf("error on getTransactionByBlockNumberAndIndex, \n index %v, key %v; \n test result: %v, \n control result: %v", i, key, string(data), string(controlValue))
 					}
 				}
 			}
@@ -210,9 +230,9 @@ func TestTransactionAPI(t *testing.T) {
 
 	for sender, nonce := range nonces {
 		t.Run(fmt.Sprintf("GetTransactionCount"), func(t *testing.T) {
-			actual, _ := tx.GetTransactionCount(context.Background(), sender, rpc.LatestBlockNumber)
-			if *actual != nonce {
-				t.Fatalf("GetTransactionCountError %v %v", actual, nonce)
+			test, _ := tx.GetTransactionCount(context.Background(), sender, rpc.LatestBlockNumber)
+			if *test != nonce {
+				t.Fatalf("GetTransactionCountError %v %v", test, nonce)
 			}
 		})
 	}
