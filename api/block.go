@@ -261,16 +261,19 @@ func (api *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHa
 	if err != nil {
 		return nil, err
 	}
-	var blockVal map[string]interface{}
-	if len(block) > 0 {
+	if len(block) == 0 {
+		return &count, nil
+	} else {
+		var blockVal map[string]interface{}
 		blockVal = block[0]
+		blockNumber := int64(blockVal["number"].(hexutil.Uint64))
+		
+		count, err = txCount(ctx, api.db, "block = ?", rpc.BlockNumber(blockNumber))
+		if err != nil {
+			return nil, err
+		}
 	}
-	blockNumber := int64(blockVal["number"].(hexutil.Uint64))
 
-	count, err = txCount(ctx, api.db, "block = ?", rpc.BlockNumber(blockNumber))
-	if err != nil {
-		return nil, err
-	}
 	return &count, nil
 }
 
