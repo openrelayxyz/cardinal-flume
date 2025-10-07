@@ -289,6 +289,10 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		log.Info("Applying blocks v10 migration")
 		switch chainid {
 		case 11155111:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, 1760427360, 7918)); err != nil {
+				log.Error("migrations sepolia INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
 			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1760427359 where startTime = 1740434112;"); err != nil {
 				log.Error("migrations sepolia UPDATE blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
@@ -306,6 +310,10 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				return nil
 			}
 		case 560048:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, 1761677592, 7918)); err != nil {
+				log.Error("migrations hoodi INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
 			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1761677591 where startTime = 1742999833;"); err != nil {
 				log.Error("migrations hoodi UPDATE blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
