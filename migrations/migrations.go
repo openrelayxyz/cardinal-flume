@@ -289,7 +289,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		log.Info("Applying blocks v10 migration")
 		switch chainid {
 		case 11155111:
-			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1760427359 where startTime = 1740434112;"); err != nil {
+			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1760427359 where startTime = 1741159776;"); err != nil {
 				log.Error("migrations sepolia UPDATE blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
