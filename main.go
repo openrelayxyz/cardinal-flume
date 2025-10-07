@@ -276,6 +276,7 @@ func main() {
 		tm.Register("flume", api.NewFlumeTokensAPI(logsdb, cfg.Chainid, pl, cfg))
 	}
 	if hasTx && hasBlocks {
+		tm.Register("cardinal", api.NewCardinalAPI(logsdb, cfg.Chainid, cfg))
 		tm.Register("eth", api.NewBlockAPI(logsdb, cfg.Chainid, pl, cfg))
 		tm.Register("eth", api.NewGasAPI(logsdb, cfg.Chainid, pl, cfg, hasMempool))
 	}
