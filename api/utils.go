@@ -343,7 +343,6 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
 			item["yParity"] = uintToHexBig(v)			
-			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
 				if err = rlp.DecodeBytes(authListRLP, authList); err != nil {
