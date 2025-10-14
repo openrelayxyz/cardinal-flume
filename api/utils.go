@@ -854,6 +854,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	if err != nil {
 		return nil, err
 	}
+	log.Error("utils rows", "len", len(rows))
 	defer rows.Close()
 	results := sortTxMap{}
 	for rows.Next() {
@@ -951,6 +952,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 		return nil, err
 	}
 	sort.Sort(results)
+	log.Error("utils return", "len", len(results))
 	return results, nil
 }
 
