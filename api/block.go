@@ -447,6 +447,7 @@ func (api *BlockAPI) GetBlockReceipts(ctx context.Context, input BlockNumberOrHa
 			return nil, nil
 		}
 
+		log.Error("after utils", "len", len(receipts))
 		for _, item := range receipts {
 			for k, _ := range item {
 				if k =="timestamp" {
