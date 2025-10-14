@@ -1,0 +1,61 @@
+    "blobSchedule": {
+      "cancun": {
+        "time": 0,
+        "target": 3,
+        "max": 6,
+        "baseFeeUpdateFraction": 3338477
+      },
+      "prague": {
+        "time": 0,
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      },
+      "osaka": {
+        "time": 1757611104,
+        "target": 6,
+        "max": 9,
+        "baseFeeUpdateFraction": 5007716
+      },
+      "bpo1": {
+        "time": 1757709408,
+        "target": 10,
+        "max": 15,
+        "baseFeeUpdateFraction": 8346193
+      },
+      "bpo2": {
+        "time": 1757807712,
+        "target": 14,
+        "max": 21,
+        "baseFeeUpdateFraction": 11684671
+      },
+      "bpo3": {
+        "time": 1757906016,
+        "target": 22,
+        "max": 33,
+        "baseFeeUpdateFraction": 18361626
+      },
+      "bpo4": {
+        "time": 1758004320,
+        "target": 32,
+        "max": 48,
+        "baseFeeUpdateFraction": 26707819
+      },
+      "bpo5": {
+        "time": 1758102624,
+        "target": 48,
+        "max": 72,
+        "baseFeeUpdateFraction": 40061729
+      }
+    },
+  {
+    "cancunTime": 0,
+    "pragueTime": 0,
+    "osakaTime": 1757611104,
+    "bpo1Time": 1757709408,
+    "bpo2Time": 1757807712,
+    "bpo3Time": 1757906016,
+    "bpo4Time": 1758004320,
+    "bpo5Time": 1758102624
+  },
+

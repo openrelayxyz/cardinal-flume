@@ -143,7 +143,7 @@ func TestTransactionAPI(t *testing.T) {
 						t.Errorf(err.Error())
 					}
 					if !bytes.Equal(data, receiptsMap[i][k]) {
-						t.Fatalf("error on getTransactionReceipt, \n index %v, key %v; \n api_result: %v, \n testdata: %v, \n ", i, k, v, string(receiptsMap[i][k]))
+						t.Fatalf("error on getTransactionReceipt, \n index %v, key %v; \n api_result: %v, \n testdata: %v, \n ", i, k, string(data), string(receiptsMap[i][k]))
 					}
 				}
 			}

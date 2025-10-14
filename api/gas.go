@@ -195,7 +195,6 @@ func (api *GasAPI) ascendingCheck(rewardPercentiles []float64) error {
 }
 
 func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, terminalBlock rpc.BlockNumber, rewardPercentiles []float64) (res *feeHistoryResult, err error) {
-	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time.
 	defer eh.HandleErr(&err)
 	
 	if blockCount > 128 {
@@ -254,7 +253,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.time, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),
@@ -273,10 +272,10 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 	var lastGasUsed, lastGasLimit int64
 	for i := 0; rows.Next(); i++ {
 		var baseFeeBytes []byte
-		var number uint64
+		var number, time uint64
 		var gasUsed, gasLimit sql.NullInt64
 		var excessBlobGas, blobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
-		eh.Check(rows.Scan(&baseFeeBytes, &number, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleTarget, &blobScheduleMax, &blobScheduleUpdateFraction))
+		eh.Check(rows.Scan(&baseFeeBytes, &number, &time, &gasUsed, &gasLimit, &excessBlobGas, &blobGasUsed, &blobScheduleTarget, &blobScheduleMax, &blobScheduleUpdateFraction))
 		baseFee := new(big.Int).SetBytes(baseFeeBytes)
 		lastBaseFee = baseFee
 		result.BaseFee[i] = (*hexutil.Big)(baseFee)
@@ -284,13 +283,14 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		lastGasUsed = gasUsed.Int64
 		lastGasLimit = gasLimit.Int64
 		if blobGasUsed.Valid {
-			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			result.BaseFeePerBlobGas[i] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excessBlobGas.Actual)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			if i == len(result.BaseFeePerBlobGas) -2 {
-				excess := CalcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual) 
-				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+				excess := calcExcessBlobGas(excessBlobGas.Actual, blobGasUsed.Actual, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), baseFee, isEIP(api.db, time + 12, number + 1, "7918")) 
+				// the excess is being calculated on the current block but being used in the next block, which is why we augment the time and blocknumber arguments
+				result.BaseFeePerBlobGas[i + 1] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 			}
 
-			maxBlobGas := float64(uint64(blobScheduleMax.Actual) * uint64(BlobTxBlobGasPerBlob)) // maxBlobsPerBlock * (Gas consumption of a single data blob (== blob byte size))
+			maxBlobGas := float64(uint64(blobScheduleMax.Actual) * uint64(blobTxBlobGasPerBlob)) // maxBlobsPerBlock * (Gas consumption of a single data blob (== blob byte size))
 			result.BlobGasUsedRatio[i] = float64(uint64(blobGasUsed.Actual)) / maxBlobGas
 		}
 		

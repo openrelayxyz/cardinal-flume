@@ -227,6 +227,14 @@ func countLeadingZeros(byteSlice []byte) (int, error) {
 	}
 	return 0, zeroInputError
 }
+
+func isEIP(db *sql.DB, time, blockNumber uint64, eip string) bool {
+	var response int
+	statement := "SELECT 1 FROM blocks.features WHERE eip = ? AND ((startTime IS NOT NULL AND startTime <= ?) OR (startBlock IS NOT NULL AND startBlock <= ?));"
+	db.QueryRow(statement, eip, time, blockNumber).Scan(&response)
+	return response > 0
+}
+
 func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, chainid uint64, query string, params ...interface{}) ([]map[string]interface{}, error) {
 	rows, err := db.QueryContext(ctx, query, append(params, limit, offset)...)
 	if err != nil {
@@ -335,7 +343,6 @@ func getTransactionsQuery(ctx context.Context, db *sql.DB, offset, limit int, ch
 			item["maxPriorityFeePerGas"] = bytesToHexBig(gasTipCapBytes)
 			item["maxFeePerGas"] = bytesToHexBig(gasFeeCapBytes)
 			item["yParity"] = uintToHexBig(v)			
-			item["maxFeePerBlobGas"] = bytesToHexBig(blobGasFeeBytes)
 			if len(authListRLP) > 0 {
 				authList := &[]evm.Authorization{}
 				if err = rlp.DecodeBytes(authListRLP, authList); err != nil {
@@ -764,14 +771,14 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 	statement := "SELECT 1 FROM transactions.transactions WHERE id > 0 LIMIT 1;"
 	db.QueryRow(statement).Scan(&postBlast)
 	if postBlast == 0 {
-		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
+		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, prev_blocks.baseFee AS prev_baseFee, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
 		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
 		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.block, transactions.transactionIndex LIMIT ? OFFSET ?;`, whereClause)
 	} else {
-		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
+		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, prev_blocks.baseFee AS prev_baseFee, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
 		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
@@ -780,9 +787,10 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 	}
 	
 	logsQuery := fmt.Sprintf(`
-		SELECT event_logs.transactionHash, event_logs.block, event_logs.address, event_logs.topic0, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.data, event_logs.logIndex
+		SELECT event_logs.transactionHash, event_logs.block, event_logs.address, event_logs.topic0, event_logs.topic1, event_logs.topic2, event_logs.topic3, event_logs.data, event_logs.logIndex, blocks.time
 		FROM event_logs
-		WHERE (transactionHash, block) IN (
+		INNER JOIN blocks.blocks ON event_logs.block = blocks.number
+		WHERE (event_logs.transactionHash, event_logs.block) IN (
 			SELECT transactions.hash, block
 			FROM transactions.transactions INNER JOIN blocks.blocks ON transactions.block = blocks.number
 			WHERE %v LIMIT ? OFFSET ?
@@ -801,8 +809,8 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	for logRows.Next() {
 		var txHashBytes, address, topic0, topic1, topic2, topic3, data []byte
 		var logIndex uint
-		var blockNumber uint64
-		err := logRows.Scan(&txHashBytes, &blockNumber, &address, &topic0, &topic1, &topic2, &topic3, &data, &logIndex)
+		var blockNumber, time uint64
+		err := logRows.Scan(&txHashBytes, &blockNumber, &address, &topic0, &topic1, &topic2, &topic3, &data, &logIndex, &time)
 		if err != nil {
 			logRows.Close()
 			return nil, err
@@ -834,6 +842,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			Data:        input,
 			BlockNumber: hexutil.EncodeUint64(blockNumber),
 			TxHash:      txHash,
+			BlockTimestamp: hexutil.EncodeUint64(time),
 			Index:       hexutil.Uint(logIndex),
 		})
 	}
@@ -848,7 +857,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 	defer rows.Close()
 	results := sortTxMap{}
 	for rows.Next() {
-		var to, from, blockHash, txHash, contractAddress, bloomBytes, bVHashesRLP []byte
+		var to, from, blockHash, txHash, contractAddress, bloomBytes, bVHashesRLP, prevBaseFee []byte
 		var blockNumber, txIndex, time, gasUsed, cumulativeGasUsed, status, gasPrice uint64
 		var prevExcessBlobGas, prevBlobGasUsed, blobScheduleTarget, blobScheduleMax, blobScheduleUpdateFraction nullable[int64]
 		var txTypeRaw sql.NullInt32
@@ -857,6 +866,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			&time,
 			&prevBlobGasUsed,
 			&prevExcessBlobGas,
+			&prevBaseFee,
 			&blockNumber,
 			&gasUsed,
 			&cumulativeGasUsed,
@@ -920,7 +930,7 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 					log.Error("Error rlp decoding blockVersionedHashes, getTransactionsQuery", "err", err)
 				}
 
-				fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(BlobTxBlobGasPerBlob * len(*bVHashes)))
+				fields["blobGasUsed"] = hexutil.EncodeUint64(uint64(blobTxBlobGasPerBlob * len(*bVHashes)))
 			}
 			var pebg, pbgu int64
 			if prevExcessBlobGas.Valid {
@@ -929,8 +939,11 @@ func getTransactionReceiptsQuery(ctx context.Context, db *sql.DB, offset, limit 
 			if prevBlobGasUsed.Valid {
 				pbgu = prevBlobGasUsed.Actual
 			}
-			excess := CalcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual)
-			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(BlobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
+			if blobScheduleUpdateFraction.Actual == 0 {
+				log.Error("The update fraction is zero")
+			}
+			excess := calcExcessBlobGas(pebg, pbgu, blobScheduleTarget.Actual, blobScheduleMax.Actual, big.NewInt(int64(blobScheduleUpdateFraction.Actual)), new(big.Int).SetBytes(prevBaseFee), isEIP(db, time, blockNumber, "7918"))
+			fields["blobGasPrice"] = fakeExponential(big.NewInt(int64(blobTxMinBlobGasprice)), big.NewInt(int64(excess)),  big.NewInt(int64(blobScheduleUpdateFraction.Actual)))
 		}
 		results = append(results, fields)
 	}
@@ -991,21 +1004,48 @@ func getBaseFeeDenominator(db *sql.DB, blockNumber int64) *big.Int {
 // eip4844 helper functions
 
 var (
-	BlobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
-	BlobTxMinBlobGasprice  = 1       // Minimum gas price for data blobs
+	blobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
+	blobTxMinBlobGasprice  = 1 // Minimum gas price for data blobs
+	blobBaseCost = big.NewInt(1 << 13) // Base execution gas cost for a blob.
+	minBlobGasPrice = big.NewInt(int64(blobTxMinBlobGasprice))
 )
 
-func CalcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, targetBlobsPerBlock int64) uint64 {
+func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, updateFraction, parentBaseFee *big.Int, osakaActive bool) uint64 {
 
 	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
-	targetGas := uint64(targetBlobsPerBlock) * uint64(BlobTxBlobGasPerBlob)
+	targetGas := uint64(target) * uint64(blobTxBlobGasPerBlob)
 	if excessBlobGas < targetGas {
 		return 0
 	}
+	
+	if osakaActive {
+		
+		reservePrice := blobBaseCost.Mul(blobBaseCost, parentBaseFee)
+		blobPrice    := blobPrice(parentExcessBlobGas, updateFraction)
+		
+		if reservePrice.Cmp(blobPrice) > 0 {
+			scaledExcess := parentBlobGasUsed * (max-target) / max
+			return uint64(parentExcessBlobGas + scaledExcess)
+		}
+	}
+
 	return excessBlobGas - targetGas
 }
 
+func blobPrice(excessBlobGas int64, updateFraction *big.Int) *big.Int {
+	f := blobBaseFee(uint64(excessBlobGas), updateFraction)
+	return new(big.Int).Mul(f, big.NewInt(int64(blobTxBlobGasPerBlob)))
+}
+
+func blobBaseFee(excessBlobGas uint64, updateFraction *big.Int) *big.Int {
+	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(excessBlobGas), new(big.Int).SetUint64(updateFraction.Uint64())).ToInt()
+}
+
+
 func fakeExponential(factor, numerator, denominator *big.Int) *hexutil.Big {
+	if denominator == nil {
+		log.Error("the denominator in fake exponential is nil")
+	}
 	var (
 		output = new(big.Int)
 		accum  = new(big.Int).Mul(factor, denominator)
