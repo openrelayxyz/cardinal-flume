@@ -1019,6 +1019,8 @@ func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64
 	}
 	
 	if osakaActive {
+
+		log.Error("inside of osaka condition calcexcessblobgas")
 		
 		reservePrice := blobBaseCost.Mul(blobBaseCost, parentBaseFee)
 		blobPrice    := blobPrice(parentExcessBlobGas, updateFraction)
