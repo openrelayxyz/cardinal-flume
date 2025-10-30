@@ -1024,7 +1024,7 @@ func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64
 
 		log.Error("inside of osaka condition calcexcessblobgas")
 		
-		reservePrice := blobBaseCost.Mul(blobBaseCost, parentBaseFee)
+		reservePrice := new(big.Int).Mul(blobBaseCost, parentBaseFee)
 		blobPrice    := blobPrice(parentExcessBlobGas, updateFraction)
 		
 		if reservePrice.Cmp(blobPrice) > 0 {
