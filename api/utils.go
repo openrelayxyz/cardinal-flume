@@ -1012,6 +1012,8 @@ var (
 
 func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, updateFraction, parentBaseFee *big.Int, osakaActive bool) uint64 {
 
+	log.Error("args to calcExcessBlobGas", "parentExcessBlobGas", parentExcessBlobGas, "parentBlobGasUsed", parentBlobGasUsed, "target", target, "max", max, "updateFrac", updateFraction, "parentBaseFee", parentBaseFee, "isOsaka", osakaActive)
+
 	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
 	targetGas := uint64(target) * uint64(blobTxBlobGasPerBlob)
 	if excessBlobGas < targetGas {
