@@ -75,7 +75,6 @@ func (api *GasAPI) gasTip(ctx context.Context) (*big.Int, error) {
 }
 
 func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
-	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time. 
 	
 	var blockNumber int64
 	var baseFeeBytes []byte
