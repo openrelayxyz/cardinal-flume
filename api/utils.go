@@ -1006,12 +1006,12 @@ func getBaseFeeDenominator(db *sql.DB, blockNumber int64) *big.Int {
 var (
 	blobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
 	blobTxMinBlobGasprice  = 1 // Minimum gas price for data blobs
-	blobBaseCost = big.NewInt(1 << 13) // Base execution gas cost for a blob.
-	minBlobGasPrice = big.NewInt(int64(blobTxMinBlobGasprice))
 )
 
 func calcExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed, target, max int64, updateFraction, parentBaseFee *big.Int, osakaActive bool) uint64 {
-
+	
+	blobBaseCost := big.NewInt(1 << 13) // Base execution gas cost for a blob.
+	
 	log.Error("args to calcExcessBlobGas", "parentExcessBlobGas", parentExcessBlobGas, "parentBlobGasUsed", parentBlobGasUsed, "target", target, "max", max, "updateFrac", updateFraction, "parentBaseFee", parentBaseFee, "isOsaka", osakaActive)
 
 	excessBlobGas := uint64(parentExcessBlobGas + parentBlobGasUsed)
@@ -1042,6 +1042,7 @@ func blobPrice(excessBlobGas int64, updateFraction *big.Int) *big.Int {
 }
 
 func blobBaseFee(excessBlobGas uint64, updateFraction *big.Int) *big.Int {
+	minBlobGasPrice := big.NewInt(int64(blobTxMinBlobGasprice))
 	return fakeExponential(minBlobGasPrice, new(big.Int).SetUint64(excessBlobGas), new(big.Int).SetUint64(updateFraction.Uint64())).ToInt()
 }
 
