@@ -1003,7 +1003,7 @@ func getBaseFeeDenominator(db *sql.DB, blockNumber int64) *big.Int {
 
 // eip4844 helper functions
 
-var (
+const (
 	blobTxBlobGasPerBlob = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
 	blobTxMinBlobGasprice  = 1 // Minimum gas price for data blobs
 )
