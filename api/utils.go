@@ -775,14 +775,14 @@ func getTransactionReceipts(ctx context.Context, db *sql.DB, offset, limit int, 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
 		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
-		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
+		LEFT JOIN blocks.blobSchedule ON blocks.time >= blobSchedule.startTime AND blocks.time < blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.block, transactions.transactionIndex LIMIT ? OFFSET ?;`, whereClause)
 	} else {
 		query = fmt.Sprintf(`SELECT blocks.hash, blocks.time, prev_blocks.blobGasUsed AS prev_blobGasUsed, prev_blocks.excessBlobGas AS prev_excessBlobGas, prev_blocks.baseFee AS prev_baseFee, transactions.block, transactions.gasUsed, transactions.cumulativeGasUsed, transactions.hash, transactions.recipient, transactions.transactionIndex, transactions.sender, transactions.contractAddress, transactions.logsBloom, transactions.status, transactions.type, transactions.gasPrice, transactions.blobVersionedHashes, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac 
 		FROM transactions.transactions 
 		INNER JOIN blocks.blocks ON blocks.number = transactions.block 
 		LEFT JOIN blocks.blocks AS prev_blocks ON prev_blocks.number = blocks.number - 1
-		LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime 
+		LEFT JOIN blocks.blobSchedule ON blocks.time >= blobSchedule.startTime AND blocks.time < blobSchedule.endTime 
 		WHERE %v ORDER BY transactions.rowid LIMIT ? OFFSET ?;`, whereClause)
 	}
 	
