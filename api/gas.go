@@ -75,7 +75,6 @@ func (api *GasAPI) gasTip(ctx context.Context) (*big.Int, error) {
 }
 
 func (api *GasAPI) nextBaseFee(ctx context.Context) (*big.Int, error) {
-	// The below value will change after the Mumbai hardfork on Polygon but no other networks at this time. 
 	
 	var blockNumber int64
 	var baseFeeBytes []byte
@@ -253,7 +252,7 @@ func (api *GasAPI) FeeHistory(ctx context.Context, blockCount DecimalOrHex, term
 		gfhHitMeter.Mark(1)
 	}
 
-	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.time, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule ON blocks.time BETWEEN blobSchedule.startTime AND blobSchedule.endTime WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
+	rows := eh.CheckAndAssign(api.db.QueryContext(ctx, "SELECT blocks.baseFee, blocks.number, blocks.time, blocks.gasUsed, blocks.gasLimit, blocks.excessBlobGas, blocks.blobGasUsed, blobSchedule.target, blobSchedule.max, blobSchedule.updateFrac FROM blocks.blocks LEFT JOIN blocks.blobSchedule ON blocks.time >= blobSchedule.startTime AND blocks.time < blobSchedule.endTime WHERE number > ? LIMIT ?;", int64(lastBlock)-int64(blockCount), blockCount))
 	
 	result := &feeHistoryResult{
 		OldestBlock:  (*hexutil.Big)(new(big.Int).SetInt64(int64(lastBlock) - int64(blockCount) + 1)),

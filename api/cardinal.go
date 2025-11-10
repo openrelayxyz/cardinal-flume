@@ -38,13 +38,13 @@ func (api *CardinalAPI) ForkReady(ctx context.Context, forkname string) int {
 				statement := "SELECT count(*) FROM blocks.blobSchedule WHERE updateFrac = ?;"
 				api.db.QueryRow(statement, 5007716).Scan(&count)
 				// this updateFrac value was introduced with prague, if migration is >= 10 but this value is not present in the database then the application is not configured to support the hardfork on this network
-				if count > 0 {
+				if count > 1 {
 					var initialized int
-					initStatement := fmt.Sprint(`SELECT 1 FROM blocks.blobSchedule t1 JOIN blocks.blocks t2 ON t1.startTime > t2.time
-					AND t1.startTime = (SELECT startTime FROM blocks.blobSchedule ORDER BY endTime DESC LIMIT 1)
+					initStatement := fmt.Sprint(`SELECT 1 FROM blocks.blobSchedule AS t1 JOIN blocks.blocks AS t2 ON t1.startTime >= t2.time
+					WHERE t1.startTime = (SELECT startTime FROM blocks.blobSchedule WHERE updateFrac = ? ORDER BY endTime DESC LIMIT 1)
 					AND t2.number = ?
 					LIMIT 1;`)
-					if err := api.db.QueryRow(initStatement, api.cfg.LatestBlock).Scan(&initialized); err != nil {
+					if err := api.db.QueryRow(initStatement, 5007716, api.cfg.LatestBlock).Scan(&initialized); err != nil {
 						log.Error("error returned from initialized statement, cardinal forkReady", "err", err)
 						return result
 					}

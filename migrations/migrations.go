@@ -184,7 +184,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		}
 		switch chainid {
 		case 1:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1710338135,  1746612310, 3, 6, 3338477)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1710338135,  1746612311, 3, 6, 3338477)); err != nil {
 				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule cancun error", "err", err.Error())
 				return nil
 			}
@@ -193,7 +193,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				return nil
 			}
 		case 11155111:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1706655072, 1741159775, 3, 6, 3338477)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1706655072, 1741159776, 3, 6, 3338477)); err != nil {
 				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule cancun error", "err", err.Error())
 				return nil
 			}
@@ -202,7 +202,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				return nil
 			}
 		case 17000:
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1707305664, 1740434111, 3, 6, 3338477)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1707305664, 1740434112, 3, 6, 3338477)); err != nil {
 				log.Error("migrations holesky INSERT INTO blocks.blobSchedule cancun error", "err", err.Error())
 				return nil
 			}
@@ -215,7 +215,7 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule cancun error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1742999833, maxInt, 6, 9, 5007716)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1742999832, maxInt, 6, 9, 5007716)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule prague error", "err", err.Error())
 				return nil
 			}
@@ -293,15 +293,15 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations sepolia INSERT INTO blocks.features 7918 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1760427359 where startTime = 1741159776;"); err != nil {
+			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1760427360 where startTime = 1741159776;"); err != nil {
 				log.Error("migrations sepolia UPDATE blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1760427360, 1761017183, 6, 9, 5007716)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1760427360, 1761017184, 6, 9, 5007716)); err != nil {
 				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule osaka error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1761017184, 1761607007, 10, 15, 8346193)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1761017184, 1761607008, 10, 15, 8346193)); err != nil {
 				log.Error("migrations sepolia INSERT INTO blocks.blobSchedule v4 BP01 error", "err", err.Error())
 				return nil
 			}
@@ -314,15 +314,15 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 				log.Error("migrations hoodi INSERT INTO blocks.features 7918 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1761677591 where startTime = 1742999833;"); err != nil {
+			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1761677592 where startTime = 1742999832;"); err != nil {
 				log.Error("migrations hoodi UPDATE blocks.blobSchedule v2 error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1761677592, 1762365719, 6, 9, 5007716)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1761677592, 1762365720, 6, 9, 5007716)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule osaka error", "err", err.Error())
 				return nil
 			}
-			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1762365720, 1762955543, 10, 15, 8346193)); err != nil {
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1762365720, 1762955544, 10, 15, 8346193)); err != nil {
 				log.Error("migrations hoodi INSERT INTO blocks.blobSchedule v4 BP01 error", "err", err.Error())
 				return nil
 			}
