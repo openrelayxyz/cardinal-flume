@@ -338,6 +338,38 @@ func MigrateBlocks(db *sql.DB, chainid uint64) error {
 		log.Info("blocks v10 migrations done")
 	}
 
+	if schemaVersion < 11 {
+		log.Info("Applying blocks v11 migration")
+		switch chainid {
+		case 1:
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.features(startTime, eip) VALUES (%v, %v)`, 1764798551, 7918)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.features 7918 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec("UPDATE blocks.blobSchedule SET endTime = 1764798551 where startTime = 1746612311;"); err != nil {
+				log.Error("migrations mainnet UPDATE blocks.blobSchedule v2 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1764798551, 1765290071, 6, 9, 5007716)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule osaka error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1765290071, 1767747671, 10, 15, 8346193)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule BP01 error", "err", err.Error())
+				return nil
+			}
+			if _, err := db.Exec(fmt.Sprintf(`INSERT INTO blocks.blobSchedule(startTime, endTime, target, max, updateFrac) VALUES (%v, %v, %v, %v, %v)`, 1767747671, maxInt, 14, 21, 11684671)); err != nil {
+				log.Error("migrations mainnet INSERT INTO blocks.blobSchedule BP02 error", "err", err.Error())
+				return nil
+			}
+		}
+		if _, err := db.Exec("UPDATE blocks.migrations SET version = 11;"); err != nil {
+			log.Error("migrations UPDATE blocks.migrations v11 error", "err", err.Error())
+			return nil
+		}
+		log.Info("blocks v11 migrations done")
+	}
+
 	log.Info("blocks migration up to date")
 	return nil
 }
