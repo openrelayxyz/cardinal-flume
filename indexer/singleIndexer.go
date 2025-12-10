@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"fmt"
 	"sync"
 	"context"
 	"database/sql"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"time"
 	"encoding/json"
+	"errors"
 
 	"github.com/gorilla/websocket"
 	log "github.com/inconshreveable/log15"
@@ -33,13 +35,27 @@ type outerResult struct {
 	Id		int			   `json:"id"`
 }
 
-func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
+func replaceStatements(number uint64, statements []string) []string {
 
-	if cfg.LatestBlock > 0 {
-		log.Info("Indexing continuing from block", "number", cfg.LatestBlock)
-		return nil
+	for i, stmnt := range statements {
+		if strings.Contains(stmnt, "number >=") || strings.Contains(stmnt, "block >=") {
+			words := strings.Fields(stmnt)
+			n := len(words)
+			prefix := strings.Join(words[:n-2], " ")
+			suffix := " " + "=" + " " + fmt.Sprintf("%d", number)
+			replacement := prefix + suffix
+			statements[i] = replacement
+		}
 	}
 
+	return statements
+}
+
+func InsertSingle(cfg *config.Config, number uint64, db *sql.DB, indexers []Indexer, mut *sync.RWMutex) error {
+
+	if number > uint64(cfg.LatestBlock) {
+		return errors.New(fmt.Sprintf("skip ahead indexing not allowed, latest block: %v", cfg.LatestBlock))
+	}
 
 	var wsURL string
 
@@ -59,13 +75,10 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 	
 	conn, _, err := dialer.Dial(wsURL, nil)
     if err != nil {
-		log.Error("Websocket dial error, genesis indexer", "err", err.Error())
 		return err
 	}
 
-	genesis := uint64(0)
-
-	params := []string{hexutil.EncodeUint64(genesis)}
+	params := []string{hexutil.EncodeUint64(number)}
 
 	message := message{
 		Id: 1,
@@ -75,51 +88,47 @@ func IndexGenesis(cfg *config.Config, db *sql.DB, indexers []Indexer, mut *sync.
 
 	msg, err := json.Marshal(message)
 	if err != nil {
-		log.Error("cannot json marshal message, reindexer, block", genesis, "err", err.Error())
+		return err
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-		log.Error("failed to send message, genesis indexer", "err", err.Error())
+		return err
 	}
 
 	_, resultBytes, err := conn.ReadMessage()
 	if err != nil {
-		log.Error("Error reading transport batch, reindexer, on block", genesis, "err", err.Error())
 		return err
 	}
 
 	var or *outerResult
 
 	if err := json.Unmarshal(resultBytes, &or); err != nil {
-		log.Error("cannot unmarshal transportBytes, reindexer, on block", genesis, "err", err.Error())
 		return err
 	}
 
 	pb := or.Result.Batch
 
-	genesisStatements := []string{}
+	insertStatements := []string{}
 
 	for _, indexer := range indexers {
 		statements, err := indexer.Index(pb.ToPendingBatch())
 		if err != nil {
-			log.Error("Error generating statement genesis indexer, on indexer", indexer, "err", err.Error())
 			return err
 		}
-		genesisStatements = append(genesisStatements, statements...)
+		modStatements := replaceStatements(number, statements)
+		
+		insertStatements = append(insertStatements, modStatements...)
 	}
 
 	mut.Lock()
 	dbtx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
-		log.Error("Error creating database transaction genesis indexer", "err", err.Error())
 		return err
 	}
-	if _, err := dbtx.Exec(strings.Join(genesisStatements, " ; ")); err != nil {
-		log.Error("Failed to execute statement genesis indexer", "err", err.Error())
+	if _, err := dbtx.Exec(strings.Join(insertStatements, " ; ")); err != nil {
 		return err
 	}
 	if err := dbtx.Commit(); err != nil {
-		log.Error("Failed to commit genesis block genesis indexer", "err", err.Error())
 		return err
 	}
 

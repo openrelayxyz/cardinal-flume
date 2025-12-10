@@ -33,6 +33,7 @@ func main() {
 	ignoreBlockTime := flag.Bool("ignore.block.time", false, "Use the Cardinal offsets table instead of block times for resumption")
 	resumptionTimestampMs := flag.Int64("resumption.ts", -1, "Timestamp (in ms) to resume from instead of database timestamp (requires Cardinal source)")
 	genesisIndex := flag.Bool("genesisIndex", false, "index from zero")
+	singleIndex := flag.Int64("singleIndex", 0, "index single block")
 	lightSeed := flag.Int64("lightSeed", 0, "set light service starting block")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	runCertaintyCheck := flag.Bool("certaintyCheck", false, "run database uncertainty check")
@@ -209,12 +210,25 @@ func main() {
 	}
 
 	if *genesisIndex {
-		err := indexer.IndexGenesis(cfg, logsdb, indexes, mut)
+		err := indexer.InsertSingle(cfg, uint64(0), logsdb, indexes, mut)
 		if err != nil {
-			log.Error("Failed to index genesis block", "err", err.Error())
+			log.Error("Failed to index genesis block")
 			panic(err)
 		} else {
 			log.Info("genesis block indexed")
+		}
+	}
+
+	if *singleIndex != 0 {
+		err := indexer.InsertSingle(cfg, uint64(*singleIndex), logsdb, indexes, mut)
+		if err != nil {
+			log.Error("Failed to index stand alone block")
+			panic(err)
+		} else {
+			log.Info("stand alone block indexed", "block", *singleIndex)
+			logsdb.Close()
+			time.Sleep(time.Second)
+			os.Exit(0)
 		}
 	}
 
